@@ -219,6 +219,15 @@ pub fn seed_from_directory(conn: &mut Connection, csv_dir: &Path) -> Result<()> 
         }
     }
 
+    // Phase 3: Load bundled Legends: Z-A encounter data (scraped from Serebii)
+    eprintln!("Loading Legends: Z-A encounter data...");
+    match seed_za_encounters(conn) {
+        Ok(count) => eprintln!("  legends-za encounters inserted: {count} rows"),
+        Err(e) => {
+            eprintln!("Warning: Failed to load Z-A data (non-fatal): {e:#}");
+        }
+    }
+
     // Re-enable FK checks
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
 
@@ -1749,6 +1758,48 @@ fn build_pokemon_map(tx: &rusqlite::Transaction) -> Result<HashMap<String, i64>>
         }
     }
 
+    // PokeDB uses longer form identifiers than PokeAPI. Add aliases.
+    // e.g. PokeDB "basculin-red-stripe" -> our "basculin-red-striped"
+    //      PokeDB "shellos-east-sea" -> our "shellos" (default form)
+    //      PokeDB "burmy-trash-cloak" -> our "burmy" (default, forms not separate pokemon)
+    let aliases: &[(&str, &str)] = &[
+        ("basculin-red-stripe", "basculin-red-striped"),
+        ("basculin-blue-stripe", "basculin-blue-striped"),
+        ("basculin-white-stripe", "basculin-white-striped"),
+        ("shellos-east-sea", "shellos"),
+        ("shellos-west-sea", "shellos"),
+        ("gastrodon-east-sea", "gastrodon"),
+        ("gastrodon-west-sea", "gastrodon"),
+        ("eiscue-ice-face", "eiscue-ice"),
+        ("burmy-trash-cloak", "burmy"),
+        ("burmy-sandy-cloak", "burmy"),
+        ("burmy-plant-cloak", "burmy"),
+        ("wormadam-trash-cloak", "wormadam-trash"),
+        ("wormadam-sandy-cloak", "wormadam-sandy"),
+        ("wormadam-plant-cloak", "wormadam-plant"),
+        ("minior-red-core", "minior-red"),
+        ("minior-blue-core", "minior-blue"),
+        ("minior-green-core", "minior-green"),
+        ("minior-indigo-core", "minior-indigo"),
+        ("minior-orange-core", "minior-orange"),
+        ("minior-violet-core", "minior-violet"),
+        ("minior-yellow-core", "minior-yellow"),
+        ("unown-exclamation-mark", "unown"),
+        ("unown-question-mark", "unown"),
+        ("tauros-paldean-combat-breed", "tauros-paldea-combat-breed"),
+        ("tauros-paldean-aqua-breed", "tauros-paldea-aqua-breed"),
+        ("tauros-paldean-blaze-breed", "tauros-paldea-blaze-breed"),
+        ("calyrex-ice-rider", "calyrex-ice"),
+        ("calyrex-shadow-rider", "calyrex-shadow"),
+        ("kyurem-black-activated", "kyurem-black"),
+        ("kyurem-white-activated", "kyurem-white"),
+    ];
+    for &(alias, target) in aliases {
+        if let Some(&id) = map.get(target) {
+            map.insert(alias.to_string(), id);
+        }
+    }
+
     eprintln!("  pokemon form mappings: {}", map.len());
     Ok(map)
 }
@@ -2024,4 +2075,265 @@ fn enc_has_details(enc: &serde_json::Value) -> bool {
     detail_fields.iter().any(|&f| {
         enc.get(f).is_some_and(|v| !v.is_null())
     })
+}
+
+// ============================================================
+// Legends: Z-A encounter data (bundled from Serebii scrape)
+// ============================================================
+
+const ZA_ENCOUNTERS_JSON: &str = include_str!("../../data/za_encounters.json");
+
+fn seed_za_encounters(conn: &mut Connection) -> Result<usize> {
+    let encounters: Vec<serde_json::Value> = serde_json::from_str(ZA_ENCOUNTERS_JSON)?;
+
+    conn.execute_batch("PRAGMA foreign_keys=OFF;")?;
+    let tx = conn.transaction()?;
+
+    // Ensure legends-za version exists
+    let version_id: i64 = match tx.query_row(
+        "SELECT id FROM versions WHERE name = 'legends-za'",
+        [],
+        |row| row.get(0),
+    ) {
+        Ok(id) => id,
+        Err(_) => {
+            // Create version group and version for Z-A
+            let max_vg: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(id), 0) FROM version_groups", [], |row| row.get(0),
+            )?;
+            let vg_id = max_vg + 1;
+            // Z-A is Gen 9 per PokeDB
+            tx.execute(
+                "INSERT OR IGNORE INTO version_groups (id, name, generation_id) VALUES (?1, 'legends-za', 9)",
+                rusqlite::params![vg_id],
+            )?;
+            let max_v: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(id), 0) FROM versions", [], |row| row.get(0),
+            )?;
+            let vid = max_v + 1;
+            tx.execute(
+                "INSERT INTO versions (id, name, version_group_id) VALUES (?1, 'legends-za', ?2)",
+                rusqlite::params![vid, vg_id],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO version_names (version_id, name) VALUES (?1, 'Legends: Z-A')",
+                rusqlite::params![vid],
+            )?;
+            vid
+        }
+    };
+
+    let version_group_id: i64 = tx.query_row(
+        "SELECT version_group_id FROM versions WHERE id = ?1",
+        rusqlite::params![version_id],
+        |row| row.get(0),
+    )?;
+
+    // Ensure legends-za game exists
+    tx.execute(
+        "INSERT OR IGNORE INTO games (name, connects_to_home, transfer_direction) \
+         VALUES ('legends-za', 1, 'both')",
+        [],
+    )?;
+
+    // Get or create the encounter method for symbol-encounter
+    let method_id: i64 = match tx.query_row(
+        "SELECT id FROM encounter_methods WHERE name = 'symbol-encounter'",
+        [],
+        |row| row.get(0),
+    ) {
+        Ok(id) => id,
+        Err(_) => {
+            let max: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(id), 0) FROM encounter_methods", [], |row| row.get(0),
+            )?;
+            let id = max + 1;
+            tx.execute(
+                "INSERT INTO encounter_methods (id, name) VALUES (?1, 'symbol-encounter')",
+                rusqlite::params![id],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO encounter_method_names (encounter_method_id, name) \
+                 VALUES (?1, 'Symbol Encounter')",
+                rusqlite::params![id],
+            )?;
+            id
+        }
+    };
+
+    // Create a single encounter slot for Z-A
+    let max_slot: i64 = tx.query_row(
+        "SELECT COALESCE(MAX(id), 0) FROM encounter_slots", [], |row| row.get(0),
+    )?;
+    let slot_id = max_slot + 1;
+    tx.execute(
+        "INSERT INTO encounter_slots (id, version_group_id, encounter_method_id, slot, rarity) \
+         VALUES (?1, ?2, ?3, 0, NULL)",
+        rusqlite::params![slot_id, version_group_id, method_id],
+    )?;
+
+    // Create location + location_area for each wild zone
+    let max_loc: i64 = tx.query_row(
+        "SELECT COALESCE(MAX(id), 0) FROM locations", [], |row| row.get(0),
+    )?;
+    let max_area: i64 = tx.query_row(
+        "SELECT COALESCE(MAX(id), 0) FROM location_areas", [], |row| row.get(0),
+    )?;
+
+    // Find Kalos region ID
+    let kalos_region_id: Option<i64> = tx.query_row(
+        "SELECT id FROM regions WHERE name = 'kalos'",
+        [],
+        |row| row.get(0),
+    ).ok();
+
+    let mut loc_map: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    let mut area_map: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    let mut next_loc_id = max_loc + 1;
+    let mut next_area_id = max_area + 1;
+
+    // Pre-create all 20 wild zones
+    for zone in 1..=20 {
+        let area_slug = format!("wild-zone-{zone}");
+        let display_name = format!("Wild Zone {zone}");
+
+        // Check if location already exists (from PokeDB phase)
+        let existing_loc: Option<i64> = tx.query_row(
+            "SELECT l.id FROM locations l \
+             LEFT JOIN location_names ln ON ln.location_id = l.id \
+             WHERE l.name = ?1 OR ln.name = ?1",
+            rusqlite::params![&area_slug],
+            |row| row.get(0),
+        ).ok();
+
+        let loc_id = if let Some(id) = existing_loc {
+            id
+        } else {
+            let id = next_loc_id;
+            next_loc_id += 1;
+            tx.execute(
+                "INSERT OR IGNORE INTO locations (id, region_id, name) VALUES (?1, ?2, ?3)",
+                rusqlite::params![id, kalos_region_id, &area_slug],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO location_names (location_id, name) VALUES (?1, ?2)",
+                rusqlite::params![id, &display_name],
+            )?;
+            id
+        };
+        loc_map.insert(area_slug.clone(), loc_id);
+
+        // Check if area already exists
+        let existing_area: Option<i64> = tx.query_row(
+            "SELECT id FROM location_areas WHERE name = ?1",
+            rusqlite::params![&area_slug],
+            |row| row.get(0),
+        ).ok();
+
+        let area_id = if let Some(id) = existing_area {
+            id
+        } else {
+            let id = next_area_id;
+            next_area_id += 1;
+            tx.execute(
+                "INSERT OR IGNORE INTO location_areas (id, location_id, name) VALUES (?1, ?2, ?3)",
+                rusqlite::params![id, loc_id, &area_slug],
+            )?;
+            id
+        };
+        area_map.insert(area_slug, area_id);
+    }
+
+    // Build pokemon name -> id map
+    let mut pokemon_map: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    {
+        let mut stmt = tx.prepare(
+            "SELECT p.id, s.name FROM pokemon p \
+             JOIN species s ON s.id = p.species_id \
+             WHERE p.is_default = 1"
+        )?;
+        for row in stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })? {
+            let (id, name) = row?;
+            pokemon_map.insert(name.to_lowercase(), id);
+        }
+    }
+
+    // Insert encounters (scoped block to drop prepared statements before commit)
+    let max_enc: i64 = tx.query_row(
+        "SELECT COALESCE(MAX(id), 0) FROM encounters", [], |row| row.get(0),
+    )?;
+    let mut next_enc_id = max_enc + 1;
+    let mut count = 0;
+    let mut skipped = 0;
+
+    {
+        let mut enc_stmt = tx.prepare(
+            "INSERT INTO encounters (id, version_id, location_area_id, encounter_slot_id, \
+             pokemon_id, min_level, max_level) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"
+        )?;
+        let mut detail_stmt = tx.prepare(
+            "INSERT OR IGNORE INTO encounter_details (encounter_id, alpha_levels, during_any_time, \
+             while_weather_overall, note) VALUES (?1, ?2, ?3, ?4, ?5)"
+        )?;
+
+        for enc in &encounters {
+            let pokemon_name = enc["pokemon_name"].as_str().unwrap_or("");
+            let area = enc["area"].as_str().unwrap_or("");
+            let min_level = enc["min_level"].as_i64().unwrap_or(1);
+            let max_level = enc["max_level"].as_i64().unwrap_or(1);
+            let is_alpha = enc["is_alpha_spawn"].as_bool().unwrap_or(false);
+            let alpha_chance = enc.get("alpha_chance").and_then(|v| v.as_str());
+            let alpha_levels = enc.get("alpha_levels").and_then(|v| v.as_str());
+
+            let pokemon_id = match pokemon_map.get(pokemon_name) {
+                Some(&id) => id,
+                None => {
+                    skipped += 1;
+                    continue;
+                }
+            };
+
+            let area_id = match area_map.get(area) {
+                Some(&id) => id,
+                None => {
+                    skipped += 1;
+                    continue;
+                }
+            };
+
+            let enc_id = next_enc_id;
+            next_enc_id += 1;
+
+            enc_stmt.execute(rusqlite::params![
+                enc_id, version_id, area_id, slot_id,
+                pokemon_id, min_level, max_level
+            ])?;
+
+            // Build note from alpha info
+            let note = if is_alpha {
+                Some(format!("Alpha spawn ({})", alpha_chance.unwrap_or("100%")))
+            } else {
+                alpha_chance.map(|c| format!("Alpha chance: {c}"))
+            };
+
+            detail_stmt.execute(rusqlite::params![
+                enc_id,
+                alpha_levels,
+                1i64, // during_any_time = true
+                1i64, // while_weather_overall = true
+                note,
+            ])?;
+
+            count += 1;
+        }
+    } // prepared statements dropped here
+
+    if skipped > 0 {
+        eprintln!("  legends-za encounters skipped (unmapped): {skipped}");
+    }
+
+    tx.commit()?;
+    Ok(count)
 }

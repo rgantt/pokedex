@@ -1456,7 +1456,11 @@ fn seed_pokedb_encounters(conn: &mut Connection) -> Result<()> {
     // Step 5: Build pokemon form identifier -> pokemon_id map
     let pokemon_id_map = build_pokemon_map(&tx)?;
 
-    // Step 6: Insert encounters
+    // Step 6: Find versions already covered by PokeAPI encounters (skip PokeDB dupes)
+    let pokeapi_versions = build_pokeapi_covered_versions(&tx)?;
+    eprintln!("  pokeapi versions with encounters: {} (will skip PokeDB for these)", pokeapi_versions.len());
+
+    // Step 7: Insert encounters (only for versions PokeAPI doesn't cover)
     let encounter_count = seed_pokedb_encounter_rows(
         &tx,
         &pokedb_encounters,
@@ -1464,6 +1468,7 @@ fn seed_pokedb_encounters(conn: &mut Connection) -> Result<()> {
         &method_id_map,
         &version_id_map,
         &pokemon_id_map,
+        &pokeapi_versions,
     )?;
 
     eprintln!("  pokedb encounters inserted: {encounter_count} rows");
@@ -1628,6 +1633,18 @@ fn seed_pokedb_methods(
 
     eprintln!("  pokedb new encounter_methods: {new_count}");
     Ok(map)
+}
+
+fn build_pokeapi_covered_versions(tx: &rusqlite::Transaction) -> Result<std::collections::HashSet<i64>> {
+    // Find which version IDs already have encounter data (from PokeAPI phase)
+    let mut stmt = tx.prepare(
+        "SELECT DISTINCT version_id FROM encounters"
+    )?;
+    let ids: std::collections::HashSet<i64> = stmt
+        .query_map([], |row| row.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(ids)
 }
 
 fn build_version_map(
@@ -1834,6 +1851,7 @@ fn seed_pokedb_encounter_rows(
     method_map: &HashMap<String, i64>,
     version_map: &HashMap<String, i64>,
     pokemon_map: &HashMap<String, i64>,
+    pokeapi_covered_versions: &std::collections::HashSet<i64>,
 ) -> Result<usize> {
     // We need encounter_slot_ids. Create synthetic slots for PokeDB data.
     let max_slot_id: i64 = tx.query_row(
@@ -1932,18 +1950,18 @@ fn seed_pokedb_encounter_rows(
             }
         };
 
-        // Resolve versions (array)
+        // Resolve versions (array), skipping versions already covered by PokeAPI
         let version_ids: Vec<i64> = match enc["version_identifiers"].as_array() {
             Some(arr) => arr.iter()
                 .filter_map(|v| v.as_str())
                 .filter_map(|name| version_map.get(&name.to_lowercase()).copied())
+                .filter(|id| !pokeapi_covered_versions.contains(id))
                 .collect(),
             None => continue,
         };
 
         if version_ids.is_empty() {
-            skipped += 1;
-            continue;
+            continue; // all versions for this encounter are covered by PokeAPI
         }
 
         let (min_level, max_level) = parse_level_range(levels);

@@ -1,13 +1,10 @@
-mod cli;
-mod commands;
-mod db;
-mod discover;
-mod output;
-
 use anyhow::Result;
 use clap::Parser;
-use cli::*;
-use output::OutputFormat;
+use pokedex::cli::*;
+use pokedex::db;
+use pokedex::discover;
+use pokedex::commands;
+use pokedex::output::OutputFormat;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();

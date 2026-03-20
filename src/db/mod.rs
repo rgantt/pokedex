@@ -32,7 +32,7 @@ pub fn open() -> Result<Connection> {
     Ok(conn)
 }
 
-fn migrations() -> Migrations<'static> {
+pub fn migrations() -> Migrations<'static> {
     Migrations::new(vec![
         M::up(include_str!("migrations/001_schema.sql")),
         M::up(include_str!("migrations/002_encounter_details.sql")),
@@ -42,4 +42,12 @@ fn migrations() -> Migrations<'static> {
 pub fn is_seeded(conn: &Connection) -> Result<bool> {
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM species", [], |row| row.get(0))?;
     Ok(count > 0)
+}
+
+/// Open an in-memory database with migrations applied. For tests.
+pub fn open_memory() -> Result<Connection> {
+    let mut conn = Connection::open_in_memory()?;
+    conn.execute_batch("PRAGMA foreign_keys=ON;")?;
+    migrations().to_latest(&mut conn)?;
+    Ok(conn)
 }

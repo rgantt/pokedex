@@ -5,9 +5,9 @@ A SQLite-backed CLI for tracking your Pokémon collection across HOME-compatible
 ## Quick Start
 
 ```bash
-cargo build --release
-./target/release/pokedex db seed    # downloads PokeAPI + PokeDB data (~13MB), builds local DB (~47MB)
-./target/release/pokedex pokemon show charizard
+./install.sh                        # build + install to /usr/local/bin
+pokedex db seed                     # downloads PokeAPI + PokeDB data (~13MB), builds local DB (~47MB)
+pokedex pokemon show charizard
 ```
 
 ## What's In The Database
@@ -188,12 +188,13 @@ Modern games have richer encounter metadata than a simple rarity percentage. The
 | Download cache | `~/.pokedex/cache/` | cleaned after seed unless `--keep-cache` |
 | Output format | `json` | `--format=table` (currently same as json) |
 
-## Building
+## Install
 
 Requires Rust 1.85+ (edition 2024).
 
 ```bash
-cargo build --release          # 7MB binary, SQLite bundled
+./install.sh                   # builds release binary, copies to /usr/local/bin
+pokedex db seed                # download data and build local DB
 ```
 
-The binary is fully self-contained — no runtime dependencies, no system SQLite needed.
+The install script runs `cargo build --release` and copies the binary to `/usr/local/bin/pokedex`. The binary is fully self-contained (7MB) — no runtime dependencies, no system SQLite needed.

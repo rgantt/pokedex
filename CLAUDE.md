@@ -5,8 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run
 
 ```bash
+./install.sh                   # build release + install to /usr/local/bin
 cargo build                    # dev build
-cargo build --release          # release build (7MB binary)
 cargo run -- <command>         # run with args
 cargo run -- --discover        # show full command tree
 ```

@@ -4,14 +4,14 @@ use rusqlite::Connection;
 use crate::db::queries;
 use crate::output::*;
 
-pub fn list(conn: &Connection, home_only: bool, format: &OutputFormat) -> Result<()> {
-    let games = queries::list_games(conn, home_only)?;
+pub fn list(conn: &Connection, home_compatible: bool, format: &OutputFormat) -> Result<()> {
+    let games = queries::list_games(conn, home_compatible)?;
 
     let actions: Vec<Action> = games.iter().map(|g| {
         Action::new("show", &format!("pokedex game show {}", g.name))
     }).collect();
 
-    let cmd = if home_only { "pokedex game list --home-only" } else { "pokedex game list" };
+    let cmd = if home_compatible { "pokedex game list --home-compatible" } else { "pokedex game list" };
     let response = Response::new(games, actions, Meta::simple(cmd));
     response.print(format)
 }

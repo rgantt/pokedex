@@ -230,7 +230,7 @@ pub fn search_species(conn: &Connection, query: &str, limit: u64) -> Result<Vec<
                 types,
                 generation,
             },
-            score,
+            score: (score * 100.0).round() / 100.0,
         });
     }
 
@@ -266,10 +266,13 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
     )?;
     let display_name = get_display_name(conn, species_id)?;
 
-    // Get evolution trigger info for this species
+    // Get evolution trigger info for this species.
+    // The trigger_detail column (added by the overrides system) takes priority
+    // over the auto-computed detail when present.
     let evo_info: Option<(String, String)> = conn.query_row(
         "SELECT et.name, \
          COALESCE( \
+           pe.trigger_detail, \
            CASE WHEN pe.minimum_level IS NOT NULL THEN 'Level ' || pe.minimum_level END, \
            CASE WHEN pe.trigger_item_id IS NOT NULL THEN 'Use ' || COALESCE((SELECT name FROM items WHERE id = pe.trigger_item_id), 'item') END, \
            CASE WHEN pe.minimum_happiness IS NOT NULL THEN 'Happiness ' || pe.minimum_happiness END, \
@@ -558,6 +561,8 @@ fn get_encounter_details(conn: &Connection, encounter_id: i64) -> Option<Encount
             })
         },
     ).ok()
+    // D12: Filter out encounter details where all fields are None/empty
+    .filter(|d| !d.is_empty())
 }
 
 fn get_encounter_conditions(conn: &Connection, encounter_id: i64) -> Vec<String> {
@@ -820,7 +825,7 @@ pub fn get_dex_progress(
     status_filter: Option<&str>,
     limit: u64,
     offset: u64,
-) -> Result<DexProgress> {
+) -> Result<(DexProgress, u64)> {
     let total: i64 = conn.query_row(
         "SELECT COUNT(*) FROM pokemon_dex_numbers WHERE pokedex_id = ?1",
         params![pokedex_id],
@@ -849,7 +854,34 @@ pub fn get_dex_progress(
         |row| row.get(0),
     )?;
 
-    let percentage = if total > 0 { (caught as f64 / total as f64) * 100.0 } else { 0.0 };
+    let percentage = if total > 0 { ((caught as f64 / total as f64) * 10000.0).round() / 100.0 } else { 0.0 };
+
+    // Count filtered entries for pagination
+    let filtered_count: u64 = if show_missing {
+        conn.query_row(
+            &format!(
+                "SELECT COUNT(*) FROM pokemon_dex_numbers pdn \
+                 JOIN species s ON s.id = pdn.species_id \
+                 WHERE pdn.pokedex_id = ?1 \
+                 AND NOT EXISTS (SELECT 1 FROM collection c WHERE c.species_id = pdn.species_id AND {caught_where})"
+            ),
+            params![pokedex_id],
+            |row| row.get(0),
+        )?
+    } else if show_caught {
+        conn.query_row(
+            &format!(
+                "SELECT COUNT(*) FROM pokemon_dex_numbers pdn \
+                 JOIN species s ON s.id = pdn.species_id \
+                 WHERE pdn.pokedex_id = ?1 \
+                 AND EXISTS (SELECT 1 FROM collection c WHERE c.species_id = pdn.species_id AND {caught_where})"
+            ),
+            params![pokedex_id],
+            |row| row.get(0),
+        )?
+    } else {
+        total as u64
+    };
 
     // Get individual entries based on filter
     let filter_clause = if show_missing {
@@ -888,24 +920,36 @@ pub fn get_dex_progress(
         .filter_map(|r| r.ok())
         .collect();
 
-    Ok(DexProgress {
+    Ok((DexProgress {
         dex_name: dex_name.to_string(),
         total,
         caught,
         percentage,
         entries,
-    })
+    }, filtered_count))
 }
 
 // ---- Game queries ----
 
-pub fn list_games(conn: &Connection, home_only: bool) -> Result<Vec<GameInfo>> {
-    let sql = if home_only {
-        "SELECT id, name, connects_to_home, transfer_direction FROM games WHERE connects_to_home = 1 ORDER BY id"
-    } else {
-        "SELECT id, name, connects_to_home, transfer_direction FROM games ORDER BY id"
-    };
-    let mut stmt = conn.prepare(sql)?;
+pub fn list_games(conn: &Connection, home_compatible: bool) -> Result<Vec<GameInfo>> {
+    let where_clause = if home_compatible { " WHERE g.connects_to_home = 1" } else { "" };
+    let sql = format!(
+        "SELECT g.id, g.name, g.connects_to_home, g.transfer_direction, \
+         gen.id as generation, \
+         COALESCE(rn.name, r.name) as region, \
+         COALESCE(vn.name, g.name) as display_name \
+         FROM games g \
+         LEFT JOIN version_groups vg ON vg.id = g.version_group_id \
+         LEFT JOIN generations gen ON gen.id = vg.generation_id \
+         LEFT JOIN version_group_regions vgr ON vgr.version_group_id = vg.id \
+         LEFT JOIN regions r ON r.id = vgr.region_id \
+         LEFT JOIN region_names rn ON rn.region_id = r.id \
+         LEFT JOIN versions v ON v.version_group_id = vg.id AND LOWER(v.name) = LOWER(g.name) \
+         LEFT JOIN version_names vn ON vn.version_id = v.id \
+         {where_clause} \
+         ORDER BY g.id"
+    );
+    let mut stmt = conn.prepare(&sql)?;
     let results = stmt
         .query_map([], |row| {
             Ok(GameInfo {
@@ -913,6 +957,9 @@ pub fn list_games(conn: &Connection, home_only: bool) -> Result<Vec<GameInfo>> {
                 name: row.get(1)?,
                 connects_to_home: row.get::<_, i64>(2)? != 0,
                 transfer_direction: row.get(3)?,
+                generation: row.get(4)?,
+                region: row.get(5)?,
+                display_name: row.get(6)?,
             })
         })?
         .filter_map(|r| r.ok())
@@ -942,15 +989,16 @@ pub fn add_collection_entry(
     game_id: i64,
     shiny: bool,
     in_home: bool,
+    is_alpha: bool,
     status: &str,
     method: Option<&str>,
     nickname: Option<&str>,
     notes: Option<&str>,
 ) -> Result<i64> {
     conn.execute(
-        "INSERT INTO collection (species_id, form_id, game_id, shiny, in_home, status, method, nickname, notes) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![species_id, form_id, game_id, shiny, in_home, status, method, nickname, notes],
+        "INSERT INTO collection (species_id, form_id, game_id, shiny, in_home, is_alpha, status, method, nickname, notes) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![species_id, form_id, game_id, shiny, in_home, is_alpha, status, method, nickname, notes],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -968,6 +1016,8 @@ pub fn update_collection_entry(
     shiny: Option<bool>,
     nickname: Option<&str>,
     notes: Option<&str>,
+    game_id: Option<i64>,
+    method: Option<&str>,
 ) -> Result<bool> {
     let mut sets = Vec::new();
     let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
@@ -998,6 +1048,16 @@ pub fn update_collection_entry(
         bind_values.push(Box::new(n.to_string()));
         idx += 1;
     }
+    if let Some(g) = game_id {
+        sets.push(format!("game_id = ?{idx}"));
+        bind_values.push(Box::new(g));
+        idx += 1;
+    }
+    if let Some(m) = method {
+        sets.push(format!("method = ?{idx}"));
+        bind_values.push(Box::new(m.to_string()));
+        idx += 1;
+    }
 
     if sets.is_empty() {
         return Ok(false);
@@ -1016,7 +1076,7 @@ pub fn update_collection_entry(
 pub fn get_collection_entry(conn: &Connection, id: i64) -> Result<Option<CollectionEntry>> {
     let result = conn.query_row(
         "SELECT c.id, c.species_id, s.name, COALESCE(sn.name, s.name), \
-         pf.form_name, g.name, c.shiny, c.in_home, c.status, \
+         pf.form_name, g.name, c.shiny, c.in_home, c.is_alpha, c.status, \
          c.method, c.nickname, c.notes, c.created_at, c.updated_at \
          FROM collection c \
          JOIN species s ON s.id = c.species_id \
@@ -1035,12 +1095,13 @@ pub fn get_collection_entry(conn: &Connection, id: i64) -> Result<Option<Collect
                 game: row.get::<_, Option<String>>(5)?.unwrap_or_default(),
                 shiny: row.get::<_, i64>(6)? != 0,
                 in_home: row.get::<_, i64>(7)? != 0,
-                status: row.get(8)?,
-                method: row.get(9)?,
-                nickname: row.get(10)?,
-                notes: row.get(11)?,
-                created_at: row.get(12)?,
-                updated_at: row.get(13)?,
+                is_alpha: row.get::<_, i64>(8)? != 0,
+                status: row.get(9)?,
+                method: row.get(10)?,
+                nickname: row.get(11)?,
+                notes: row.get(12)?,
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
             })
         },
     );
@@ -1061,6 +1122,7 @@ pub fn list_collection(
     status_filter: Option<&str>,
     limit: u64,
     offset: u64,
+    sort: &str,
 ) -> Result<(Vec<CollectionEntry>, u64)> {
     let mut conditions = Vec::new();
     let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
@@ -1096,6 +1158,12 @@ pub fn list_collection(
         format!("WHERE {}", conditions.join(" AND "))
     };
 
+    let order_clause = if sort == "dex" {
+        "ORDER BY c.species_id ASC"
+    } else {
+        "ORDER BY c.id DESC"
+    };
+
     let count_sql = format!(
         "SELECT COUNT(*) FROM collection c \
          JOIN species s ON s.id = c.species_id \
@@ -1111,7 +1179,7 @@ pub fn list_collection(
 
     let query = format!(
         "SELECT c.id, c.species_id, s.name, COALESCE(sn.name, s.name), \
-         pf.form_name, g.name, c.shiny, c.in_home, c.status, \
+         pf.form_name, g.name, c.shiny, c.in_home, c.is_alpha, c.status, \
          c.method, c.nickname, c.notes, c.created_at, c.updated_at \
          FROM collection c \
          JOIN species s ON s.id = c.species_id \
@@ -1119,7 +1187,7 @@ pub fn list_collection(
          LEFT JOIN pokemon_forms pf ON pf.id = c.form_id \
          LEFT JOIN games g ON g.id = c.game_id \
          {where_clause} \
-         ORDER BY c.id DESC \
+         {order_clause} \
          LIMIT ?{idx} OFFSET ?{}",
         idx + 1
     );
@@ -1141,12 +1209,13 @@ pub fn list_collection(
                 game: row.get::<_, Option<String>>(5)?.unwrap_or_default(),
                 shiny: row.get::<_, i64>(6)? != 0,
                 in_home: row.get::<_, i64>(7)? != 0,
-                status: row.get(8)?,
-                method: row.get(9)?,
-                nickname: row.get(10)?,
-                notes: row.get(11)?,
-                created_at: row.get(12)?,
-                updated_at: row.get(13)?,
+                is_alpha: row.get::<_, i64>(8)? != 0,
+                status: row.get(9)?,
+                method: row.get(10)?,
+                nickname: row.get(11)?,
+                notes: row.get(12)?,
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
             })
         })?
         .filter_map(|r| r.ok())
@@ -1155,40 +1224,54 @@ pub fn list_collection(
     Ok((entries, total))
 }
 
-pub fn get_collection_stats(conn: &Connection) -> Result<CollectionStats> {
+pub fn get_collection_stats(conn: &Connection, game_filter: Option<&str>) -> Result<CollectionStats> {
+    let (game_join, game_where) = if let Some(game) = game_filter {
+        (
+            " JOIN games g ON g.id = c.game_id",
+            format!(" WHERE LOWER(g.name) = LOWER('{}')", game.replace('\'', "''")),
+        )
+    } else {
+        ("", String::new())
+    };
+
     let total_entries: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM collection", [], |row| row.get(0),
+        &format!("SELECT COUNT(*) FROM collection c{game_join}{game_where}"), [], |row| row.get(0),
     )?;
     let unique_species: i64 = conn.query_row(
-        "SELECT COUNT(DISTINCT species_id) FROM collection", [], |row| row.get(0),
+        &format!("SELECT COUNT(DISTINCT c.species_id) FROM collection c{game_join}{game_where}"), [], |row| row.get(0),
     )?;
     let shiny_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM collection WHERE shiny = 1", [], |row| row.get(0),
+        &format!("SELECT COUNT(*) FROM collection c{game_join}{game_where}{}", if game_where.is_empty() { " WHERE c.shiny = 1" } else { " AND c.shiny = 1" }), [], |row| row.get(0),
     )?;
     let in_home_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM collection WHERE in_home = 1", [], |row| row.get(0),
+        &format!("SELECT COUNT(*) FROM collection c{game_join}{game_where}{}", if game_where.is_empty() { " WHERE c.in_home = 1" } else { " AND c.in_home = 1" }), [], |row| row.get(0),
     )?;
 
     let mut status_stmt = conn.prepare(
-        "SELECT status, COUNT(*) FROM collection GROUP BY status ORDER BY status"
+        &format!("SELECT c.status, COUNT(*) FROM collection c{game_join}{game_where} GROUP BY c.status ORDER BY c.status")
     )?;
     let by_status: Vec<StatusCount> = status_stmt
         .query_map([], |row| Ok(StatusCount { status: row.get(0)?, count: row.get(1)? }))?
         .filter_map(|r| r.ok())
         .collect();
 
-    let mut game_stmt = conn.prepare(
-        "SELECT g.name, COUNT(*) FROM collection c \
-         LEFT JOIN games g ON g.id = c.game_id \
-         GROUP BY c.game_id ORDER BY COUNT(*) DESC"
-    )?;
-    let by_game: Vec<GameCount> = game_stmt
-        .query_map([], |row| Ok(GameCount {
-            game: row.get::<_, Option<String>>(0)?.unwrap_or_else(|| "unknown".to_string()),
-            count: row.get(1)?,
-        }))?
-        .filter_map(|r| r.ok())
-        .collect();
+    let by_game = if game_filter.is_some() {
+        // When filtering by game, no need for by_game breakdown
+        Vec::new()
+    } else {
+        let mut game_stmt = conn.prepare(
+            "SELECT g.name, COUNT(*) FROM collection c \
+             LEFT JOIN games g ON g.id = c.game_id \
+             GROUP BY c.game_id ORDER BY COUNT(*) DESC"
+        )?;
+        game_stmt
+            .query_map([], |row| Ok(GameCount {
+                game: row.get::<_, Option<String>>(0)?.unwrap_or_else(|| "unknown".to_string()),
+                count: row.get(1)?,
+            }))?
+            .filter_map(|r| r.ok())
+            .collect()
+    };
 
     Ok(CollectionStats {
         total_entries,
@@ -1235,50 +1318,91 @@ pub fn get_home_status(conn: &Connection) -> Result<HomeStatus> {
     })
 }
 
-pub fn get_home_transferable(conn: &Connection, _species_id: i64) -> Result<Vec<GameInfo>> {
-    // A species can transfer to a game if it exists in that game's version group
-    // For simplicity, return all HOME-compatible games
-    // TODO: Filter by actual game species availability when game_species is populated
+pub fn get_home_transferable(conn: &Connection, species_id: i64) -> Result<Vec<GameInfo>> {
+    // Check if the species appears in any pokedex linked to a game's version group
     let mut stmt = conn.prepare(
-        "SELECT id, name, connects_to_home, transfer_direction FROM games \
-         WHERE connects_to_home = 1 ORDER BY id"
+        "SELECT DISTINCT g.id, g.name, g.connects_to_home, g.transfer_direction \
+         FROM games g \
+         JOIN version_groups vg ON vg.id = g.version_group_id \
+         JOIN pokedex_version_groups pvg ON pvg.version_group_id = vg.id \
+         JOIN pokemon_dex_numbers pdn ON pdn.pokedex_id = pvg.pokedex_id \
+         WHERE g.connects_to_home = 1 AND pdn.species_id = ?1 \
+         ORDER BY g.id"
     )?;
-    let results = stmt
-        .query_map([], |row| {
+    let results: Vec<GameInfo> = stmt
+        .query_map(params![species_id], |row| {
             Ok(GameInfo {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 connects_to_home: true,
                 transfer_direction: row.get(3)?,
+                generation: None,
+                region: None,
+                display_name: None,
             })
         })?
         .filter_map(|r| r.ok())
         .collect();
+
+    // Fallback: if no dex mapping exists, return all HOME-compatible games
+    if results.is_empty() {
+        let mut stmt = conn.prepare(
+            "SELECT id, name, connects_to_home, transfer_direction FROM games \
+             WHERE connects_to_home = 1 ORDER BY id"
+        )?;
+        let fallback = stmt
+            .query_map([], |row| {
+                Ok(GameInfo {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    connects_to_home: true,
+                    transfer_direction: row.get(3)?,
+                    generation: None,
+                    region: None,
+                    display_name: None,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        return Ok(fallback);
+    }
+
     Ok(results)
 }
 
-pub fn get_home_missing(conn: &Connection, pokedex_id: i64) -> Result<Vec<DexEntry>> {
+pub fn get_home_missing(conn: &Connection, pokedex_id: i64, limit: u64, offset: u64) -> Result<(Vec<HomeMissingEntry>, u64)> {
+    let total: u64 = conn.query_row(
+        "SELECT COUNT(*) FROM pokemon_dex_numbers pdn \
+         WHERE pdn.pokedex_id = ?1 \
+         AND NOT EXISTS (SELECT 1 FROM collection c WHERE c.species_id = pdn.species_id AND c.in_home = 1)",
+        params![pokedex_id],
+        |row| row.get(0),
+    )?;
+
     let mut stmt = conn.prepare(
-        "SELECT pdn.pokedex_number, pdn.species_id, s.name, COALESCE(sn.name, s.name) \
+        "SELECT pdn.pokedex_number, pdn.species_id, s.name, COALESCE(sn.name, s.name), \
+         EXISTS (SELECT 1 FROM collection c WHERE c.species_id = pdn.species_id AND c.in_home = 0) as owned_elsewhere \
          FROM pokemon_dex_numbers pdn \
          JOIN species s ON s.id = pdn.species_id \
          LEFT JOIN species_names sn ON sn.species_id = s.id \
          WHERE pdn.pokedex_id = ?1 \
          AND NOT EXISTS (SELECT 1 FROM collection c WHERE c.species_id = pdn.species_id AND c.in_home = 1) \
-         ORDER BY pdn.pokedex_number"
+         ORDER BY pdn.pokedex_number \
+         LIMIT ?2 OFFSET ?3"
     )?;
-    let entries: Vec<DexEntry> = stmt
-        .query_map(params![pokedex_id], |row| {
-            Ok(DexEntry {
+    let entries: Vec<HomeMissingEntry> = stmt
+        .query_map(params![pokedex_id, limit, offset], |row| {
+            Ok(HomeMissingEntry {
                 pokedex_number: row.get(0)?,
                 species_id: row.get(1)?,
                 species_name: row.get(2)?,
                 display_name: row.get(3)?,
+                owned_elsewhere: row.get::<_, i64>(4)? != 0,
             })
         })?
         .filter_map(|r| r.ok())
         .collect();
-    Ok(entries)
+    Ok((entries, total))
 }
 
 pub fn get_home_coverage(conn: &Connection) -> Result<DexProgress> {
@@ -1296,7 +1420,7 @@ pub fn get_home_coverage(conn: &Connection) -> Result<DexProgress> {
         params![national_id],
         |row| row.get(0),
     )?;
-    let percentage = if total > 0 { (caught as f64 / total as f64) * 100.0 } else { 0.0 };
+    let percentage = if total > 0 { ((caught as f64 / total as f64) * 10000.0).round() / 100.0 } else { 0.0 };
 
     Ok(DexProgress {
         dex_name: "national".to_string(),

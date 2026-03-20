@@ -39,19 +39,6 @@
     "alpha_levels": "15 - 17"
   },
   {
-    "pokemon_name": "mareep",
-    "location": "Wild Zone 1",
-    "area": "wild-zone-1",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 3,
-    "max_level": 5,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "15 - 17"
-  },
-  {
     "pokemon_name": "pidgey",
     "location": "Wild Zone 1",
     "area": "wild-zone-1",
@@ -279,32 +266,6 @@
     "max_level": 24,
     "is_alpha_spawn": true,
     "alpha_chance": "100%"
-  },
-  {
-    "pokemon_name": "flabebe",
-    "location": "Wild Zone 3",
-    "area": "wild-zone-3",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 5,
-    "max_level": 7,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "17 - 19"
-  },
-  {
-    "pokemon_name": "flabebe",
-    "location": "Wild Zone 3",
-    "area": "wild-zone-3",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 5,
-    "max_level": 7,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "17 - 19"
   },
   {
     "pokemon_name": "flabebe",
@@ -1051,18 +1012,6 @@
     "alpha_chance": "100%"
   },
   {
-    "pokemon_name": "meowstic",
-    "location": "Wild Zone 9",
-    "area": "wild-zone-9",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 41,
-    "max_level": 42,
-    "is_alpha_spawn": true,
-    "alpha_chance": "100%"
-  },
-  {
     "pokemon_name": "carbink",
     "location": "Wild Zone 9",
     "area": "wild-zone-9",
@@ -1792,45 +1741,6 @@
     "alpha_levels": "52 - 53"
   },
   {
-    "pokemon_name": "pumpkaboo",
-    "location": "Wild Zone 15",
-    "area": "wild-zone-15",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 42,
-    "max_level": 43,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "52 - 53"
-  },
-  {
-    "pokemon_name": "pumpkaboo",
-    "location": "Wild Zone 15",
-    "area": "wild-zone-15",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 42,
-    "max_level": 43,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "52 - 53"
-  },
-  {
-    "pokemon_name": "pumpkaboo",
-    "location": "Wild Zone 15",
-    "area": "wild-zone-15",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 42,
-    "max_level": 43,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "52 - 53"
-  },
-  {
     "pokemon_name": "gourgeist",
     "location": "Wild Zone 15",
     "area": "wild-zone-15",
@@ -1969,32 +1879,6 @@
     "alpha_levels": "52 - 53"
   },
   {
-    "pokemon_name": "florges",
-    "location": "Wild Zone 16",
-    "area": "wild-zone-16",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 42,
-    "max_level": 43,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "52 - 53"
-  },
-  {
-    "pokemon_name": "florges",
-    "location": "Wild Zone 16",
-    "area": "wild-zone-16",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 42,
-    "max_level": 43,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "52 - 53"
-  },
-  {
     "pokemon_name": "starmie",
     "location": "Wild Zone 16",
     "area": "wild-zone-16",
@@ -2071,31 +1955,6 @@
     "is_alpha_spawn": false,
     "alpha_chance": "5%",
     "alpha_levels": "54 - 56"
-  },
-  {
-    "pokemon_name": "pyroar",
-    "location": "Wild Zone 17",
-    "area": "wild-zone-17",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 44,
-    "max_level": 47,
-    "is_alpha_spawn": false,
-    "alpha_chance": "5%",
-    "alpha_levels": "54 - 57"
-  },
-  {
-    "pokemon_name": "pyroar",
-    "location": "Wild Zone 17",
-    "area": "wild-zone-17",
-    "game": "Legends: Z-A",
-    "version": "legends-za",
-    "method": "symbol-encounter",
-    "min_level": 56,
-    "max_level": 57,
-    "is_alpha_spawn": true,
-    "alpha_chance": "100%"
   },
   {
     "pokemon_name": "pyroar",

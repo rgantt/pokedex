@@ -1,0 +1,14 @@
+[
+  {"pokemon_name": "growlithe-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "voltorb-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "typhlosion-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "samurott-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "decidueye-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "lilligant-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "braviary-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "sliggoo-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "goodra-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "avalugg-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "zoroark-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "zorua-hisui", "set": {"is_default": 0}}
+]

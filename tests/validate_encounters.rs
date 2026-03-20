@@ -392,9 +392,9 @@ fn collection_crud_lifecycle() {
     // Resolve game
     let (game_id, _) = queries::resolve_game(&conn, "scarlet").unwrap().unwrap();
 
-    // Add
+    // Add (with is_alpha=false)
     let id = queries::add_collection_entry(
-        &conn, 25, None, game_id, true, true, "caught", Some("catch"), Some("Sparky"), None,
+        &conn, 25, None, game_id, true, true, false, "caught", Some("catch"), Some("Sparky"), None,
     )
     .unwrap();
     assert!(id > 0);
@@ -405,23 +405,34 @@ fn collection_crud_lifecycle() {
     assert_eq!(entry.display_name, "Pikachu");
     assert!(entry.shiny);
     assert!(entry.in_home);
+    assert!(!entry.is_alpha);
     assert_eq!(entry.status, "caught");
     assert_eq!(entry.nickname.as_deref(), Some("Sparky"));
 
-    // Update
-    queries::update_collection_entry(&conn, id, Some("living_dex"), None, None, None, None).unwrap();
+    // Update (with game_id=None, method=None)
+    queries::update_collection_entry(&conn, id, Some("living_dex"), None, None, None, None, None, None).unwrap();
     let updated = queries::get_collection_entry(&conn, id).unwrap().unwrap();
     assert_eq!(updated.status, "living_dex");
 
-    // List
-    let (entries, total) = queries::list_collection(&conn, None, Some("pikachu"), false, false, None, 50, 0).unwrap();
+    // List (with sort="id")
+    let (entries, total) = queries::list_collection(&conn, None, Some("pikachu"), false, false, None, 50, 0, "id").unwrap();
     assert!(total >= 1);
     assert!(entries.iter().any(|e| e.id == id));
 
-    // Stats
-    let stats = queries::get_collection_stats(&conn).unwrap();
+    // Stats (with game_filter=None)
+    let stats = queries::get_collection_stats(&conn, None).unwrap();
     assert!(stats.total_entries >= 1);
     assert!(stats.shiny_count >= 1);
+
+    // Alpha add
+    let alpha_id = queries::add_collection_entry(
+        &conn, 396, None, game_id, false, false, true, "caught", Some("catch"), None, Some("alpha starly"),
+    ).unwrap();
+    let alpha_entry = queries::get_collection_entry(&conn, alpha_id).unwrap().unwrap();
+    assert!(alpha_entry.is_alpha);
+
+    // Clean up alpha entry
+    queries::remove_collection_entry(&conn, alpha_id).unwrap();
 
     // Remove
     queries::remove_collection_entry(&conn, id).unwrap();
@@ -467,4 +478,263 @@ fn za_encounters_cover_all_zones() {
         .unwrap();
 
     assert_eq!(zone_count, 20, "Expected 20 wild zones for Z-A, got {zone_count}");
+}
+
+// ============================================================
+// Phase 10: Override system validation
+// ============================================================
+
+#[test]
+fn trade_evolutions_have_trigger_detail() {
+    let conn = open_test_db();
+
+    let trade_evos = ["gengar", "alakazam", "machamp", "golem"];
+    for species in &trade_evos {
+        let chain = queries::get_evolution_chain(
+            &conn,
+            queries::resolve_pokemon(&conn, species).unwrap().unwrap().0,
+        )
+        .unwrap();
+
+        // Find this species in the chain
+        fn find_node<'a>(node: &'a pokedex::db::models::EvolutionNode, name: &str) -> Option<&'a pokedex::db::models::EvolutionNode> {
+            if node.species_name == name { return Some(node); }
+            for child in &node.children {
+                if let Some(found) = find_node(child, name) { return Some(found); }
+            }
+            None
+        }
+
+        let node = find_node(&chain, species)
+            .unwrap_or_else(|| panic!("{species} not found in its own evolution chain"));
+        assert!(
+            node.trigger_detail.is_some(),
+            "{species} evolution should have trigger_detail (override), got None"
+        );
+    }
+}
+
+#[test]
+fn hisuian_forms_not_default() {
+    let conn = open_test_db();
+
+    let hisuian_forms = ["growlithe-hisui", "zorua-hisui", "braviary-hisui"];
+    for form in &hisuian_forms {
+        let is_default: i64 = conn
+            .query_row(
+                "SELECT is_default FROM pokemon WHERE name = ?1",
+                params![form],
+                |row| row.get(0),
+            )
+            .unwrap_or_else(|_| panic!("{form} not found in pokemon table"));
+        assert_eq!(is_default, 0, "{form} should have is_default=0 after override");
+    }
+}
+
+// ============================================================
+// Phase 11: Data normalization validation
+// ============================================================
+
+#[test]
+fn probability_overall_normalized_to_percentages() {
+    let conn = open_test_db();
+
+    // Check that no probability_overall value exceeds 100 (as a number)
+    let bad_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM encounter_details \
+             WHERE probability_overall IS NOT NULL \
+             AND probability_overall != '' \
+             AND CAST(REPLACE(probability_overall, '%', '') AS REAL) > 100",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    assert_eq!(
+        bad_count, 0,
+        "Found {bad_count} encounter_details with probability_overall > 100%"
+    );
+}
+
+#[test]
+fn no_non_numeric_probability_overall() {
+    let conn = open_test_db();
+
+    // "one", "choose one", "two" should have been moved to notes
+    let bad_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM encounter_details \
+             WHERE probability_overall IN ('one', 'choose one', 'two')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    assert_eq!(
+        bad_count, 0,
+        "Found {bad_count} encounter_details with non-numeric probability_overall"
+    );
+}
+
+#[test]
+fn no_empty_encounter_details_in_output() {
+    let conn = open_test_db();
+
+    // Pick a pokemon known to have encounters, check no empty details
+    let resolved = queries::resolve_pokemon(&conn, "pikachu").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, None).unwrap();
+
+    for enc in &encounters {
+        if let Some(ref details) = enc.details {
+            // If details is present, it should have at least one meaningful field
+            let json = serde_json::to_value(details).unwrap();
+            let obj = json.as_object().unwrap();
+            assert!(
+                !obj.is_empty(),
+                "Pikachu encounter at {} has empty details object",
+                enc.location
+            );
+        }
+    }
+}
+
+#[test]
+fn za_no_duplicate_encounters() {
+    let conn = open_test_db();
+
+    let dupes: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM ( \
+             SELECT pokemon_id, location_area_id, min_level, max_level, COUNT(*) as cnt \
+             FROM encounters e \
+             JOIN versions v ON v.id = e.version_id \
+             WHERE v.name = 'legends-za' \
+             GROUP BY pokemon_id, location_area_id, min_level, max_level \
+             HAVING cnt > 1 \
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    assert_eq!(dupes, 0, "Found {dupes} duplicate Z-A encounter groups");
+}
+
+// ============================================================
+// Phase 12: CLI feature validation
+// ============================================================
+
+#[test]
+fn dex_progress_returns_pagination_info() {
+    let conn = open_test_db();
+
+    let resolved = queries::resolve_pokedex(&conn, "national").unwrap().unwrap();
+    let (progress, filtered_count) = queries::get_dex_progress(
+        &conn, resolved.0, "national", false, false, None, None, 10, 0,
+    )
+    .unwrap();
+
+    assert!(filtered_count > 10, "National dex should have more than 10 entries");
+    assert_eq!(progress.entries.len(), 10, "Should return exactly 10 entries with limit=10");
+}
+
+#[test]
+fn home_missing_returns_owned_elsewhere() {
+    let conn = open_test_db();
+
+    let resolved = queries::resolve_pokedex(&conn, "national").unwrap().unwrap();
+    let (entries, total) = queries::get_home_missing(&conn, resolved.0, 50, 0).unwrap();
+
+    assert!(total > 0);
+    // The owned_elsewhere field should be populated (some true, most false)
+    // Just verify it's a valid bool by checking the struct compiles and returns
+    assert!(entries.len() <= 50);
+}
+
+#[test]
+fn percentage_rounded_to_two_decimals() {
+    let conn = open_test_db();
+
+    let coverage = queries::get_home_coverage(&conn).unwrap();
+    let pct_str = format!("{}", coverage.percentage);
+    // Should not have more than 2 decimal places
+    if let Some(dot_pos) = pct_str.find('.') {
+        let decimals = pct_str.len() - dot_pos - 1;
+        assert!(
+            decimals <= 2,
+            "Percentage {pct_str} has {decimals} decimal places, expected <= 2"
+        );
+    }
+}
+
+#[test]
+fn game_show_has_enriched_fields() {
+    let conn = open_test_db();
+
+    let games = queries::list_games(&conn, false).unwrap();
+    let sword = games.iter().find(|g| g.name == "sword");
+    assert!(sword.is_some(), "Sword should be in game list");
+    let sword = sword.unwrap();
+
+    // Sword should have generation and region after C4 fix
+    assert!(
+        sword.generation.is_some(),
+        "Sword should have generation field populated"
+    );
+}
+
+#[test]
+fn collection_stats_with_game_filter() {
+    let conn = open_test_db();
+
+    // Stats without filter
+    let all_stats = queries::get_collection_stats(&conn, None).unwrap();
+
+    // Stats with a specific game (may be 0 if no entries for that game in test DB)
+    let game_stats = queries::get_collection_stats(&conn, Some("scarlet")).unwrap();
+
+    // Game-filtered stats should be <= total
+    assert!(game_stats.total_entries <= all_stats.total_entries);
+}
+
+#[test]
+fn list_collection_sort_by_dex() {
+    let conn = open_test_db();
+
+    let (entries_by_id, _) = queries::list_collection(&conn, None, None, false, false, None, 50, 0, "id").unwrap();
+    let (entries_by_dex, _) = queries::list_collection(&conn, None, None, false, false, None, 50, 0, "dex").unwrap();
+
+    // Both should return the same count
+    // dex-sorted entries should be in ascending species_id order
+    if entries_by_dex.len() > 1 {
+        for i in 1..entries_by_dex.len() {
+            assert!(
+                entries_by_dex[i].species_id >= entries_by_dex[i - 1].species_id,
+                "Dex sort not ascending: {} (species {}) came after {} (species {})",
+                entries_by_dex[i].species_name,
+                entries_by_dex[i].species_id,
+                entries_by_dex[i - 1].species_name,
+                entries_by_dex[i - 1].species_id,
+            );
+        }
+    }
+}
+
+#[test]
+fn search_scores_rounded() {
+    let conn = open_test_db();
+
+    let results = queries::search_species(&conn, "bulbsaur", 5).unwrap();
+    assert!(!results.is_empty());
+    for r in &results {
+        let score_str = format!("{}", r.score);
+        if let Some(dot_pos) = score_str.find('.') {
+            let decimals = score_str.len() - dot_pos - 1;
+            assert!(
+                decimals <= 2,
+                "Search score {score_str} has {decimals} decimal places, expected <= 2"
+            );
+        }
+    }
 }

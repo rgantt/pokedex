@@ -184,9 +184,9 @@ pub enum DexCommands {
 pub enum GameCommands {
     /// List supported games
     List {
-        /// Only show HOME-compatible games
+        /// Only show games that connect to Pokémon HOME
         #[arg(long)]
-        home_only: bool,
+        home_compatible: bool,
     },
     /// Show details for a game
     Show {
@@ -211,6 +211,8 @@ pub enum CollectionCommands {
         shiny: bool,
         #[arg(long)]
         in_home: bool,
+        #[arg(long)]
+        alpha: bool,
         /// Status: caught, living_dex, evolved, traded_away, transferred
         #[arg(long, default_value = "caught")]
         status: String,
@@ -246,6 +248,12 @@ pub enum CollectionCommands {
         nickname: Option<String>,
         #[arg(long)]
         notes: Option<String>,
+        /// Change the game for this entry
+        #[arg(long)]
+        game: Option<String>,
+        /// Change the catch method for this entry
+        #[arg(long)]
+        method: Option<String>,
     },
     /// List your collection entries
     List {
@@ -263,11 +271,18 @@ pub enum CollectionCommands {
         limit: u64,
         #[arg(long, default_value = "0")]
         offset: u64,
+        /// Sort order: "id" (default) or "dex"
+        #[arg(long, default_value = "id")]
+        sort: String,
     },
     /// Show a collection entry by ID
     Show { id: i64 },
     /// Show collection statistics
-    Stats,
+    Stats {
+        /// Filter stats by game
+        #[arg(long)]
+        game: Option<String>,
+    },
 }
 
 // -- Home subcommands --
@@ -286,6 +301,10 @@ pub enum HomeCommands {
         /// Dex to check against: home, national
         #[arg(long, default_value = "home")]
         dex: String,
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        #[arg(long, default_value = "0")]
+        offset: u64,
     },
     /// Show HOME dex completion percentage
     Coverage,

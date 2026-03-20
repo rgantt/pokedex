@@ -42,7 +42,7 @@ pub fn transferable(conn: &Connection, pokemon: &str, format: &OutputFormat) -> 
     response.print(format)
 }
 
-pub fn missing(conn: &Connection, dex: &str, format: &OutputFormat) -> Result<()> {
+pub fn missing(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &OutputFormat) -> Result<()> {
     let resolved = queries::resolve_pokedex(conn, dex)?;
     let (pokedex_id, dex_name) = match resolved {
         Some(r) => r,
@@ -63,14 +63,23 @@ pub fn missing(conn: &Connection, dex: &str, format: &OutputFormat) -> Result<()
         }
     };
 
-    let entries = queries::get_home_missing(conn, pokedex_id)?;
+    let (entries, total) = queries::get_home_missing(conn, pokedex_id, limit, offset)?;
 
-    let mut actions: Vec<Action> = entries.iter().take(20).map(|e| {
-        Action::new("show_pokemon", &format!("pokedex pokemon show {}", e.species_name))
-    }).collect();
-    actions.push(Action::new("coverage", "pokedex home coverage"));
+    let cmd = format!("pokedex home missing --dex={dex_name}");
 
-    let response = Response::new(entries, actions, Meta::simple(&format!("pokedex home missing --dex={dex_name}")));
+    let mut actions = vec![
+        Action::new("show", "pokedex pokemon show {species_name}"),
+        Action::new("coverage", "pokedex home coverage"),
+    ];
+
+    if offset + limit < total {
+        actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
+    }
+    if offset > 0 {
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={}", offset.saturating_sub(limit))));
+    }
+
+    let response = Response::new(entries, actions, Meta::paginated(&cmd, total, limit, offset));
     response.print(format)
 }
 

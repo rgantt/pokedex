@@ -12,6 +12,7 @@ pub fn add(
     form: Option<&str>,
     shiny: bool,
     in_home: bool,
+    is_alpha: bool,
     status: &str,
     method: Option<&str>,
     nickname: Option<&str>,
@@ -67,6 +68,9 @@ pub fn add(
         None
     };
 
+    // C9: Check if species has encounters in this game's versions
+    let encounter_warning = check_species_in_game(conn, species_id, game_id);
+
     #[derive(Serialize)]
     struct AddPreview {
         pokemon: String,
@@ -75,12 +79,15 @@ pub fn add(
         form: Option<String>,
         shiny: bool,
         in_home: bool,
+        is_alpha: bool,
         status: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         method: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         nickname: Option<String>,
         dry_run: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        warning: Option<String>,
     }
 
     if dry_run {
@@ -90,19 +97,22 @@ pub fn add(
             form: form.map(|s| s.to_string()),
             shiny,
             in_home,
+            is_alpha,
             status: status.to_string(),
             method: method.map(|s| s.to_string()),
             nickname: nickname.map(|s| s.to_string()),
             dry_run: true,
+            warning: encounter_warning.clone(),
         };
         let status_flag = if status != "caught" { format!(" --status={status}") } else { String::new() };
         let method_flag = method.map(|m| format!(" --method={m}")).unwrap_or_default();
         let nickname_flag = nickname.map(|n| format!(" --nickname={n}")).unwrap_or_default();
         let shiny_flag = if shiny { " --shiny" } else { "" };
         let home_flag = if in_home { " --in-home" } else { "" };
+        let alpha_flag = if is_alpha { " --alpha" } else { "" };
         let actions = vec![
             Action::with_description("confirm", &format!(
-                "pokedex collection add --pokemon={species_name} --game={game_name}{shiny_flag}{home_flag}{status_flag}{method_flag}{nickname_flag}",
+                "pokedex collection add --pokemon={species_name} --game={game_name}{shiny_flag}{home_flag}{alpha_flag}{status_flag}{method_flag}{nickname_flag}",
             ), "Run without --dry-run to save"),
         ];
         let response = Response::new(preview, actions, Meta::simple("pokedex collection add --dry-run"));
@@ -110,10 +120,23 @@ pub fn add(
     }
 
     let id = queries::add_collection_entry(
-        conn, species_id, form_id, game_id, shiny, in_home, status, method, nickname, notes,
+        conn, species_id, form_id, game_id, shiny, in_home, is_alpha, status, method, nickname, notes,
     )?;
 
     let entry = queries::get_collection_entry(conn, id)?.unwrap();
+
+    #[derive(Serialize)]
+    struct AddResult {
+        #[serde(flatten)]
+        entry: crate::db::models::CollectionEntry,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        warning: Option<String>,
+    }
+
+    let result = AddResult {
+        entry,
+        warning: encounter_warning,
+    };
 
     let actions = vec![
         Action::new("show", &format!("pokedex collection show {id}")),
@@ -122,8 +145,48 @@ pub fn add(
         Action::new("pokemon_info", &format!("pokedex pokemon show {species_name}")),
     ];
 
-    let response = Response::new(entry, actions, Meta::simple(&format!("pokedex collection add --pokemon={pokemon} --game={game}")));
+    let response = Response::new(result, actions, Meta::simple(&format!("pokedex collection add --pokemon={pokemon} --game={game}")));
     response.print(format)
+}
+
+/// C9: Check if a species has any encounters in the versions belonging to a game
+fn check_species_in_game(conn: &Connection, species_id: i64, game_id: i64) -> Option<String> {
+    // Get the default pokemon_id for encounters check
+    let pokemon_id: Option<i64> = conn.query_row(
+        "SELECT id FROM pokemon WHERE species_id = ?1 AND is_default = 1",
+        rusqlite::params![species_id],
+        |row| row.get(0),
+    ).ok();
+
+    let pokemon_id = pokemon_id?;
+
+    // Check if the game has a version_group_id and if any encounters exist
+    let has_encounter: bool = conn.query_row(
+        "SELECT EXISTS( \
+         SELECT 1 FROM encounters e \
+         JOIN versions v ON v.id = e.version_id \
+         JOIN games g ON g.version_group_id = v.version_group_id \
+         WHERE e.pokemon_id = ?1 AND g.id = ?2 \
+         )",
+        rusqlite::params![pokemon_id, game_id],
+        |row| row.get::<_, i64>(0).map(|v| v != 0),
+    ).unwrap_or(true); // default to true (no warning) if query fails
+
+    if has_encounter {
+        None
+    } else {
+        let game_name: String = conn.query_row(
+            "SELECT name FROM games WHERE id = ?1",
+            rusqlite::params![game_id],
+            |row| row.get(0),
+        ).unwrap_or_else(|_| "unknown".to_string());
+        let species_name: String = conn.query_row(
+            "SELECT name FROM species WHERE id = ?1",
+            rusqlite::params![species_id],
+            |row| row.get(0),
+        ).unwrap_or_else(|_| "unknown".to_string());
+        Some(format!("No encounter data found for {species_name} in {game_name}. The Pokémon may not be obtainable in this game."))
+    }
 }
 
 pub fn remove(conn: &Connection, id: i64, dry_run: bool, format: &OutputFormat) -> Result<()> {
@@ -167,6 +230,8 @@ pub fn update(
     shiny: Option<bool>,
     nickname: Option<&str>,
     notes: Option<&str>,
+    game: Option<&str>,
+    method: Option<&str>,
     format: &OutputFormat,
 ) -> Result<()> {
     let existing = queries::get_collection_entry(conn, id)?;
@@ -179,7 +244,29 @@ pub fn update(
         return Ok(());
     }
 
-    queries::update_collection_entry(conn, id, status, in_home, shiny, nickname, notes)?;
+    // Resolve game name to game_id if provided
+    let game_id = if let Some(game_name) = game {
+        let resolved = queries::resolve_game(conn, game_name)?;
+        match resolved {
+            Some((gid, _)) => Some(gid),
+            None => {
+                let all = queries::list_games(conn, false)?;
+                let suggestions: Vec<Action> = all.iter().map(|g| {
+                    Action::new("did_you_mean", &format!("pokedex collection update {id} --game={}", g.name))
+                }).collect();
+                let err = ErrorResponse::not_found(
+                    &format!("No game named '{game_name}'"),
+                    suggestions,
+                );
+                err.print()?;
+                return Ok(());
+            }
+        }
+    } else {
+        None
+    };
+
+    queries::update_collection_entry(conn, id, status, in_home, shiny, nickname, notes, game_id, method)?;
 
     let entry = queries::get_collection_entry(conn, id)?.unwrap();
 
@@ -201,13 +288,14 @@ pub fn list_entries(
     status: Option<&str>,
     limit: u64,
     offset: u64,
+    sort: &str,
     format: &OutputFormat,
 ) -> Result<()> {
-    let (entries, total) = queries::list_collection(conn, game, pokemon, shiny_only, in_home, status, limit, offset)?;
+    let (entries, total) = queries::list_collection(conn, game, pokemon, shiny_only, in_home, status, limit, offset, sort)?;
 
-    let mut actions: Vec<Action> = entries.iter().map(|e| {
-        Action::new("show", &format!("pokedex collection show {}", e.id))
-    }).collect();
+    let mut actions = vec![
+        Action::new("show", "pokedex collection show {id}"),
+    ];
 
     let mut cmd = "pokedex collection list".to_string();
     if let Some(g) = game { cmd.push_str(&format!(" --game={g}")); }
@@ -215,9 +303,13 @@ pub fn list_entries(
     if shiny_only { cmd.push_str(" --shiny-only"); }
     if in_home { cmd.push_str(" --in-home"); }
     if let Some(s) = status { cmd.push_str(&format!(" --status={s}")); }
+    if sort != "id" { cmd.push_str(&format!(" --sort={sort}")); }
 
     if offset + limit < total {
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
+    }
+    if offset > 0 {
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={}", offset.saturating_sub(limit))));
     }
     actions.push(Action::new("stats", "pokedex collection stats"));
     actions.push(Action::new("add", "pokedex collection add --pokemon=<name> --game=<game>"));
@@ -249,16 +341,26 @@ pub fn show_entry(conn: &Connection, id: i64, format: &OutputFormat) -> Result<(
     }
 }
 
-pub fn stats(conn: &Connection, format: &OutputFormat) -> Result<()> {
-    let stats = queries::get_collection_stats(conn)?;
+pub fn stats(conn: &Connection, game: Option<&str>, format: &OutputFormat) -> Result<()> {
+    let stats = queries::get_collection_stats(conn, game)?;
 
-    let actions = vec![
+    let mut actions = vec![
         Action::new("list", "pokedex collection list"),
         Action::new("home_status", "pokedex home status"),
         Action::new("home_coverage", "pokedex home coverage"),
         Action::new("dex_progress_national", "pokedex dex progress national"),
     ];
 
-    let response = Response::new(stats, actions, Meta::simple("pokedex collection stats"));
+    if let Some(g) = game {
+        actions.push(Action::new("collection_for_game", &format!("pokedex collection list --game={g}")));
+    }
+
+    let cmd = if let Some(g) = game {
+        format!("pokedex collection stats --game={g}")
+    } else {
+        "pokedex collection stats".to_string()
+    };
+
+    let response = Response::new(stats, actions, Meta::simple(&cmd));
     response.print(format)
 }

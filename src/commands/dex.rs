@@ -31,14 +31,16 @@ pub fn show(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &Outp
 
     let (entries, total) = queries::get_dex_entries(conn, pokedex_id, limit, offset)?;
 
-    let mut actions: Vec<Action> = entries.iter().map(|e| {
-        Action::new("show_pokemon", &format!("pokedex pokemon show {}", e.species_name))
-    }).collect();
-
-    actions.push(Action::new("progress", &format!("pokedex dex progress {dex_name}")));
+    let mut actions = vec![
+        Action::new("show", "pokedex pokemon show {species_name}"),
+        Action::new("progress", &format!("pokedex dex progress {dex_name}")),
+    ];
 
     if offset + limit < total {
         actions.push(Action::new("next_page", &format!("pokedex dex show {dex_name} --limit={limit} --offset={}", offset + limit)));
+    }
+    if offset > 0 {
+        actions.push(Action::new("prev_page", &format!("pokedex dex show {dex_name} --limit={limit} --offset={}", offset.saturating_sub(limit))));
     }
 
     let response = Response::new(
@@ -73,7 +75,13 @@ pub fn progress(
         }
     };
 
-    let progress = queries::get_dex_progress(conn, pokedex_id, &dex_name, missing, caught, game, status, limit, offset)?;
+    let (progress, filtered_count) = queries::get_dex_progress(conn, pokedex_id, &dex_name, missing, caught, game, status, limit, offset)?;
+
+    let mut cmd = format!("pokedex dex progress {dex}");
+    if missing { cmd.push_str(" --missing"); }
+    if caught { cmd.push_str(" --caught"); }
+    if let Some(g) = game { cmd.push_str(&format!(" --game={g}")); }
+    if let Some(s) = status { cmd.push_str(&format!(" --status={s}")); }
 
     let mut actions = vec![
         Action::new("show_dex", &format!("pokedex dex show {dex_name}")),
@@ -85,18 +93,16 @@ pub fn progress(
         actions.push(Action::new("show_caught", &format!("pokedex dex progress {dex_name} --caught")));
     }
 
-    for entry in &progress.entries {
-        if !entry.caught {
-            actions.push(Action::new("show_pokemon", &format!("pokedex pokemon show {}", entry.species_name)));
-        }
+    // Template action for entries
+    actions.push(Action::new("show", "pokedex pokemon show {species_name}"));
+
+    if offset + limit < filtered_count {
+        actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
+    }
+    if offset > 0 {
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={}", offset.saturating_sub(limit))));
     }
 
-    let mut cmd = format!("pokedex dex progress {dex}");
-    if missing { cmd.push_str(" --missing"); }
-    if caught { cmd.push_str(" --caught"); }
-    if let Some(g) = game { cmd.push_str(&format!(" --game={g}")); }
-    if let Some(s) = status { cmd.push_str(&format!(" --status={s}")); }
-
-    let response = Response::new(progress, actions, Meta::simple(&cmd));
+    let response = Response::new(progress, actions, Meta::paginated(&cmd, filtered_count, limit, offset));
     response.print(format)
 }

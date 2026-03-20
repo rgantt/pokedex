@@ -1,4 +1,5 @@
 pub mod models;
+pub mod overrides;
 pub mod queries;
 pub mod seed;
 
@@ -36,6 +37,7 @@ pub fn migrations() -> Migrations<'static> {
     Migrations::new(vec![
         M::up(include_str!("migrations/001_schema.sql")),
         M::up(include_str!("migrations/002_encounter_details.sql")),
+        M::up(include_str!("migrations/003_collection_alpha.sql")),
     ])
 }
 

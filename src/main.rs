@@ -105,8 +105,8 @@ fn main() -> Result<()> {
         }
         Commands::Game { command: game_cmd } => {
             match game_cmd {
-                GameCommands::List { home_only } => {
-                    commands::game::list(&conn, home_only, &format)?;
+                GameCommands::List { home_compatible, .. } => {
+                    commands::game::list(&conn, home_compatible, &format)?;
                 }
                 GameCommands::Show { game } => {
                     commands::game::show(&conn, &game, &format)?;
@@ -115,9 +115,9 @@ fn main() -> Result<()> {
         }
         Commands::Collection { command: col_cmd } => {
             match col_cmd {
-                CollectionCommands::Add { pokemon, game, form, shiny, in_home, status, method, nickname, notes, dry_run } => {
+                CollectionCommands::Add { pokemon, game, form, shiny, in_home, alpha, status, method, nickname, notes, dry_run } => {
                     commands::collection::add(
-                        &conn, &pokemon, &game, form.as_deref(), shiny, in_home,
+                        &conn, &pokemon, &game, form.as_deref(), shiny, in_home, alpha,
                         &status, method.as_deref(), nickname.as_deref(), notes.as_deref(),
                         dry_run, &format,
                     )?;
@@ -125,23 +125,24 @@ fn main() -> Result<()> {
                 CollectionCommands::Remove { id, dry_run } => {
                     commands::collection::remove(&conn, id, dry_run, &format)?;
                 }
-                CollectionCommands::Update { id, status, in_home, shiny, nickname, notes } => {
+                CollectionCommands::Update { id, status, in_home, shiny, nickname, notes, game, method } => {
                     commands::collection::update(
                         &conn, id, status.as_deref(), in_home, shiny,
-                        nickname.as_deref(), notes.as_deref(), &format,
+                        nickname.as_deref(), notes.as_deref(),
+                        game.as_deref(), method.as_deref(), &format,
                     )?;
                 }
-                CollectionCommands::List { game, pokemon, shiny_only, in_home, status, limit, offset } => {
+                CollectionCommands::List { game, pokemon, shiny_only, in_home, status, limit, offset, sort } => {
                     commands::collection::list_entries(
                         &conn, game.as_deref(), pokemon.as_deref(), shiny_only,
-                        in_home, status.as_deref(), limit, offset, &format,
+                        in_home, status.as_deref(), limit, offset, &sort, &format,
                     )?;
                 }
                 CollectionCommands::Show { id } => {
                     commands::collection::show_entry(&conn, id, &format)?;
                 }
-                CollectionCommands::Stats => {
-                    commands::collection::stats(&conn, &format)?;
+                CollectionCommands::Stats { game } => {
+                    commands::collection::stats(&conn, game.as_deref(), &format)?;
                 }
             }
         }
@@ -153,8 +154,8 @@ fn main() -> Result<()> {
                 HomeCommands::Transferable { pokemon } => {
                     commands::home::transferable(&conn, &pokemon, &format)?;
                 }
-                HomeCommands::Missing { dex } => {
-                    commands::home::missing(&conn, &dex, &format)?;
+                HomeCommands::Missing { dex, limit, offset } => {
+                    commands::home::missing(&conn, &dex, limit, offset, &format)?;
                 }
                 HomeCommands::Coverage => {
                     commands::home::coverage(&conn, &format)?;

@@ -228,6 +228,10 @@ pub fn seed_from_directory(conn: &mut Connection, csv_dir: &Path) -> Result<()> 
         }
     }
 
+    // Phase 4: Apply curated overrides
+    eprintln!("Applying curated data overrides...");
+    super::overrides::apply_overrides(conn)?;
+
     // Re-enable FK checks
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
 
@@ -1473,6 +1477,9 @@ fn seed_pokedb_encounters(conn: &mut Connection) -> Result<()> {
 
     eprintln!("  pokedb encounters inserted: {encounter_count} rows");
 
+    // Step 8: Normalize probability_overall weights to percentages (D3)
+    normalize_probability_weights(&tx)?;
+
     tx.commit()?;
     Ok(())
 }
@@ -1821,6 +1828,64 @@ fn build_pokemon_map(tx: &rusqlite::Transaction) -> Result<HashMap<String, i64>>
     Ok(map)
 }
 
+/// D3: Normalize raw probability_overall spawn weights to percentages.
+///
+/// PokeDB probability_overall values are relative weights within a
+/// (location_area, version) group, not percentages. This function converts
+/// them: for each group, divide each weight by the group sum and multiply
+/// by 100, rounding to 1 decimal place (e.g. "7.2%").
+fn normalize_probability_weights(tx: &rusqlite::Transaction) -> Result<()> {
+    // Find all (location_area_id, version_id) groups that have numeric probability values
+    let mut group_stmt = tx.prepare(
+        "SELECT DISTINCT e.location_area_id, e.version_id \
+         FROM encounter_details ed \
+         JOIN encounters e ON e.id = ed.encounter_id \
+         WHERE ed.probability_overall IS NOT NULL \
+         AND ed.probability_overall != '' \
+         AND CAST(ed.probability_overall AS REAL) > 0"
+    )?;
+
+    let groups: Vec<(i64, i64)> = group_stmt.query_map([], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
+    })?.filter_map(|r| r.ok()).collect();
+
+    let mut sum_stmt = tx.prepare(
+        "SELECT SUM(CAST(ed.probability_overall AS REAL)) \
+         FROM encounter_details ed \
+         JOIN encounters e ON e.id = ed.encounter_id \
+         WHERE e.location_area_id = ?1 AND e.version_id = ?2 \
+         AND ed.probability_overall IS NOT NULL \
+         AND CAST(ed.probability_overall AS REAL) > 0"
+    )?;
+
+    let mut update_stmt = tx.prepare(
+        "UPDATE encounter_details SET probability_overall = \
+         CAST(ROUND(CAST(probability_overall AS REAL) / ?1 * 100, 1) AS TEXT) || '%' \
+         WHERE encounter_id IN ( \
+           SELECT id FROM encounters \
+           WHERE location_area_id = ?2 AND version_id = ?3 \
+         ) \
+         AND probability_overall IS NOT NULL \
+         AND CAST(probability_overall AS REAL) > 0"
+    )?;
+
+    let mut normalized_groups = 0;
+    for (area_id, version_id) in &groups {
+        let total: f64 = sum_stmt.query_row(
+            rusqlite::params![area_id, version_id],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+
+        if total > 0.0 {
+            update_stmt.execute(rusqlite::params![total, area_id, version_id])?;
+            normalized_groups += 1;
+        }
+    }
+
+    eprintln!("  probability_overall normalized: {normalized_groups} location/version groups");
+    Ok(())
+}
+
 fn parse_level_range(levels: &str) -> (i64, i64) {
     let levels = levels.trim();
     if let Some((min, max)) = levels.split_once('-') {
@@ -2001,6 +2066,24 @@ fn seed_pokedb_encounter_rows(
 
             // Insert encounter details if any fields are populated
             if has_details {
+                // D11: Handle non-numeric probability_overall values
+                let raw_prob = json_str(enc, "probability_overall");
+                let (probability_overall, prob_note) = match raw_prob.as_deref() {
+                    Some("one") => (None, Some("Fixed encounter".to_string())),
+                    Some("choose one") => (None, Some("Starter choice".to_string())),
+                    Some("two") => (None, Some("Fixed double encounter".to_string())),
+                    _ => (raw_prob, None),
+                };
+
+                // Merge probability note with existing note_markup
+                let base_note = json_str(enc, "note_markup");
+                let note = match (base_note, prob_note) {
+                    (Some(n), Some(p)) => Some(format!("{n}; {p}")),
+                    (Some(n), None) => Some(n),
+                    (None, Some(p)) => Some(p),
+                    (None, None) => None,
+                };
+
                 detail_stmt.execute(rusqlite::params![
                     enc_id,
                     json_str(enc, "rate_overall"),
@@ -2031,7 +2114,7 @@ fn seed_pokedb_encounter_rows(
                     json_bool(enc, "on_terrain_underwater"),
                     json_bool(enc, "on_terrain_overland"),
                     json_bool(enc, "on_terrain_sky"),
-                    json_str(enc, "probability_overall"),
+                    probability_overall,
                     json_str(enc, "probability_morning"),
                     json_str(enc, "probability_day"),
                     json_str(enc, "probability_evening"),
@@ -2049,7 +2132,7 @@ fn seed_pokedb_encounter_rows(
                     json_str(enc, "max_raid_rate_5_star"),
                     json_str(enc, "tera_raid_star_level"),
                     json_bool(enc, "hidden_ability_possible"),
-                    json_str(enc, "note_markup"),
+                    note,
                 ])?;
             }
 

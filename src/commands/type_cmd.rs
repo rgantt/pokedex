@@ -33,12 +33,15 @@ pub fn matchups(conn: &Connection, type_name: &str, format: &OutputFormat) -> Re
 pub fn pokemon_of_type(conn: &Connection, type_name: &str, limit: u64, offset: u64, format: &OutputFormat) -> Result<()> {
     let (species, total) = queries::list_species(conn, Some(type_name), None, None, limit, offset)?;
 
-    let mut actions: Vec<Action> = species.iter().map(|s| {
-        Action::new("show", &format!("pokedex pokemon show {}", s.name))
-    }).collect();
+    let mut actions = vec![
+        Action::new("show", "pokedex pokemon show {name}"),
+    ];
 
     if offset + limit < total {
         actions.push(Action::new("next_page", &format!("pokedex type pokemon {type_name} --limit={limit} --offset={}", offset + limit)));
+    }
+    if offset > 0 {
+        actions.push(Action::new("prev_page", &format!("pokedex type pokemon {type_name} --limit={limit} --offset={}", offset.saturating_sub(limit))));
     }
     actions.push(Action::new("matchups", &format!("pokedex type matchups {type_name}")));
 

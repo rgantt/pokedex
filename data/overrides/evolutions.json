@@ -1,0 +1,10 @@
+[
+  {"species": "gengar", "trigger": "trade", "trigger_detail": "Trade"},
+  {"species": "alakazam", "trigger": "trade", "trigger_detail": "Trade"},
+  {"species": "machamp", "trigger": "trade", "trigger_detail": "Trade"},
+  {"species": "golem", "trigger": "trade", "trigger_detail": "Trade"},
+  {"species": "leafeon", "trigger": "level-up", "trigger_detail": "Use Leaf Stone"},
+  {"species": "glaceon", "trigger": "level-up", "trigger_detail": "Use Ice Stone"},
+  {"species": "sylveon", "trigger": "level-up", "trigger_detail": "Know Fairy-type move + high friendship"},
+  {"species": "melmetal", "trigger": "shed", "trigger_detail": "400 Meltan Candy in Pokémon GO"}
+]

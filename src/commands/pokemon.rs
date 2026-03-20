@@ -21,9 +21,9 @@ pub fn list(
     if let Some(c) = category { cmd_parts.push(format!("--category={c}")); }
     let cmd = cmd_parts.join(" ");
 
-    let mut actions: Vec<Action> = species.iter().map(|s| {
-        Action::new("show", &format!("pokedex pokemon show {}", s.name))
-    }).collect();
+    let mut actions = vec![
+        Action::new("show", "pokedex pokemon show {name}"),
+    ];
 
     if offset + limit < total {
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));

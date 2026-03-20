@@ -193,6 +193,44 @@ pub struct EncounterDetails {
     pub note: Option<String>,
 }
 
+impl EncounterDetails {
+    /// Returns true if all fields are None/false/empty, meaning this detail
+    /// row carries no useful information.
+    pub fn is_empty(&self) -> bool {
+        self.rate_overall.is_none()
+            && self.rate_morning.is_none()
+            && self.rate_day.is_none()
+            && self.rate_night.is_none()
+            && self.during_any_time.is_none()
+            && self.during_morning.is_none()
+            && self.during_day.is_none()
+            && self.during_evening.is_none()
+            && self.during_night.is_none()
+            && self.while_weather_overall.is_none()
+            && self.weather_clear_rate.is_none()
+            && self.weather_cloudy_rate.is_none()
+            && self.weather_rain_rate.is_none()
+            && self.weather_thunderstorm_rate.is_none()
+            && self.weather_snow_rate.is_none()
+            && self.weather_blizzard_rate.is_none()
+            && self.weather_harshsunlight_rate.is_none()
+            && self.weather_sandstorm_rate.is_none()
+            && self.weather_fog_rate.is_none()
+            && self.on_terrain_land.is_none()
+            && self.on_terrain_watersurface.is_none()
+            && self.on_terrain_underwater.is_none()
+            && self.probability_overall.is_none()
+            && self.group_rate.is_none()
+            && self.group_pokemon.is_none()
+            && self.alpha_levels.is_none()
+            && self.tera_raid_star_level.is_none()
+            && self.max_raid_perfect_ivs.is_none()
+            && self.hidden_ability_possible.is_none()
+            && self.visible.is_none()
+            && self.note.is_none()
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct PokemonMove {
     pub move_name: String,
@@ -255,6 +293,12 @@ pub struct GameInfo {
     pub connects_to_home: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transfer_direction: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub generation: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -268,6 +312,7 @@ pub struct CollectionEntry {
     pub game: String,
     pub shiny: bool,
     pub in_home: bool,
+    pub is_alpha: bool,
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub method: Option<String>,
@@ -326,6 +371,15 @@ pub struct AbilityInfo {
     pub is_hidden: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub short_effect: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct HomeMissingEntry {
+    pub pokedex_number: i64,
+    pub species_id: i64,
+    pub species_name: String,
+    pub display_name: String,
+    pub owned_elsewhere: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

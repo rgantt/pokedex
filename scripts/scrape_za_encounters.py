@@ -169,9 +169,24 @@ def parse_zone(page_html: str, zone_num: int) -> list[dict]:
         if alpha_chance:
             encounter["alpha_chance"] = alpha_chance
         if alpha_levels:
+            # D8: Normalize alpha_levels delimiter — periods and inconsistent
+            # separators become ", " (e.g. "32 - 35. 56 - 59" -> "32 - 35, 56 - 59")
+            alpha_levels = re.sub(r'\.\s*', ', ', alpha_levels)
+            # Also normalize any other comma variants (e.g. "," without space)
+            alpha_levels = re.sub(r',\s*', ', ', alpha_levels)
             encounter["alpha_levels"] = alpha_levels
 
         encounters.append(encounter)
+
+    # D4: Deduplicate encounters by (pokemon_name, area, min_level, max_level)
+    seen = set()
+    deduped = []
+    for enc in encounters:
+        key = (enc["pokemon_name"], enc["area"], enc["min_level"], enc["max_level"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(enc)
+    encounters = deduped
 
     return encounters
 

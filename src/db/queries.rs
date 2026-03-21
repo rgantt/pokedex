@@ -61,6 +61,17 @@ pub fn get_species(conn: &Connection, species_id: i64) -> Result<Species> {
         None
     };
 
+    let mut egg_stmt = conn.prepare(
+        "SELECT COALESCE(egn.name, eg.name) FROM pokemon_egg_groups peg \
+         JOIN egg_groups eg ON eg.id = peg.egg_group_id \
+         LEFT JOIN egg_group_names egn ON egn.egg_group_id = eg.id \
+         WHERE peg.species_id = ?1 ORDER BY peg.egg_group_id"
+    )?;
+    let egg_groups: Vec<String> = egg_stmt
+        .query_map(params![species_id], |row| row.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
     Ok(Species {
         id: species_id,
         name,
@@ -73,6 +84,7 @@ pub fn get_species(conn: &Connection, species_id: i64) -> Result<Species> {
         is_mythical: is_mythical != 0,
         evolves_from,
         genus,
+        egg_groups,
     })
 }
 
@@ -323,7 +335,9 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
 pub fn get_pokemon_forms(conn: &Connection, species_id: i64) -> Result<Vec<PokemonForm>> {
     let mut stmt = conn.prepare(
         "SELECT pf.id, pf.pokemon_id, pf.name, \
-         COALESCE(pfn.pokemon_name, pfn.name, pf.form_name, COALESCE(sn.name, s.name)), \
+         CASE WHEN pf.is_default = 1 THEN COALESCE(sn.name, s.name) \
+              ELSE COALESCE(pfn.pokemon_name, pfn.name, pf.form_name, COALESCE(sn.name, s.name)) \
+         END, \
          pf.form_name, pf.is_default, pf.is_mega, pf.is_battle_only \
          FROM pokemon_forms pf \
          JOIN pokemon p ON p.id = pf.pokemon_id \
@@ -457,7 +471,8 @@ pub fn get_encounters(
          COALESCE(la.name, '') as area_name, \
          COALESCE(vn.name, v.name) as game_name, \
          COALESCE(emn.name, em.name) as method_name, \
-         e.min_level, e.max_level, es.rarity, e.id \
+         e.min_level, e.max_level, es.rarity, e.id, \
+         v.name as game_slug \
          FROM encounters e \
          JOIN encounter_slots es ON es.id = e.encounter_slot_id \
          JOIN encounter_methods em ON em.id = es.encounter_method_id \
@@ -496,10 +511,11 @@ pub fn get_encounters(
                 row.get::<_, i64>(5)?,
                 row.get::<_, Option<i64>>(6)?,
                 row.get::<_, i64>(7)?,
+                row.get::<_, String>(8)?,
             ))
         })?
         .filter_map(|r| r.ok())
-        .map(|(location, area, game, method, min_level, max_level, rarity, encounter_id)| {
+        .map(|(location, area, game, method, min_level, max_level, rarity, encounter_id, game_slug)| {
             let conditions = get_encounter_conditions(conn, encounter_id);
             let details = get_encounter_details(conn, encounter_id);
             // Filter out misleading level-1 data for static/fixed/raid encounters
@@ -516,6 +532,7 @@ pub fn get_encounters(
                 location,
                 area,
                 game,
+                game_slug,
                 method,
                 min_level: final_min,
                 max_level: final_max,
@@ -851,7 +868,7 @@ pub fn get_dex_progress(
     )?;
 
     // Build a subquery for "caught" species
-    let mut caught_conditions = vec!["1=1".to_string()];
+    let mut caught_conditions = vec!["c.status != 'traded_away'".to_string()];
     if let Some(game) = game_filter {
         caught_conditions.push(format!(
             "c.game_id = (SELECT id FROM games WHERE LOWER(name) = LOWER('{game}'))"
@@ -1407,7 +1424,7 @@ pub fn get_home_missing(conn: &Connection, pokedex_id: i64, limit: u64, offset: 
 
     let mut stmt = conn.prepare(
         "SELECT pdn.pokedex_number, pdn.species_id, s.name, COALESCE(sn.name, s.name), \
-         EXISTS (SELECT 1 FROM collection c WHERE c.species_id = pdn.species_id AND c.in_home = 0) as owned_elsewhere \
+         EXISTS (SELECT 1 FROM collection c WHERE c.species_id = pdn.species_id AND c.in_home = 0 AND c.status != 'traded_away') as owned_elsewhere \
          FROM pokemon_dex_numbers pdn \
          JOIN species s ON s.id = pdn.species_id \
          LEFT JOIN species_names sn ON sn.species_id = s.id \

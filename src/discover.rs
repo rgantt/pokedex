@@ -44,10 +44,10 @@ pub fn print_discovery() -> anyhow::Result<()> {
                 commands: vec![
                     CommandInfo {
                         name: "list".to_string(),
-                        usage: "pokedex pokemon list [--type=<type>] [--generation=<1-9>] [--category=<cat>] [--limit=N] [--offset=N]".to_string(),
+                        usage: "pokedex pokemon list [--type-filter=<type>] [--generation=<1-9>] [--category=<cat>] [--limit=N] [--offset=N]".to_string(),
                         description: "List Pokémon with optional filters".to_string(),
                         flags: vec![
-                            FlagInfo { flag: "--type".to_string(), description: "Filter by type (fire, water, etc.)".to_string(), default: None },
+                            FlagInfo { flag: "--type-filter".to_string(), description: "Filter by type (fire, water, etc.)".to_string(), default: None },
                             FlagInfo { flag: "--generation".to_string(), description: "Filter by generation (1-9)".to_string(), default: None },
                             FlagInfo { flag: "--category".to_string(), description: "Filter by category (legendary, mythical, baby)".to_string(), default: None },
                             FlagInfo { flag: "--limit".to_string(), description: "Results per page".to_string(), default: Some("50".to_string()) },

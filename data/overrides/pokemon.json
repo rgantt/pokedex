@@ -10,5 +10,16 @@
   {"pokemon_name": "goodra-hisui", "set": {"is_default": 0}},
   {"pokemon_name": "avalugg-hisui", "set": {"is_default": 0}},
   {"pokemon_name": "zoroark-hisui", "set": {"is_default": 0}},
-  {"pokemon_name": "zorua-hisui", "set": {"is_default": 0}}
+  {"pokemon_name": "zorua-hisui", "set": {"is_default": 0}},
+  {"pokemon_name": "deoxys-attack", "set": {"is_default": 0}},
+  {"pokemon_name": "deoxys-defense", "set": {"is_default": 0}},
+  {"pokemon_name": "deoxys-speed", "set": {"is_default": 0}},
+  {"pokemon_name": "castform-sunny", "set": {"is_default": 0}},
+  {"pokemon_name": "castform-rainy", "set": {"is_default": 0}},
+  {"pokemon_name": "castform-snowy", "set": {"is_default": 0}},
+  {"pokemon_name": "rotom-heat", "set": {"is_default": 0}},
+  {"pokemon_name": "rotom-wash", "set": {"is_default": 0}},
+  {"pokemon_name": "rotom-frost", "set": {"is_default": 0}},
+  {"pokemon_name": "rotom-fan", "set": {"is_default": 0}},
+  {"pokemon_name": "rotom-mow", "set": {"is_default": 0}}
 ]

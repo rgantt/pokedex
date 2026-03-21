@@ -155,6 +155,7 @@ pub fn seed_from_directory(conn: &mut Connection, csv_dir: &Path) -> Result<()> 
     seed_locations(&tx, &csvs)?;
     seed_location_areas(&tx, &csvs)?;
     seed_encounters(&tx, &csvs)?;
+    dedup_encounters(&tx)?;
     seed_encounter_condition_values(&tx, &csvs)?;
     seed_encounter_condition_value_map(&tx, &csvs)?;
 
@@ -939,6 +940,20 @@ fn seed_encounters(tx: &rusqlite::Transaction, csvs: &HashMap<String, CsvData>) 
         count += 1;
     }
     eprintln!("  encounters: {count} rows");
+    Ok(())
+}
+
+fn dedup_encounters(tx: &rusqlite::Transaction) -> Result<()> {
+    let removed: usize = tx.execute(
+        "DELETE FROM encounters WHERE id NOT IN ( \
+         SELECT MIN(id) FROM encounters \
+         GROUP BY pokemon_id, version_id, location_area_id, min_level, max_level, encounter_slot_id \
+         )",
+        [],
+    )?;
+    if removed > 0 {
+        eprintln!("  encounters dedup: removed {removed} duplicate rows");
+    }
     Ok(())
 }
 
@@ -2237,6 +2252,12 @@ fn seed_za_encounters(conn: &mut Connection) -> Result<usize> {
         [],
     )?;
 
+    // Link games table to the version_group
+    tx.execute(
+        "UPDATE games SET version_group_id = ?1 WHERE name = 'legends-za'",
+        rusqlite::params![version_group_id],
+    )?;
+
     // Get or create the encounter method for symbol-encounter
     let method_id: i64 = match tx.query_row(
         "SELECT id FROM encounter_methods WHERE name = 'symbol-encounter'",
@@ -2287,6 +2308,14 @@ fn seed_za_encounters(conn: &mut Connection) -> Result<usize> {
         [],
         |row| row.get(0),
     ).ok();
+
+    // Link version_group to Kalos region
+    if let Some(kalos_id) = kalos_region_id {
+        tx.execute(
+            "INSERT OR IGNORE INTO version_group_regions (version_group_id, region_id) VALUES (?1, ?2)",
+            rusqlite::params![version_group_id, kalos_id],
+        )?;
+    }
 
     let mut loc_map: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
     let mut area_map: std::collections::HashMap<String, i64> = std::collections::HashMap::new();

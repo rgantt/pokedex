@@ -112,6 +112,16 @@ impl ErrorResponse {
         }
     }
 
+    pub fn invalid_parameter(message: &str, suggestions: Vec<Action>) -> Self {
+        Self {
+            error: ErrorDetail {
+                code: "INVALID_PARAMETER".to_string(),
+                message: message.to_string(),
+            },
+            actions: suggestions,
+        }
+    }
+
     pub fn print(&self) -> anyhow::Result<()> {
         eprintln!("{}", serde_json::to_string_pretty(self)?);
         std::process::exit(1)

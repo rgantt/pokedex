@@ -15,6 +15,8 @@ pub struct Species {
     pub evolves_from: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub genus: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub egg_groups: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -98,6 +100,7 @@ pub struct Encounter {
     pub location: String,
     pub area: String,
     pub game: String,
+    pub game_slug: String,
     pub method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_level: Option<i64>,

@@ -890,3 +890,139 @@ fn collection_stats_game_filter_skips_empty_by_game() {
         "by_game should be empty when filtering by game"
     );
 }
+
+// ============================================================
+// Phase 14: Round 3 fixes validation
+// ============================================================
+
+#[test]
+fn za_game_has_version_group() {
+    let conn = open_test_db();
+    let vg: Option<i64> = conn.query_row(
+        "SELECT version_group_id FROM games WHERE name = 'legends-za'",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+    assert!(vg.is_some(), "legends-za should have a version_group_id");
+}
+
+#[test]
+fn encounter_dedup_ran_successfully() {
+    let conn = open_test_db();
+    // Verify the dedup step removed PokeAPI duplicates by checking that
+    // Gen 1-5 games (PokeAPI-only) don't have same-slot duplicates.
+    // PokeDB data may have legitimate "duplicates" (common vs rare dens).
+    let pokeapi_dupes: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM ( \
+         SELECT e.pokemon_id, e.version_id, e.location_area_id, e.min_level, e.max_level, \
+                e.encounter_slot_id, COUNT(*) as cnt \
+         FROM encounters e \
+         JOIN versions v ON v.id = e.version_id \
+         WHERE v.name IN ('red','blue','gold','silver','ruby','sapphire','diamond','pearl', \
+                          'black','white','firered','leafgreen','emerald','crystal','platinum', \
+                          'heartgold','soulsilver') \
+         GROUP BY e.pokemon_id, e.version_id, e.location_area_id, e.min_level, e.max_level, \
+                  e.encounter_slot_id \
+         HAVING cnt > 1)",
+        [],
+        |row| row.get(0),
+    ).unwrap();
+    assert_eq!(pokeapi_dupes, 0,
+        "Found {pokeapi_dupes} duplicate encounter groups in PokeAPI-sourced data");
+}
+
+#[test]
+fn species_has_egg_groups() {
+    let conn = open_test_db();
+    let species = queries::get_species(&conn, 133).unwrap(); // Eevee
+    assert!(!species.egg_groups.is_empty(), "Eevee should have egg groups");
+    assert!(species.egg_groups.contains(&"Field".to_string()),
+        "Eevee should be in Field egg group, got {:?}", species.egg_groups);
+}
+
+#[test]
+fn dex_progress_excludes_traded_away() {
+    let conn = open_test_db();
+    let (game_id, _) = queries::resolve_game(&conn, "sword").unwrap().unwrap();
+
+    // Use a rare species (Pecharunt #1025) unlikely to be added by other tests
+    let id = queries::add_collection_entry(&conn, 1025, None, game_id, false, false, false, "traded_away", None, None, None).unwrap();
+
+    let resolved = queries::resolve_pokedex(&conn, "national").unwrap().unwrap();
+    let (progress, _) = queries::get_dex_progress(&conn, resolved.0, "national", false, false, None, None, 1025, 0).unwrap();
+
+    let entry = progress.entries.iter().find(|e| e.species_id == 1025);
+    if let Some(entry) = entry {
+        assert!(!entry.caught, "traded_away pokemon should not count as caught in dex progress");
+    }
+
+    queries::remove_collection_entry(&conn, id).unwrap();
+}
+
+#[test]
+fn home_missing_excludes_traded_away_from_owned() {
+    let conn = open_test_db();
+    let (game_id, _) = queries::resolve_game(&conn, "sword").unwrap().unwrap();
+
+    // Use Pecharunt (#1025) — unlikely to be touched by other tests
+    let id = queries::add_collection_entry(&conn, 1025, None, game_id, false, false, false, "traded_away", None, None, None).unwrap();
+
+    let resolved = queries::resolve_pokedex(&conn, "national").unwrap().unwrap();
+    let (entries, _) = queries::get_home_missing(&conn, resolved.0, 1025, 0).unwrap();
+
+    let entry = entries.iter().find(|e| e.species_id == 1025);
+    assert!(entry.is_some(), "Pecharunt should be in HOME missing list");
+    assert!(!entry.unwrap().owned_elsewhere,
+        "traded_away pokemon should NOT show owned_elsewhere=true");
+
+    queries::remove_collection_entry(&conn, id).unwrap();
+}
+
+#[test]
+fn rotom_alternate_forms_not_default() {
+    let conn = open_test_db();
+    let forms = ["rotom-heat", "rotom-wash", "rotom-frost", "rotom-fan", "rotom-mow"];
+    for form in &forms {
+        let is_default: i64 = conn.query_row(
+            "SELECT is_default FROM pokemon WHERE name = ?1",
+            params![form],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(is_default, 0, "{form} should have is_default=0 after override");
+    }
+}
+
+#[test]
+fn deoxys_alternate_forms_not_default() {
+    let conn = open_test_db();
+    let forms = ["deoxys-attack", "deoxys-defense", "deoxys-speed"];
+    for form in &forms {
+        let is_default: i64 = conn.query_row(
+            "SELECT is_default FROM pokemon WHERE name = ?1",
+            params![form],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(is_default, 0, "{form} should have is_default=0 after override");
+    }
+}
+
+#[test]
+fn castform_default_shows_species_name() {
+    let conn = open_test_db();
+    let forms = queries::get_pokemon_forms(&conn, 351).unwrap(); // Castform
+    let default = forms.iter().find(|f| f.is_default).unwrap();
+    assert_eq!(default.display_name, "Castform",
+        "Castform default form should show 'Castform', got '{}'", default.display_name);
+}
+
+#[test]
+fn encounter_game_slug_populated() {
+    let conn = open_test_db();
+    let resolved = queries::resolve_pokemon(&conn, "pikachu").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, Some("sword")).unwrap();
+    assert!(!encounters.is_empty());
+    for enc in &encounters {
+        assert!(!enc.game_slug.is_empty(), "game_slug should be populated");
+        assert!(!enc.game_slug.contains(' '), "game_slug should be a slug, not display name: {}", enc.game_slug);
+    }
+}

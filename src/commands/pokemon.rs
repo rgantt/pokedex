@@ -17,7 +17,7 @@ pub fn list(
     let (species, total) = queries::list_species(conn, type_filter, generation, category, limit, offset)?;
 
     let mut cmd_parts = vec!["pokedex pokemon list".to_string()];
-    if let Some(t) = type_filter { cmd_parts.push(format!("--type={t}")); }
+    if let Some(t) = type_filter { cmd_parts.push(format!("--type-filter={t}")); }
     if let Some(g) = generation { cmd_parts.push(format!("--generation={g}")); }
     if let Some(c) = category { cmd_parts.push(format!("--category={c}")); }
     let cmd = cmd_parts.join(" ");
@@ -47,9 +47,13 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
         Some(r) => r,
         None => {
             let results = queries::search_species(conn, pokemon, 5)?;
-            let suggestions: Vec<Action> = results.iter().map(|r| {
+            let mut suggestions: Vec<Action> = results.iter().map(|r| {
                 Action::new("did_you_mean", &format!("pokedex pokemon show {}", r.species.name))
             }).collect();
+            if suggestions.is_empty() {
+                suggestions.push(Action::new("search", &format!("pokedex pokemon search {pokemon}")));
+                suggestions.push(Action::new("list", "pokedex pokemon list --limit=20"));
+            }
             let err = ErrorResponse::not_found(
                 &format!("No pokémon named '{pokemon}'"),
                 suggestions,
@@ -100,9 +104,17 @@ pub fn evolutions(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Re
     let (species_id, _name) = match resolved {
         Some(r) => r,
         None => {
+            let results = queries::search_species(conn, pokemon, 5)?;
+            let mut suggestions: Vec<Action> = results.iter().map(|r| {
+                Action::new("did_you_mean", &format!("pokedex pokemon evolutions {}", r.species.name))
+            }).collect();
+            if suggestions.is_empty() {
+                suggestions.push(Action::new("search", &format!("pokedex pokemon search {pokemon}")));
+                suggestions.push(Action::new("list", "pokedex pokemon list --limit=20"));
+            }
             let err = ErrorResponse::not_found(
                 &format!("No pokémon named '{pokemon}'"),
-                vec![Action::new("search", &format!("pokedex pokemon search {pokemon}"))],
+                suggestions,
             );
             err.print()?;
             return Ok(());
@@ -137,9 +149,17 @@ pub fn forms(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<
     let (species_id, name) = match resolved {
         Some(r) => r,
         None => {
+            let results = queries::search_species(conn, pokemon, 5)?;
+            let mut suggestions: Vec<Action> = results.iter().map(|r| {
+                Action::new("did_you_mean", &format!("pokedex pokemon forms {}", r.species.name))
+            }).collect();
+            if suggestions.is_empty() {
+                suggestions.push(Action::new("search", &format!("pokedex pokemon search {pokemon}")));
+                suggestions.push(Action::new("list", "pokedex pokemon list --limit=20"));
+            }
             let err = ErrorResponse::not_found(
                 &format!("No pokémon named '{pokemon}'"),
-                vec![Action::new("search", &format!("pokedex pokemon search {pokemon}"))],
+                suggestions,
             );
             err.print()?;
             return Ok(());
@@ -173,9 +193,17 @@ pub fn encounters(conn: &Connection, pokemon: &str, game: Option<&str>, format: 
     let (species_id, name) = match resolved {
         Some(r) => r,
         None => {
+            let results = queries::search_species(conn, pokemon, 5)?;
+            let mut suggestions: Vec<Action> = results.iter().map(|r| {
+                Action::new("did_you_mean", &format!("pokedex pokemon encounters {}", r.species.name))
+            }).collect();
+            if suggestions.is_empty() {
+                suggestions.push(Action::new("search", &format!("pokedex pokemon search {pokemon}")));
+                suggestions.push(Action::new("list", "pokedex pokemon list --limit=20"));
+            }
             let err = ErrorResponse::not_found(
                 &format!("No pokémon named '{pokemon}'"),
-                vec![Action::new("search", &format!("pokedex pokemon search {pokemon}"))],
+                suggestions,
             );
             err.print()?;
             return Ok(());
@@ -192,9 +220,9 @@ pub fn encounters(conn: &Connection, pokemon: &str, game: Option<&str>, format: 
         Action::new("add_to_collection", &format!("pokedex collection add --pokemon={name} --game=<game>")),
     ];
 
-    // Suggest filtering by specific games found in encounters
-    let games: Vec<String> = encounters.iter().map(|e| e.game.clone()).collect::<std::collections::HashSet<_>>().into_iter().collect();
-    for g in &games {
+    // Suggest filtering by specific games found in encounters (use slug for --game flag)
+    let game_slugs: Vec<String> = encounters.iter().map(|e| e.game_slug.clone()).collect::<std::collections::HashSet<_>>().into_iter().collect();
+    for g in &game_slugs {
         if game.is_none() {
             actions.push(Action::new("filter_game", &format!("pokedex pokemon encounters {name} --game={g}")));
         }
@@ -209,9 +237,17 @@ pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Optio
     let (species_id, name) = match resolved {
         Some(r) => r,
         None => {
+            let results = queries::search_species(conn, pokemon, 5)?;
+            let mut suggestions: Vec<Action> = results.iter().map(|r| {
+                Action::new("did_you_mean", &format!("pokedex pokemon moves {}", r.species.name))
+            }).collect();
+            if suggestions.is_empty() {
+                suggestions.push(Action::new("search", &format!("pokedex pokemon search {pokemon}")));
+                suggestions.push(Action::new("list", "pokedex pokemon list --limit=20"));
+            }
             let err = ErrorResponse::not_found(
                 &format!("No pokémon named '{pokemon}'"),
-                vec![Action::new("search", &format!("pokedex pokemon search {pokemon}"))],
+                suggestions,
             );
             err.print()?;
             return Ok(());
@@ -243,9 +279,17 @@ pub fn stats(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<
     let (species_id, name) = match resolved {
         Some(r) => r,
         None => {
+            let results = queries::search_species(conn, pokemon, 5)?;
+            let mut suggestions: Vec<Action> = results.iter().map(|r| {
+                Action::new("did_you_mean", &format!("pokedex pokemon stats {}", r.species.name))
+            }).collect();
+            if suggestions.is_empty() {
+                suggestions.push(Action::new("search", &format!("pokedex pokemon search {pokemon}")));
+                suggestions.push(Action::new("list", "pokedex pokemon list --limit=20"));
+            }
             let err = ErrorResponse::not_found(
                 &format!("No pokémon named '{pokemon}'"),
-                vec![Action::new("search", &format!("pokedex pokemon search {pokemon}"))],
+                suggestions,
             );
             err.print()?;
             return Ok(());

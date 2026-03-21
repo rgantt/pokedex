@@ -8,36 +8,6 @@ use crate::output::*;
 const VALID_STATUSES: &[&str] = &["caught", "living_dex", "evolved", "traded_away", "transferred"];
 const VALID_METHODS: &[&str] = &["catch", "breed", "trade", "transfer", "gift", "raid", "research"];
 
-fn validate_status(status: &str) -> Result<()> {
-    if !VALID_STATUSES.contains(&status) {
-        let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|s| {
-            Action::new("did_you_mean", &format!("--status={s}"))
-        }).collect();
-        let err = ErrorResponse::not_found(
-            &format!("Invalid status '{status}'. Valid values: {}", VALID_STATUSES.join(", ")),
-            suggestions,
-        );
-        err.print()?;
-        unreachable!()
-    }
-    Ok(())
-}
-
-fn validate_method(method: &str) -> Result<()> {
-    if !VALID_METHODS.contains(&method) {
-        let suggestions: Vec<Action> = VALID_METHODS.iter().map(|m| {
-            Action::new("did_you_mean", &format!("--method={m}"))
-        }).collect();
-        let err = ErrorResponse::not_found(
-            &format!("Invalid method '{method}'. Valid values: {}", VALID_METHODS.join(", ")),
-            suggestions,
-        );
-        err.print()?;
-        unreachable!()
-    }
-    Ok(())
-}
-
 pub fn add(
     conn: &Connection,
     pokemon: &str,
@@ -53,19 +23,18 @@ pub fn add(
     dry_run: bool,
     format: &OutputFormat,
 ) -> Result<()> {
-    validate_status(status)?;
-    if let Some(m) = method {
-        validate_method(m)?;
-    }
-
     let resolved = queries::resolve_pokemon(conn, pokemon)?;
     let (species_id, species_name) = match resolved {
         Some(r) => r,
         None => {
             let results = queries::search_species(conn, pokemon, 5)?;
-            let suggestions: Vec<Action> = results.iter().map(|r| {
+            let mut suggestions: Vec<Action> = results.iter().map(|r| {
                 Action::new("did_you_mean", &format!("pokedex collection add --pokemon={} --game={game}", r.species.name))
             }).collect();
+            if suggestions.is_empty() {
+                suggestions.push(Action::new("search", &format!("pokedex pokemon search {pokemon}")));
+                suggestions.push(Action::new("list", "pokedex pokemon list --limit=20"));
+            }
             let err = ErrorResponse::not_found(
                 &format!("No pokémon named '{pokemon}'"),
                 suggestions,
@@ -92,6 +61,36 @@ pub fn add(
         }
     };
 
+    // Validate status with full command context
+    if !VALID_STATUSES.contains(&status) {
+        let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|s| {
+            Action::new("did_you_mean", &format!(
+                "pokedex collection add --pokemon={} --game={} --status={s}", species_name, game_name
+            ))
+        }).collect();
+        ErrorResponse::invalid_parameter(
+            &format!("Invalid status '{status}'. Valid values: {}", VALID_STATUSES.join(", ")),
+            suggestions,
+        ).print()?;
+        return Ok(());
+    }
+
+    // Validate method with full command context
+    if let Some(m) = method {
+        if !VALID_METHODS.contains(&m) {
+            let suggestions: Vec<Action> = VALID_METHODS.iter().map(|vm| {
+                Action::new("did_you_mean", &format!(
+                    "pokedex collection add --pokemon={} --game={} --method={vm}", species_name, game_name
+                ))
+            }).collect();
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid method '{m}'. Valid values: {}", VALID_METHODS.join(", ")),
+                suggestions,
+            ).print()?;
+            return Ok(());
+        }
+    }
+
     // Resolve form if provided
     let form_id = if let Some(form_name) = form {
         let fid: Option<i64> = conn.query_row(
@@ -105,6 +104,20 @@ pub fn add(
     } else {
         None
     };
+
+    if form.is_some() && form_id.is_none() {
+        let forms = queries::get_pokemon_forms(conn, species_id)?;
+        let form_names: Vec<String> = forms.iter()
+            .filter_map(|f| f.form_name.clone())
+            .collect();
+        let err = ErrorResponse::not_found(
+            &format!("No form '{}' for {}. Available forms: {}",
+                form.unwrap(), species_name, form_names.join(", ")),
+            vec![Action::new("forms", &format!("pokedex pokemon forms {species_name}"))],
+        );
+        err.print()?;
+        return Ok(());
+    }
 
     // C9: Check if species has encounters in this game's versions
     let encounter_warning = check_species_in_game(conn, species_id, game_id);
@@ -272,13 +285,6 @@ pub fn update(
     method: Option<&str>,
     format: &OutputFormat,
 ) -> Result<()> {
-    if let Some(s) = status {
-        validate_status(s)?;
-    }
-    if let Some(m) = method {
-        validate_method(m)?;
-    }
-
     let existing = queries::get_collection_entry(conn, id)?;
     if existing.is_none() {
         let err = ErrorResponse::not_found(
@@ -287,6 +293,34 @@ pub fn update(
         );
         err.print()?;
         return Ok(());
+    }
+
+    // Validate status if provided
+    if let Some(s) = status {
+        if !VALID_STATUSES.contains(&s) {
+            let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|vs| {
+                Action::new("did_you_mean", &format!("pokedex collection update {id} --status={vs}"))
+            }).collect();
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid status '{s}'. Valid values: {}", VALID_STATUSES.join(", ")),
+                suggestions,
+            ).print()?;
+            return Ok(());
+        }
+    }
+
+    // Validate method if provided
+    if let Some(m) = method {
+        if !VALID_METHODS.contains(&m) {
+            let suggestions: Vec<Action> = VALID_METHODS.iter().map(|vm| {
+                Action::new("did_you_mean", &format!("pokedex collection update {id} --method={vm}"))
+            }).collect();
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid method '{m}'. Valid values: {}", VALID_METHODS.join(", ")),
+                suggestions,
+            ).print()?;
+            return Ok(());
+        }
     }
 
     // Resolve game name to game_id if provided
@@ -310,6 +344,38 @@ pub fn update(
     } else {
         None
     };
+
+    // Validate status with full command context
+    if let Some(s) = status {
+        if !VALID_STATUSES.contains(&s) {
+            let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|vs| {
+                Action::new("did_you_mean", &format!(
+                    "pokedex collection update {id} --status={vs}"
+                ))
+            }).collect();
+            ErrorResponse::not_found(
+                &format!("Invalid status '{s}'. Valid values: {}", VALID_STATUSES.join(", ")),
+                suggestions,
+            ).print()?;
+            return Ok(());
+        }
+    }
+
+    // Validate method with full command context
+    if let Some(m) = method {
+        if !VALID_METHODS.contains(&m) {
+            let suggestions: Vec<Action> = VALID_METHODS.iter().map(|vm| {
+                Action::new("did_you_mean", &format!(
+                    "pokedex collection update {id} --method={vm}"
+                ))
+            }).collect();
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid method '{m}'. Valid values: {}", VALID_METHODS.join(", ")),
+                suggestions,
+            ).print()?;
+            return Ok(());
+        }
+    }
 
     queries::update_collection_entry(conn, id, status, in_home, shiny, nickname, notes, game_id, method)?;
 

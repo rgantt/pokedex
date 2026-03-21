@@ -7,9 +7,10 @@ use crate::output::*;
 pub fn list(conn: &Connection, format: &OutputFormat) -> Result<()> {
     let dexes = queries::list_pokedexes(conn)?;
 
-    let actions: Vec<Action> = dexes.iter().map(|d| {
-        Action::new("show", &format!("pokedex dex show {}", d.name))
-    }).collect();
+    let actions = vec![
+        Action::new("show", "pokedex dex show {name}"),
+        Action::new("progress", "pokedex dex progress {name}"),
+    ];
 
     let response = Response::new(dexes, actions, Meta::simple("pokedex dex list"));
     response.print(format)

@@ -7,9 +7,10 @@ use crate::output::*;
 pub fn list(conn: &Connection, format: &OutputFormat) -> Result<()> {
     let types = queries::list_types(conn)?;
 
-    let actions: Vec<Action> = types.iter().map(|t| {
+    let mut actions: Vec<Action> = types.iter().map(|t| {
         Action::new("matchups", &format!("pokedex type matchups {}", t.name))
     }).collect();
+    actions.push(Action::new("pokemon", "pokedex type pokemon {name}"));
 
     let response = Response::new(types, actions, Meta::simple("pokedex type list"));
     response.print(format)

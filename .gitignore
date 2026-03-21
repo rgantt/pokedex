@@ -1,3 +1,4 @@
 /target
 __pycache__/
-.claude/
+.claude/projects/
+.claude/settings.local.json

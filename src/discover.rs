@@ -44,11 +44,11 @@ pub fn print_discovery() -> anyhow::Result<()> {
                 commands: vec![
                     CommandInfo {
                         name: "list".to_string(),
-                        usage: "pokedex pokemon list [--type=<type>] [--gen=<1-9>] [--category=<cat>] [--limit=N] [--offset=N]".to_string(),
+                        usage: "pokedex pokemon list [--type=<type>] [--generation=<1-9>] [--category=<cat>] [--limit=N] [--offset=N]".to_string(),
                         description: "List Pokémon with optional filters".to_string(),
                         flags: vec![
                             FlagInfo { flag: "--type".to_string(), description: "Filter by type (fire, water, etc.)".to_string(), default: None },
-                            FlagInfo { flag: "--gen".to_string(), description: "Filter by generation (1-9)".to_string(), default: None },
+                            FlagInfo { flag: "--generation".to_string(), description: "Filter by generation (1-9)".to_string(), default: None },
                             FlagInfo { flag: "--category".to_string(), description: "Filter by category (legendary, mythical, baby)".to_string(), default: None },
                             FlagInfo { flag: "--limit".to_string(), description: "Results per page".to_string(), default: Some("50".to_string()) },
                             FlagInfo { flag: "--offset".to_string(), description: "Skip N results".to_string(), default: Some("0".to_string()) },
@@ -145,7 +145,7 @@ pub fn print_discovery() -> anyhow::Result<()> {
                     },
                     CommandInfo {
                         name: "progress".to_string(),
-                        usage: "pokedex dex progress <dex-name> [--missing] [--caught] [--game=<game>] [--status=<status>]".to_string(),
+                        usage: "pokedex dex progress <dex-name> [--missing] [--caught] [--game=<game>] [--status=<status>] [--limit=N] [--offset=N]".to_string(),
                         description: "Show your completion progress for a Pokédex".to_string(),
                         flags: vec![
                             FlagInfo { flag: "--missing".to_string(), description: "Show only missing Pokémon".to_string(), default: None },
@@ -162,7 +162,7 @@ pub fn print_discovery() -> anyhow::Result<()> {
                 commands: vec![
                     CommandInfo {
                         name: "list".to_string(),
-                        usage: "pokedex game list [--home-only]".to_string(),
+                        usage: "pokedex game list [--home-compatible]".to_string(),
                         description: "List supported games".to_string(),
                         flags: vec![],
                     },
@@ -180,7 +180,7 @@ pub fn print_discovery() -> anyhow::Result<()> {
                 commands: vec![
                     CommandInfo {
                         name: "add".to_string(),
-                        usage: "pokedex collection add --pokemon=<name> --game=<game> [--form=<form>] [--shiny] [--in-home] [--status=<status>] [--method=<method>] [--nickname=<name>] [--notes=<text>] [--dry-run]".to_string(),
+                        usage: "pokedex collection add --pokemon=<name> --game=<game> [--form=<form>] [--shiny] [--in-home] [--alpha] [--status=<status>] [--method=<method>] [--nickname=<name>] [--notes=<text>] [--dry-run]".to_string(),
                         description: "Add a Pokémon to your collection".to_string(),
                         flags: vec![
                             FlagInfo { flag: "--pokemon".to_string(), description: "Pokémon name (required)".to_string(), default: None },
@@ -198,13 +198,13 @@ pub fn print_discovery() -> anyhow::Result<()> {
                     },
                     CommandInfo {
                         name: "update".to_string(),
-                        usage: "pokedex collection update <id> [--status=<s>] [--in-home=<bool>] [--shiny=<bool>] [--nickname=<n>] [--notes=<n>]".to_string(),
+                        usage: "pokedex collection update <id> [--status=<s>] [--in-home=<bool>] [--shiny=<bool>] [--nickname=<n>] [--notes=<n>] [--game=<g>] [--method=<m>]".to_string(),
                         description: "Update a collection entry".to_string(),
                         flags: vec![],
                     },
                     CommandInfo {
                         name: "list".to_string(),
-                        usage: "pokedex collection list [--game=<g>] [--pokemon=<p>] [--shiny-only] [--in-home] [--status=<s>] [--limit=N] [--offset=N]".to_string(),
+                        usage: "pokedex collection list [--game=<g>] [--pokemon=<p>] [--shiny-only] [--in-home] [--status=<s>] [--limit=N] [--offset=N] [--sort=<id|dex>]".to_string(),
                         description: "List your collection entries".to_string(),
                         flags: vec![],
                     },
@@ -216,7 +216,7 @@ pub fn print_discovery() -> anyhow::Result<()> {
                     },
                     CommandInfo {
                         name: "stats".to_string(),
-                        usage: "pokedex collection stats".to_string(),
+                        usage: "pokedex collection stats [--game=<g>]".to_string(),
                         description: "Show collection statistics".to_string(),
                         flags: vec![],
                     },
@@ -240,7 +240,7 @@ pub fn print_discovery() -> anyhow::Result<()> {
                     },
                     CommandInfo {
                         name: "missing".to_string(),
-                        usage: "pokedex home missing [--dex=home|national]".to_string(),
+                        usage: "pokedex home missing [--dex=home|national] [--limit=N] [--offset=N]".to_string(),
                         description: "Show species missing from HOME".to_string(),
                         flags: vec![],
                     },

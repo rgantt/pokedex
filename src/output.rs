@@ -114,7 +114,7 @@ impl ErrorResponse {
 
     pub fn print(&self) -> anyhow::Result<()> {
         eprintln!("{}", serde_json::to_string_pretty(self)?);
-        Ok(())
+        std::process::exit(1)
     }
 }
 

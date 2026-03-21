@@ -13,6 +13,7 @@ pub fn list(
     offset: u64,
     format: &OutputFormat,
 ) -> Result<()> {
+    let limit = limit.max(1);
     let (species, total) = queries::list_species(conn, type_filter, generation, category, limit, offset)?;
 
     let mut cmd_parts = vec!["pokedex pokemon list".to_string()];
@@ -96,7 +97,7 @@ pub fn search(conn: &Connection, query: &str, limit: u64, format: &OutputFormat)
 
 pub fn evolutions(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<()> {
     let resolved = queries::resolve_pokemon(conn, pokemon)?;
-    let (species_id, name) = match resolved {
+    let (species_id, _name) = match resolved {
         Some(r) => r,
         None => {
             let err = ErrorResponse::not_found(
@@ -110,9 +111,18 @@ pub fn evolutions(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Re
 
     let chain = queries::get_evolution_chain(conn, species_id)?;
 
-    let actions = vec![
-        Action::new("show", &format!("pokedex pokemon show {name}")),
-    ];
+    fn collect_species_from_chain(node: &crate::db::models::EvolutionNode, names: &mut Vec<String>) {
+        names.push(node.species_name.clone());
+        for child in &node.children {
+            collect_species_from_chain(child, names);
+        }
+    }
+
+    let mut chain_species = Vec::new();
+    collect_species_from_chain(&chain, &mut chain_species);
+    let actions: Vec<Action> = chain_species.iter().map(|name| {
+        Action::new("show", &format!("pokedex pokemon show {name}"))
+    }).collect();
 
     let response = Response::new(
         chain,

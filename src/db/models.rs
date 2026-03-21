@@ -99,8 +99,10 @@ pub struct Encounter {
     pub area: String,
     pub game: String,
     pub method: String,
-    pub min_level: i64,
-    pub max_level: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_level: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_level: Option<i64>,
     pub rarity: Option<i64>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub conditions: Vec<String>,
@@ -263,7 +265,7 @@ pub struct PokedexInfo {
 pub struct DexEntry {
     pub pokedex_number: i64,
     pub species_id: i64,
-    pub species_name: String,
+    pub name: String,
     pub display_name: String,
 }
 
@@ -281,7 +283,7 @@ pub struct DexProgress {
 pub struct DexProgressEntry {
     pub pokedex_number: i64,
     pub species_id: i64,
-    pub species_name: String,
+    pub name: String,
     pub display_name: String,
     pub caught: bool,
 }
@@ -331,6 +333,7 @@ pub struct CollectionStats {
     pub shiny_count: i64,
     pub in_home_count: i64,
     pub by_status: Vec<StatusCount>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub by_game: Vec<GameCount>,
 }
 
@@ -377,7 +380,7 @@ pub struct AbilityInfo {
 pub struct HomeMissingEntry {
     pub pokedex_number: i64,
     pub species_id: i64,
-    pub species_name: String,
+    pub name: String,
     pub display_name: String,
     pub owned_elsewhere: bool,
 }

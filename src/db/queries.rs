@@ -176,6 +176,11 @@ pub fn list_species(
 }
 
 pub fn search_species(conn: &Connection, query: &str, limit: u64) -> Result<Vec<SearchResult>> {
+    let query_lower = query.to_lowercase();
+    if query_lower.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
     // Get all species names for fuzzy matching
     let mut stmt = conn.prepare(
         "SELECT s.id, s.name, COALESCE(sn.name, s.name) as display_name \
@@ -187,7 +192,6 @@ pub fn search_species(conn: &Connection, query: &str, limit: u64) -> Result<Vec<
         .filter_map(|r| r.ok())
         .collect();
 
-    let query_lower = query.to_lowercase();
     let mut scored: Vec<(f64, i64, String, String)> = all
         .into_iter()
         .map(|(id, name, display)| {
@@ -319,10 +323,12 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
 pub fn get_pokemon_forms(conn: &Connection, species_id: i64) -> Result<Vec<PokemonForm>> {
     let mut stmt = conn.prepare(
         "SELECT pf.id, pf.pokemon_id, pf.name, \
-         COALESCE(pfn.name, pf.form_name, 'Base'), \
+         COALESCE(pfn.pokemon_name, pfn.name, pf.form_name, COALESCE(sn.name, s.name)), \
          pf.form_name, pf.is_default, pf.is_mega, pf.is_battle_only \
          FROM pokemon_forms pf \
          JOIN pokemon p ON p.id = pf.pokemon_id \
+         JOIN species s ON s.id = p.species_id \
+         LEFT JOIN species_names sn ON sn.species_id = s.id \
          LEFT JOIN pokemon_form_names pfn ON pfn.pokemon_form_id = pf.id \
          WHERE p.species_id = ?1 \
          ORDER BY pf.form_order"
@@ -455,19 +461,22 @@ pub fn get_encounters(
          FROM encounters e \
          JOIN encounter_slots es ON es.id = e.encounter_slot_id \
          JOIN encounter_methods em ON em.id = es.encounter_method_id \
-         LEFT JOIN encounter_method_names emn ON emn.encounter_method_id = em.id \
+         LEFT JOIN (SELECT encounter_method_id, name FROM encounter_method_names GROUP BY encounter_method_id) emn ON emn.encounter_method_id = em.id \
          JOIN location_areas la ON la.id = e.location_area_id \
          JOIN locations l ON l.id = la.location_id \
-         LEFT JOIN location_names ln ON ln.location_id = l.id \
+         LEFT JOIN (SELECT location_id, name FROM location_names GROUP BY location_id) ln ON ln.location_id = l.id \
          JOIN versions v ON v.id = e.version_id \
-         LEFT JOIN version_names vn ON vn.version_id = v.id \
+         LEFT JOIN (SELECT version_id, name FROM version_names GROUP BY version_id) vn ON vn.version_id = v.id \
          WHERE e.pokemon_id = ?1"
     );
 
     let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(pokemon_id)];
 
     if let Some(game) = game_filter {
-        sql.push_str(" AND (LOWER(v.name) = LOWER(?2) OR LOWER(vn.name) = LOWER(?2))");
+        // Match on slug first; only fall back to display name if slug doesn't match.
+        // This avoids matching multiple versions with the same display name
+        // (e.g., "red" matching both "red" and "red-japan" which are both named "Red").
+        sql.push_str(" AND (LOWER(v.name) = LOWER(?2) OR (vn.name IS NOT NULL AND LOWER(vn.name) = LOWER(?2) AND NOT EXISTS (SELECT 1 FROM versions v2 WHERE LOWER(v2.name) = LOWER(?2))))");
         bind_values.push(Box::new(game.to_string()));
     }
 
@@ -493,14 +502,23 @@ pub fn get_encounters(
         .map(|(location, area, game, method, min_level, max_level, rarity, encounter_id)| {
             let conditions = get_encounter_conditions(conn, encounter_id);
             let details = get_encounter_details(conn, encounter_id);
+            // Filter out misleading level-1 data for static/fixed/raid encounters
+            let is_bogus_level = min_level == 1 && max_level == 1
+                && (method == "Static Encounter" || method == "Fixed Encounter" || method == "Max Raid Battle"
+                    || method == "static-encounter" || method == "fixed-encounter" || method == "max-raid-battle");
+            let (final_min, final_max) = if is_bogus_level {
+                (None, None)
+            } else {
+                (Some(min_level), Some(max_level))
+            };
             Encounter {
                 pokemon_name: display_name.clone(),
                 location,
                 area,
                 game,
                 method,
-                min_level,
-                max_level,
+                min_level: final_min,
+                max_level: final_max,
                 rarity,
                 conditions,
                 details,
@@ -570,7 +588,7 @@ fn get_encounter_conditions(conn: &Connection, encounter_id: i64) -> Vec<String>
         "SELECT COALESCE(ecvn.name, ecv.name) \
          FROM encounter_condition_value_map ecvm \
          JOIN encounter_condition_values ecv ON ecv.id = ecvm.encounter_condition_value_id \
-         LEFT JOIN encounter_condition_value_names ecvn ON ecvn.encounter_condition_value_id = ecv.id \
+         LEFT JOIN (SELECT encounter_condition_value_id, name FROM encounter_condition_value_names GROUP BY encounter_condition_value_id) ecvn ON ecvn.encounter_condition_value_id = ecv.id \
          WHERE ecvm.encounter_id = ?1"
     ).unwrap();
     stmt.query_map(params![encounter_id], |row| row.get(0))
@@ -805,7 +823,7 @@ pub fn get_dex_entries(
             Ok(DexEntry {
                 pokedex_number: row.get(0)?,
                 species_id: row.get(1)?,
-                species_name: row.get(2)?,
+                name: row.get(2)?,
                 display_name: row.get(3)?,
             })
         })?
@@ -912,7 +930,7 @@ pub fn get_dex_progress(
             Ok(DexProgressEntry {
                 pokedex_number: row.get(0)?,
                 species_id: row.get(1)?,
-                species_name: row.get(2)?,
+                name: row.get(2)?,
                 display_name: row.get(3)?,
                 caught: row.get::<_, i64>(4)? != 0,
             })
@@ -937,7 +955,15 @@ pub fn list_games(conn: &Connection, home_compatible: bool) -> Result<Vec<GameIn
         "SELECT g.id, g.name, g.connects_to_home, g.transfer_direction, \
          gen.id as generation, \
          COALESCE(rn.name, r.name) as region, \
-         COALESCE(vn.name, g.name) as display_name \
+         COALESCE(vn.name, \
+           CASE g.name \
+             WHEN 'pokemon-go' THEN 'Pokémon GO' \
+             WHEN 'pokemon-bank' THEN 'Pokémon Bank' \
+             WHEN 'home' THEN 'Pokémon HOME' \
+             WHEN 'legends-za' THEN 'Legends: Z-A' \
+             ELSE g.name \
+           END \
+         ) as display_name \
          FROM games g \
          LEFT JOIN version_groups vg ON vg.id = g.version_group_id \
          LEFT JOIN generations gen ON gen.id = vg.generation_id \
@@ -1395,7 +1421,7 @@ pub fn get_home_missing(conn: &Connection, pokedex_id: i64, limit: u64, offset: 
             Ok(HomeMissingEntry {
                 pokedex_number: row.get(0)?,
                 species_id: row.get(1)?,
-                species_name: row.get(2)?,
+                name: row.get(2)?,
                 display_name: row.get(3)?,
                 owned_elsewhere: row.get::<_, i64>(4)? != 0,
             })

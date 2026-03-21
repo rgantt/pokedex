@@ -31,6 +31,7 @@ pub fn matchups(conn: &Connection, type_name: &str, format: &OutputFormat) -> Re
 }
 
 pub fn pokemon_of_type(conn: &Connection, type_name: &str, limit: u64, offset: u64, format: &OutputFormat) -> Result<()> {
+    let limit = limit.max(1);
     let (species, total) = queries::list_species(conn, Some(type_name), None, None, limit, offset)?;
 
     let mut actions = vec![

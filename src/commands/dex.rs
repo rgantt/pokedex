@@ -29,10 +29,11 @@ pub fn show(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &Outp
         }
     };
 
+    let limit = limit.max(1);
     let (entries, total) = queries::get_dex_entries(conn, pokedex_id, limit, offset)?;
 
     let mut actions = vec![
-        Action::new("show", "pokedex pokemon show {species_name}"),
+        Action::new("show", "pokedex pokemon show {name}"),
         Action::new("progress", &format!("pokedex dex progress {dex_name}")),
     ];
 
@@ -75,6 +76,7 @@ pub fn progress(
         }
     };
 
+    let limit = limit.max(1);
     let (progress, filtered_count) = queries::get_dex_progress(conn, pokedex_id, &dex_name, missing, caught, game, status, limit, offset)?;
 
     let mut cmd = format!("pokedex dex progress {dex}");
@@ -94,7 +96,7 @@ pub fn progress(
     }
 
     // Template action for entries
-    actions.push(Action::new("show", "pokedex pokemon show {species_name}"));
+    actions.push(Action::new("show", "pokedex pokemon show {name}"));
 
     if offset + limit < filtered_count {
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));

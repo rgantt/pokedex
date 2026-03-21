@@ -2308,6 +2308,11 @@ fn seed_za_encounters(conn: &mut Connection) -> Result<usize> {
         ).ok();
 
         let loc_id = if let Some(id) = existing_loc {
+            // Ensure the location_names entry has the correct display name
+            tx.execute(
+                "UPDATE location_names SET name = ?1 WHERE location_id = ?2",
+                rusqlite::params![&display_name, id],
+            )?;
             id
         } else {
             let id = next_loc_id;

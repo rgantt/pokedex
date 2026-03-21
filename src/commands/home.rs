@@ -63,12 +63,13 @@ pub fn missing(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &O
         }
     };
 
+    let limit = limit.max(1);
     let (entries, total) = queries::get_home_missing(conn, pokedex_id, limit, offset)?;
 
     let cmd = format!("pokedex home missing --dex={dex_name}");
 
     let mut actions = vec![
-        Action::new("show", "pokedex pokemon show {species_name}"),
+        Action::new("show", "pokedex pokemon show {name}"),
         Action::new("coverage", "pokedex home coverage"),
     ];
 

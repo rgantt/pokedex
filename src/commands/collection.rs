@@ -5,6 +5,39 @@ use serde::Serialize;
 use crate::db::queries;
 use crate::output::*;
 
+const VALID_STATUSES: &[&str] = &["caught", "living_dex", "evolved", "traded_away", "transferred"];
+const VALID_METHODS: &[&str] = &["catch", "breed", "trade", "transfer", "gift", "raid", "research"];
+
+fn validate_status(status: &str) -> Result<()> {
+    if !VALID_STATUSES.contains(&status) {
+        let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|s| {
+            Action::new("did_you_mean", &format!("--status={s}"))
+        }).collect();
+        let err = ErrorResponse::not_found(
+            &format!("Invalid status '{status}'. Valid values: {}", VALID_STATUSES.join(", ")),
+            suggestions,
+        );
+        err.print()?;
+        unreachable!()
+    }
+    Ok(())
+}
+
+fn validate_method(method: &str) -> Result<()> {
+    if !VALID_METHODS.contains(&method) {
+        let suggestions: Vec<Action> = VALID_METHODS.iter().map(|m| {
+            Action::new("did_you_mean", &format!("--method={m}"))
+        }).collect();
+        let err = ErrorResponse::not_found(
+            &format!("Invalid method '{method}'. Valid values: {}", VALID_METHODS.join(", ")),
+            suggestions,
+        );
+        err.print()?;
+        unreachable!()
+    }
+    Ok(())
+}
+
 pub fn add(
     conn: &Connection,
     pokemon: &str,
@@ -20,6 +53,11 @@ pub fn add(
     dry_run: bool,
     format: &OutputFormat,
 ) -> Result<()> {
+    validate_status(status)?;
+    if let Some(m) = method {
+        validate_method(m)?;
+    }
+
     let resolved = queries::resolve_pokemon(conn, pokemon)?;
     let (species_id, species_name) = match resolved {
         Some(r) => r,
@@ -234,6 +272,13 @@ pub fn update(
     method: Option<&str>,
     format: &OutputFormat,
 ) -> Result<()> {
+    if let Some(s) = status {
+        validate_status(s)?;
+    }
+    if let Some(m) = method {
+        validate_method(m)?;
+    }
+
     let existing = queries::get_collection_entry(conn, id)?;
     if existing.is_none() {
         let err = ErrorResponse::not_found(
@@ -291,6 +336,7 @@ pub fn list_entries(
     sort: &str,
     format: &OutputFormat,
 ) -> Result<()> {
+    let limit = limit.max(1);
     let (entries, total) = queries::list_collection(conn, game, pokemon, shiny_only, in_home, status, limit, offset, sort)?;
 
     let mut actions = vec![

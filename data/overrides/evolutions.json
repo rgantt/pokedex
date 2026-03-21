@@ -11,5 +11,7 @@
   {"species": "hitmonchan", "trigger": "level-up", "trigger_detail": "Level 20 when Attack < Defense"},
   {"species": "hitmontop", "trigger": "level-up", "trigger_detail": "Level 20 when Attack = Defense"},
   {"species": "silcoon", "trigger": "level-up", "trigger_detail": "Level 7 (random based on personality value)"},
-  {"species": "cascoon", "trigger": "level-up", "trigger_detail": "Level 7 (random based on personality value)"}
+  {"species": "cascoon", "trigger": "level-up", "trigger_detail": "Level 7 (random based on personality value)"},
+  {"species": "dipplin", "trigger": "use-item", "trigger_detail": "Use Syrupy Apple"},
+  {"species": "hydrapple", "trigger": "level-up", "trigger_detail": "Level up knowing Dragon Cheer"}
 ]

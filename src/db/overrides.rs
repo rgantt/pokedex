@@ -67,10 +67,24 @@ fn apply_evolution_overrides(conn: &mut Connection) -> Result<usize> {
                AND evolution_trigger_id = (SELECT id FROM evolution_triggers WHERE name = ?3)",
         )?;
 
+        let mut insert_stmt = tx.prepare(
+            "INSERT INTO pokemon_evolution (evolved_species_id, evolution_trigger_id, trigger_detail) \
+             SELECT s.id, et.id, ?1 FROM species s, evolution_triggers et \
+             WHERE s.name = ?2 AND et.name = ?3 \
+             AND NOT EXISTS (SELECT 1 FROM pokemon_evolution pe \
+                WHERE pe.evolved_species_id = s.id AND pe.evolution_trigger_id = et.id)",
+        )?;
+
         for ov in &overrides {
             let rows = stmt.execute(rusqlite::params![ov.trigger_detail, ov.species, ov.trigger])?;
             if rows > 0 {
                 count += rows;
+            } else {
+                // No existing row to update — insert a new one
+                let inserted = insert_stmt.execute(rusqlite::params![ov.trigger_detail, ov.species, ov.trigger])?;
+                if inserted > 0 {
+                    count += inserted;
+                }
             }
         }
     }

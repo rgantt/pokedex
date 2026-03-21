@@ -103,14 +103,22 @@ steps:
 - Do NOT use `--notes` or other flags with spaces in values — the test runner splits commands on whitespace without shell-style quoting
 - 2-4 assertions per step is ideal
 
+## Known Data Issues
+
+Before reporting issues, check `data/known_issues.md` for already-tracked problems. Data quality issues ARE product issues — when a new one is found:
+1. Determine if it's fixable (via override, seed logic, or query change) or truly upstream
+2. If fixable, fix it and mark FIXED in known_issues.md
+3. If upstream and unfixable, add it as WONTFIX with explanation
+4. Never dismiss data issues as "not our problem" — we serve this data
+
 ## Aggregation
 
 After ALL agents complete:
 1. Categorize every issue by severity (Critical / High / Medium / Low)
-2. Deduplicate — same issue found by multiple testers counts once
+2. Deduplicate — check `data/known_issues.md` before reporting
 3. Note which issues are NEW vs previously seen in earlier rounds
 4. List what's VERIFIED WORKING across all testers
-5. Provide a concrete fix plan for each issue
+5. For each issue: fix it, add to known_issues.md, or explain why it's unfixable
 6. **Collect all screenplay YAML files from agents and commit them to `tests/screenplays/`**
 7. Run `cargo test --test run_screenplays` to verify all screenplays pass
 

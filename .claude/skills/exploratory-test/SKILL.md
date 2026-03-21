@@ -20,7 +20,8 @@ Before launching testers:
 2. Select which personas to launch (see Selection Rules below)
 3. Launch selected personas as background agents in a SINGLE message (parallel)
 4. Each agent should use the `pokedex` CLI directly (the installed binary, not cargo run)
-5. Each agent should test 10-20 commands and report ALL issues found — errors, wrong data, missing fields, confusing output, broken HATEOAS links, exit code problems
+5. Each agent should test 10-20 commands and report ALL issues found
+6. **Each agent MUST produce a screenplay YAML file** (see Screenplay Recording below)
 
 ## Selection Rules
 
@@ -47,6 +48,47 @@ $ARGUMENTS
 Each agent gets this preamble prepended to its persona description:
 
 > You are testing the `pokedex` CLI tool. Run commands, check outputs carefully, and report ALL issues you find. For every error response, check: exit code (should be 1), valid JSON, at least one recovery action. For every success response, verify: data accuracy, HATEOAS actions present, no malformed JSON. Be thorough.
+>
+> **SCREENPLAY RECORDING**: As you test, build a YAML screenplay of every command you run and the key assertions you check. At the END of your run, write this screenplay to `tests/screenplays/<persona_letter>_<persona_name>.yaml`. Use the schema documented below. Record 2-4 assertions per step — focus on INTENT (what should be true) not exact output matching.
+
+## Screenplay Recording Schema
+
+Each agent writes a YAML file at `tests/screenplays/` with this format:
+
+```yaml
+name: "Persona Name"
+persona: "X"
+description: "What this persona tests"
+needs_seed: true
+mutates_collection: true  # set true if any step does collection add/update/remove
+
+steps:
+  - name: "human-readable step description"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0                                    # exact match (always include)
+      has_fields: ["data.types", "data.stats"]        # dot-path must exist and be non-null
+      equals: {"data.name": "pikachu"}                # exact value match at dot-path
+      contains: {"data.display_name": "Pikachu"}      # substring match
+      array_len: {"data.types": {"min": 1, "max": 3}} # bounds check on arrays
+      type_of: {"data.id": "number"}                  # JSON type check
+    capture: {"entry_id": "data.id"}                  # capture value for later $entry_id substitution
+
+  - name: "use captured variable"
+    command: "pokedex collection show $entry_id"
+    assert:
+      exit_code: 0
+```
+
+### Assertion guidelines:
+- **Always** include `exit_code`
+- Use `has_fields` for structural checks (field exists)
+- Use `equals` sparingly — only for stable values (species name, type, generation number)
+- Use `contains` for display names that might change format
+- Use `array_len` with ranges, not exact counts (data may grow)
+- Use `capture` + `$variable` for collection IDs that are auto-generated
+- Do NOT assert exact JSON output — that's fragile
+- 2-4 assertions per step is ideal
 
 ## Aggregation
 
@@ -56,6 +98,8 @@ After ALL agents complete:
 3. Note which issues are NEW vs previously seen in earlier rounds
 4. List what's VERIFIED WORKING across all testers
 5. Provide a concrete fix plan for each issue
+6. **Collect all screenplay YAML files from agents and commit them to `tests/screenplays/`**
+7. Run `cargo test --test run_screenplays` to verify all screenplays pass
 
 ## Convergence Tracking
 
@@ -63,5 +107,9 @@ Compare against previous rounds. The goal is convergence toward zero bugs:
 - Round 1: 24 issues
 - Round 2: 13 issues
 - Round 3: 14 issues
-- Round 4: 17 issues (new categories: forms root cause, filter validation, type error handling)
+- Round 4: 17 issues
+- Round 5: 22 issues
+- Round 6: ~15 issues
+- Round 7: 12 issues
+- Round 8: 7 issues
 - This round: ?

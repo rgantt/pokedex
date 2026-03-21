@@ -1158,3 +1158,89 @@ fn leafeon_has_multiple_evolution_methods() {
     assert!(has_use_item, "Leafeon should have a use-item method (Leaf Stone)");
     assert!(has_level_up, "Leafeon should have a level-up method (Mossy Rock)");
 }
+
+// ============================================================
+// Phase 16: Round 5 fixes validation
+// ============================================================
+
+#[test]
+fn pre_home_game_encounters_accessible() {
+    let conn = open_test_db();
+    // Red is a pre-HOME game — encounters should be queryable
+    let resolved = queries::resolve_pokemon(&conn, "pikachu").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, Some("red")).unwrap();
+    assert!(!encounters.is_empty(),
+        "Pikachu should have encounters in Red (pre-HOME game)");
+}
+
+#[test]
+fn form_name_resolves_to_species() {
+    let conn = open_test_db();
+    // growlithe-hisui should resolve to growlithe species
+    let resolved = queries::resolve_pokemon(&conn, "growlithe-hisui");
+    assert!(resolved.is_ok(), "growlithe-hisui should not error");
+    let resolved = resolved.unwrap();
+    assert!(resolved.is_some(), "growlithe-hisui should resolve to a species");
+    let (species_id, name) = resolved.unwrap();
+    assert_eq!(name, "growlithe", "growlithe-hisui should resolve to species growlithe");
+    assert!(species_id > 0);
+}
+
+#[test]
+fn vivillon_only_one_default_form() {
+    let conn = open_test_db();
+    let forms = queries::get_pokemon_forms(&conn, 666).unwrap(); // Vivillon
+    let defaults: Vec<_> = forms.iter().filter(|f| f.is_default).collect();
+    assert_eq!(defaults.len(), 1,
+        "Vivillon should have exactly 1 default form, got {}", defaults.len());
+}
+
+#[test]
+fn home_missing_invalid_dex_errors() {
+    let conn = open_test_db();
+    // This tests the query layer — invalid dex should return None from resolve
+    let resolved = queries::resolve_pokedex(&conn, "fakemon-dex");
+    assert!(resolved.is_ok());
+    assert!(resolved.unwrap().is_none(), "fakemon-dex should not resolve");
+}
+
+#[test]
+fn generation_filter_validated() {
+    let conn = open_test_db();
+    // Valid generation returns results
+    let (species, _) = queries::list_species(&conn, None, Some(1), None, 10, 0).unwrap();
+    assert!(!species.is_empty(), "Generation 1 should have species");
+
+    // Generation 0 returns empty (validation happens at command layer)
+    let (species, _) = queries::list_species(&conn, None, Some(0), None, 10, 0).unwrap();
+    assert!(species.is_empty(), "Generation 0 should have no species");
+}
+
+#[test]
+fn uncatchable_encounters_filtered() {
+    let conn = open_test_db();
+    // Check that encounters with "Can not be caught" note are filtered out
+    let resolved = queries::resolve_pokemon(&conn, "zacian").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, Some("sword")).unwrap();
+    for enc in &encounters {
+        if let Some(ref det) = enc.details {
+            if let Some(ref note) = det.note {
+                assert!(!note.contains("Can not be caught"),
+                    "Uncatchable encounter should be filtered: {} at {}", enc.pokemon_name, enc.location);
+            }
+        }
+    }
+}
+
+#[test]
+fn special_encounter_level1_filtered() {
+    let conn = open_test_db();
+    // Special Encounter at level 1 should have null levels (like Static/Fixed/Raid)
+    let resolved = queries::resolve_pokemon(&conn, "pikachu").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, None).unwrap();
+    for enc in &encounters {
+        if enc.method.contains("Special") && enc.min_level == Some(1) && enc.max_level == Some(1) {
+            panic!("Special Encounter at level 1 should have null levels: {} in {}", enc.location, enc.game);
+        }
+    }
+}

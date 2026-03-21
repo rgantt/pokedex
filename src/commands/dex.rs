@@ -79,7 +79,7 @@ pub fn progress(
     };
 
     if let Some(g) = game {
-        validate_game_filter(conn, g)?;
+        validate_game_filter(conn, g, &format!("pokedex dex progress {dex}"))?;
     }
 
     if let Some(s) = status {

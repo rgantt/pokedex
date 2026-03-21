@@ -19,7 +19,17 @@ pub fn list(
     if let Some(ref t) = type_filter {
         let types = queries::list_types(conn)?;
         if !types.iter().any(|ty| ty.name.eq_ignore_ascii_case(t) || ty.display_name.eq_ignore_ascii_case(t)) {
-            ErrorResponse::not_found(&format!("No type named '{t}'"), vec![Action::new("types", "pokedex type list")]).print()?;
+            ErrorResponse::invalid_parameter(&format!("No type named '{t}'"), vec![Action::new("types", "pokedex type list")]).print()?;
+            return Ok(());
+        }
+    }
+    if let Some(g) = generation {
+        if !(1..=9).contains(&g) {
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid generation '{g}'. Valid values: 1-9"),
+                vec![Action::new("list", "pokedex pokemon list")],
+            ).print()?;
+            return Ok(());
         }
     }
     if let Some(ref c) = category {
@@ -235,7 +245,7 @@ pub fn encounters(conn: &Connection, pokemon: &str, game: Option<&str>, format: 
     };
 
     if let Some(g) = game {
-        validate_game_filter(conn, g)?;
+        validate_game_filter(conn, g, &format!("pokedex pokemon encounters {name}"))?;
     }
 
     let encounters = queries::get_encounters(conn, species_id, game)?;
@@ -245,7 +255,7 @@ pub fn encounters(conn: &Connection, pokemon: &str, game: Option<&str>, format: 
 
     let mut actions = vec![
         Action::new("show", &format!("pokedex pokemon show {name}")),
-        Action::new("add_to_collection", &format!("pokedex collection add --pokemon={name} --game=<game>")),
+        Action::new("add_to_collection", &format!("pokedex collection add --pokemon={name} --game={}", game.unwrap_or("<game>"))),
     ];
 
     // Suggest filtering by specific games found in encounters (use slug for --game flag)
@@ -283,7 +293,20 @@ pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Optio
     };
 
     if let Some(g) = game {
-        validate_game_filter(conn, g)?;
+        validate_game_filter(conn, g, &format!("pokedex pokemon moves {name}"))?;
+    }
+
+    // Validate method if provided
+    if let Some(m) = method {
+        let mut stmt = conn.prepare("SELECT name FROM pokemon_move_methods")?;
+        let methods: Vec<String> = stmt.query_map([], |row| row.get(0))?.filter_map(|r| r.ok()).collect();
+        if !methods.iter().any(|v| v.eq_ignore_ascii_case(m)) {
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid method '{m}'. Valid values: {}", methods.join(", ")),
+                vec![Action::new("show", &format!("pokedex pokemon moves {name}"))],
+            ).print()?;
+            return Ok(());
+        }
     }
 
     let limit = limit.max(1);

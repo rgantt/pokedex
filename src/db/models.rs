@@ -198,6 +198,16 @@ pub struct EncounterDetails {
     pub tera_raid_star_level: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_raid_perfect_ivs: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_raid_rate_1_star: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_raid_rate_2_star: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_raid_rate_3_star: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_raid_rate_4_star: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_raid_rate_5_star: Option<String>,
 
     // Misc
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -240,6 +250,11 @@ impl EncounterDetails {
             && self.alpha_levels.is_none()
             && self.tera_raid_star_level.is_none()
             && self.max_raid_perfect_ivs.is_none()
+            && self.max_raid_rate_1_star.is_none()
+            && self.max_raid_rate_2_star.is_none()
+            && self.max_raid_rate_3_star.is_none()
+            && self.max_raid_rate_4_star.is_none()
+            && self.max_raid_rate_5_star.is_none()
             && self.hidden_ability_possible.is_none()
             && self.visible.is_none()
             && self.note.is_none()

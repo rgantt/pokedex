@@ -25,6 +25,18 @@ pub fn resolve_pokemon(conn: &Connection, identifier: &str) -> Result<Option<(i6
         |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
     );
     match result {
+        Ok(r) => return Ok(Some(r)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {},
+        Err(e) => return Err(e.into()),
+    }
+
+    // Try pokemon table (handles form names like "growlithe-hisui")
+    let result = conn.query_row(
+        "SELECT p.species_id, s.name FROM pokemon p JOIN species s ON s.id = p.species_id WHERE LOWER(p.name) = LOWER(?1)",
+        params![name],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+    );
+    match result {
         Ok(r) => Ok(Some(r)),
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.into()),
@@ -355,10 +367,10 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
 pub fn get_pokemon_forms(conn: &Connection, species_id: i64) -> Result<Vec<PokemonForm>> {
     let mut stmt = conn.prepare(
         "SELECT pf.id, pf.pokemon_id, pf.name, \
-         CASE WHEN p.is_default = 1 THEN COALESCE(sn.name, s.name) \
+         CASE WHEN p.is_default = 1 AND pf.is_default = 1 THEN COALESCE(sn.name, s.name) \
               ELSE COALESCE(pfn.pokemon_name, pfn.name, pf.form_name, COALESCE(sn.name, s.name)) \
          END, \
-         pf.form_name, p.is_default, pf.is_mega, pf.is_battle_only \
+         pf.form_name, (p.is_default AND pf.is_default), pf.is_mega, pf.is_battle_only \
          FROM pokemon_forms pf \
          JOIN pokemon p ON p.id = pf.pokemon_id \
          JOIN species s ON s.id = p.species_id \
@@ -539,9 +551,15 @@ pub fn get_encounters(
             let conditions = get_encounter_conditions(conn, encounter_id);
             let details = get_encounter_details(conn, encounter_id);
             // Filter out misleading level-1 data for static/fixed/raid encounters
+            let has_uncatchable_note = details.as_ref()
+                .and_then(|d| d.note.as_ref())
+                .map_or(false, |n| n.contains("Can not be caught"));
             let is_bogus_level = min_level == 1 && max_level == 1
                 && (method == "Static Encounter" || method == "Fixed Encounter" || method == "Max Raid Battle"
-                    || method == "static-encounter" || method == "fixed-encounter" || method == "max-raid-battle");
+                    || method == "Special Encounter"
+                    || method == "static-encounter" || method == "fixed-encounter" || method == "max-raid-battle"
+                    || method == "special-encounter"
+                    || has_uncatchable_note);
             let (final_min, final_max) = if is_bogus_level {
                 (None, None)
             } else {
@@ -561,6 +579,17 @@ pub fn get_encounters(
                 details,
             }
         })
+        .filter(|enc| {
+            // Filter out uncatchable encounters
+            if let Some(ref det) = enc.details {
+                if let Some(ref note) = det.note {
+                    if note.contains("Can not be caught") {
+                        return false;
+                    }
+                }
+            }
+            true
+        })
         .collect();
 
     Ok(rows)
@@ -577,6 +606,8 @@ fn get_encounter_details(conn: &Connection, encounter_id: i64) -> Option<Encount
          on_terrain_land, on_terrain_watersurface, on_terrain_underwater, \
          probability_overall, group_rate, group_pokemon, alpha_levels, \
          tera_raid_star_level, max_raid_perfect_ivs, \
+         max_raid_rate_1_star, max_raid_rate_2_star, max_raid_rate_3_star, \
+         max_raid_rate_4_star, max_raid_rate_5_star, \
          hidden_ability_possible, visible, note \
          FROM encounter_details WHERE encounter_id = ?1",
         params![encounter_id],
@@ -610,9 +641,14 @@ fn get_encounter_details(conn: &Connection, encounter_id: i64) -> Option<Encount
                 alpha_levels: row.get(25)?,
                 tera_raid_star_level: row.get(26)?,
                 max_raid_perfect_ivs: row.get(27)?,
-                hidden_ability_possible: row.get::<_, Option<i64>>(28)?.map(|v| v != 0),
-                visible: row.get::<_, Option<i64>>(29)?.map(|v| v != 0),
-                note: row.get(30)?,
+                max_raid_rate_1_star: row.get(28)?,
+                max_raid_rate_2_star: row.get(29)?,
+                max_raid_rate_3_star: row.get(30)?,
+                max_raid_rate_4_star: row.get(31)?,
+                max_raid_rate_5_star: row.get(32)?,
+                hidden_ability_possible: row.get::<_, Option<i64>>(33)?.map(|v| v != 0),
+                visible: row.get::<_, Option<i64>>(34)?.map(|v| v != 0),
+                note: row.get(35)?,
             })
         },
     ).ok()

@@ -47,19 +47,11 @@ pub fn missing(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &O
     let (pokedex_id, dex_name) = match resolved {
         Some(r) => r,
         None => {
-            // Default to national if the name doesn't resolve
-            let r = queries::resolve_pokedex(conn, "national")?;
-            match r {
-                Some(r) => r,
-                None => {
-                    let err = ErrorResponse::not_found(
-                        &format!("No pokédex named '{dex}'"),
-                        vec![Action::new("list_dexes", "pokedex dex list")],
-                    );
-                    err.print()?;
-                    return Ok(());
-                }
-            }
+            ErrorResponse::not_found(
+                &format!("No pokédex named '{dex}'"),
+                vec![Action::new("list_dexes", "pokedex dex list")],
+            ).print()?;
+            return Ok(());
         }
     };
 

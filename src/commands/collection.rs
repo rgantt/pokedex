@@ -24,13 +24,15 @@ pub fn add(
     dry_run: bool,
     format: &OutputFormat,
 ) -> Result<()> {
+    let form_flag = form.map(|f| format!(" --form={f}")).unwrap_or_default();
+
     let resolved = queries::resolve_pokemon(conn, pokemon)?;
     let (species_id, species_name) = match resolved {
         Some(r) => r,
         None => {
             let results = queries::search_species(conn, pokemon, 5)?;
             let mut suggestions: Vec<Action> = results.iter().map(|r| {
-                Action::new("did_you_mean", &format!("pokedex collection add --pokemon={} --game={game}", r.species.name))
+                Action::new("did_you_mean", &format!("pokedex collection add --pokemon={} --game={game}{form_flag}", r.species.name))
             }).collect();
             if suggestions.is_empty() {
                 suggestions.push(Action::new("search", &format!("pokedex pokemon search {pokemon}")));
@@ -51,7 +53,7 @@ pub fn add(
         None => {
             let all = queries::list_games(conn, false)?;
             let suggestions: Vec<Action> = all.iter().map(|g| {
-                Action::new("did_you_mean", &format!("pokedex collection add --pokemon={species_name} --game={}", g.name))
+                Action::new("did_you_mean", &format!("pokedex collection add --pokemon={species_name} --game={}{form_flag}", g.name))
             }).collect();
             let err = ErrorResponse::not_found(
                 &format!("No game named '{game}'"),
@@ -120,8 +122,23 @@ pub fn add(
         return Ok(());
     }
 
+    // Validate --alpha flag: only valid for Legends games
+    let alpha_warning = if is_alpha && !["legends-arceus", "legends-za"].contains(&game_name.as_str()) {
+        Some(format!("Alpha Pokémon only exist in Legends: Arceus and Legends: Z-A, not in {game_name}. The --alpha flag will be saved but may be incorrect."))
+    } else {
+        None
+    };
+
     // C9: Check if species has encounters in this game's versions
-    let encounter_warning = check_species_in_game(conn, species_id, game_id);
+    let encounter_warning = {
+        let w = check_species_in_game(conn, species_id, game_id);
+        match (w, alpha_warning) {
+            (Some(ew), Some(aw)) => Some(format!("{ew} {aw}")),
+            (Some(ew), None) => Some(ew),
+            (None, Some(aw)) => Some(aw),
+            (None, None) => None,
+        }
+    };
 
     #[derive(Serialize)]
     struct AddPreview {
@@ -197,7 +214,9 @@ pub fn add(
         Action::new("pokemon_info", &format!("pokedex pokemon show {species_name}")),
     ];
 
-    let response = Response::new(result, actions, Meta::simple(&format!("pokedex collection add --pokemon={pokemon} --game={game}")));
+    let mut meta_cmd = format!("pokedex collection add --pokemon={pokemon} --game={game}");
+    if let Some(f) = form { meta_cmd.push_str(&format!(" --form={f}")); }
+    let response = Response::new(result, actions, Meta::simple(&meta_cmd));
     response.print(format)
 }
 
@@ -404,7 +423,7 @@ pub fn list_entries(
     format: &OutputFormat,
 ) -> Result<()> {
     if let Some(g) = game {
-        validate_game_filter(conn, g)?;
+        validate_game_filter(conn, g, "pokedex collection list")?;
     }
 
     if let Some(s) = status {
@@ -482,7 +501,7 @@ pub fn show_entry(conn: &Connection, id: i64, format: &OutputFormat) -> Result<(
 
 pub fn stats(conn: &Connection, game: Option<&str>, format: &OutputFormat) -> Result<()> {
     if let Some(g) = game {
-        validate_game_filter(conn, g)?;
+        validate_game_filter(conn, g, "pokedex collection stats")?;
     }
 
     let stats = queries::get_collection_stats(conn, game)?;

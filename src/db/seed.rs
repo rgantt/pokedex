@@ -1469,6 +1469,13 @@ fn seed_pokedb_encounters(conn: &mut Connection) -> Result<()> {
     // Step 3: Insert PokeDB encounter methods
     let method_id_map = seed_pokedb_methods(&tx, &pokedb_methods)?;
 
+    // Step 3b: Generate display names for any encounter methods missing them
+    tx.execute_batch(
+        "INSERT OR IGNORE INTO encounter_method_names (encounter_method_id, name) \
+         SELECT id, REPLACE(REPLACE(name, '-', ' '), 'npc', 'NPC') FROM encounter_methods \
+         WHERE id NOT IN (SELECT encounter_method_id FROM encounter_method_names);"
+    )?;
+
     // Step 4: Build version identifier -> version_id map
     let version_id_map = build_version_map(&tx, &pokedb_versions)?;
 

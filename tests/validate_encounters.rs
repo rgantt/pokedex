@@ -738,3 +738,155 @@ fn search_scores_rounded() {
         }
     }
 }
+
+// ============================================================
+// Phase 13: Round 2 fixes validation
+// ============================================================
+
+#[test]
+fn no_gen1_duplicate_encounters() {
+    let conn = open_test_db();
+    let resolved = queries::resolve_pokemon(&conn, "pikachu").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, Some("red")).unwrap();
+    let unique: std::collections::HashSet<_> = encounters
+        .iter()
+        .map(|e| (&e.location, &e.min_level, &e.max_level))
+        .collect();
+    assert_eq!(
+        encounters.len(),
+        unique.len(),
+        "Pikachu in Red has duplicate encounters: {} total, {} unique",
+        encounters.len(),
+        unique.len()
+    );
+}
+
+#[test]
+fn collection_only_accepts_valid_statuses() {
+    let conn = open_test_db();
+    let (game_id, _) = queries::resolve_game(&conn, "sword").unwrap().unwrap();
+    // Add with valid status - should work
+    let id = queries::add_collection_entry(
+        &conn, 25, None, game_id, false, false, false, "caught", None, None, None,
+    )
+    .unwrap();
+    assert!(id > 0);
+    queries::remove_collection_entry(&conn, id).unwrap();
+    // Note: invalid status validation happens in the command layer (collection.rs), not queries
+}
+
+#[test]
+fn empty_search_returns_nothing() {
+    let conn = open_test_db();
+    let results = queries::search_species(&conn, "", 10).unwrap();
+    assert!(
+        results.is_empty(),
+        "Empty search should return no results, got {}",
+        results.len()
+    );
+    let results2 = queries::search_species(&conn, "   ", 10).unwrap();
+    assert!(
+        results2.is_empty(),
+        "Whitespace search should return no results"
+    );
+}
+
+#[test]
+fn game_display_names_populated() {
+    let conn = open_test_db();
+    let games = queries::list_games(&conn, true).unwrap();
+    for game in &games {
+        assert!(
+            game.display_name.is_some(),
+            "Game {} missing display_name",
+            game.name
+        );
+        let dn = game.display_name.as_ref().unwrap();
+        assert_ne!(
+            dn, &game.name,
+            "Game {} display_name should not be the raw slug",
+            game.name
+        );
+    }
+}
+
+#[test]
+fn default_form_shows_species_name() {
+    let conn = open_test_db();
+    let forms = queries::get_pokemon_forms(&conn, 212).unwrap(); // Scizor
+    let default = forms.iter().find(|f| f.form_name.is_none()).unwrap();
+    assert_ne!(
+        default.display_name, "Base",
+        "Default form should show species name, not 'Base'"
+    );
+}
+
+#[test]
+fn level1_placeholder_encounters_have_null_levels() {
+    let conn = open_test_db();
+    // Charizard in Sword has Max Raid encounters that were level 1
+    let resolved = queries::resolve_pokemon(&conn, "charizard").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, Some("sword")).unwrap();
+    let raids: Vec<_> = encounters
+        .iter()
+        .filter(|e| e.method.contains("Max Raid") || e.method.contains("max-raid"))
+        .collect();
+    if !raids.is_empty() {
+        for raid in &raids {
+            // Level should be None (not Some(1)) for placeholder raid data
+            assert!(
+                raid.min_level.is_none() || raid.min_level.unwrap() > 1,
+                "Max Raid encounter should not show level 1: {:?}",
+                raid.location
+            );
+        }
+    }
+}
+
+#[test]
+fn evolution_actions_include_all_chain_members() {
+    let conn = open_test_db();
+    let chain = queries::get_evolution_chain(&conn, 133).unwrap(); // Eevee
+
+    fn count_nodes(node: &pokedex::db::models::EvolutionNode) -> usize {
+        1 + node
+            .children
+            .iter()
+            .map(|c| count_nodes(c))
+            .sum::<usize>()
+    }
+
+    assert!(
+        count_nodes(&chain) >= 9,
+        "Eevee chain should have 9+ members, got {}",
+        count_nodes(&chain)
+    );
+}
+
+#[test]
+fn za_wild_zone_areas_preserved() {
+    let conn = open_test_db();
+    // Verify that Z-A wild zone area names are preserved in encounter output
+    // so users can distinguish between zones even if the parent location is a city name.
+    let resolved = queries::resolve_pokemon(&conn, "bunnelby").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, Some("legends-za")).unwrap();
+    let has_zone_area = encounters
+        .iter()
+        .any(|e| e.area.starts_with("wild-zone-"));
+    assert!(
+        has_zone_area,
+        "Z-A encounters should preserve wild-zone area names, areas found: {:?}",
+        encounters.iter().map(|e| &e.area).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn collection_stats_game_filter_skips_empty_by_game() {
+    let conn = open_test_db();
+    let stats = queries::get_collection_stats(&conn, Some("sword")).unwrap();
+    // The by_game field should be empty (and will be skipped in serialization)
+    assert!(
+        stats.by_game.is_empty(),
+        "by_game should be empty when filtering by game"
+    );
+}

@@ -3,6 +3,7 @@ use rusqlite::Connection;
 
 use crate::db::queries;
 use crate::output::*;
+use strsim;
 
 pub fn list(conn: &Connection, home_compatible: bool, format: &OutputFormat) -> Result<()> {
     let games = queries::list_games(conn, home_compatible)?;
@@ -22,9 +23,14 @@ pub fn show(conn: &Connection, game: &str, format: &OutputFormat) -> Result<()> 
         Some(r) => r,
         None => {
             let all_games = queries::list_games(conn, false)?;
-            let suggestions: Vec<Action> = all_games.iter().map(|g| {
-                Action::new("did_you_mean", &format!("pokedex game show {}", g.name))
-            }).collect();
+            let mut suggestions: Vec<Action> = all_games.iter()
+                .filter(|g| strsim::jaro_winkler(&game.to_lowercase(), &g.name.to_lowercase()) > 0.5)
+                .take(5)
+                .map(|g| Action::new("did_you_mean", &format!("pokedex game show {}", g.name)))
+                .collect();
+            if suggestions.is_empty() {
+                suggestions = all_games.iter().map(|g| Action::new("did_you_mean", &format!("pokedex game show {}", g.name))).collect();
+            }
             let err = ErrorResponse::not_found(
                 &format!("No game named '{game}'"),
                 suggestions,

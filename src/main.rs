@@ -61,8 +61,8 @@ fn main() -> Result<()> {
                 PokemonCommands::Encounters { pokemon, game } => {
                     commands::pokemon::encounters(&conn, &pokemon, game.as_deref(), &format)?;
                 }
-                PokemonCommands::Moves { pokemon, game, method } => {
-                    commands::pokemon::moves(&conn, &pokemon, game.as_deref(), method.as_deref(), &format)?;
+                PokemonCommands::Moves { pokemon, game, method, limit, offset } => {
+                    commands::pokemon::moves(&conn, &pokemon, game.as_deref(), method.as_deref(), limit, offset, &format)?;
                 }
                 PokemonCommands::Stats { pokemon } => {
                     commands::pokemon::stats(&conn, &pokemon, &format)?;

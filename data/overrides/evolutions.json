@@ -6,5 +6,10 @@
   {"species": "leafeon", "trigger": "level-up", "trigger_detail": "Use Leaf Stone"},
   {"species": "glaceon", "trigger": "level-up", "trigger_detail": "Use Ice Stone"},
   {"species": "sylveon", "trigger": "level-up", "trigger_detail": "Know Fairy-type move + high friendship"},
-  {"species": "melmetal", "trigger": "shed", "trigger_detail": "400 Meltan Candy in Pokémon GO"}
+  {"species": "melmetal", "trigger": "shed", "trigger_detail": "400 Meltan Candy in Pokémon GO"},
+  {"species": "hitmonlee", "trigger": "level-up", "trigger_detail": "Level 20 when Attack > Defense"},
+  {"species": "hitmonchan", "trigger": "level-up", "trigger_detail": "Level 20 when Attack < Defense"},
+  {"species": "hitmontop", "trigger": "level-up", "trigger_detail": "Level 20 when Attack = Defense"},
+  {"species": "silcoon", "trigger": "level-up", "trigger_detail": "Level 7 (random based on personality value)"},
+  {"species": "cascoon", "trigger": "level-up", "trigger_detail": "Level 7 (random based on personality value)"}
 ]

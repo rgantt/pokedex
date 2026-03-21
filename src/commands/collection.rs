@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::db::queries;
 use crate::output::*;
+use super::validate_game_filter;
 
 const VALID_STATUSES: &[&str] = &["caught", "living_dex", "evolved", "traded_away", "transferred"];
 const VALID_METHODS: &[&str] = &["catch", "breed", "trade", "transfer", "gift", "raid", "research"];
@@ -402,6 +403,32 @@ pub fn list_entries(
     sort: &str,
     format: &OutputFormat,
 ) -> Result<()> {
+    if let Some(g) = game {
+        validate_game_filter(conn, g)?;
+    }
+
+    if let Some(s) = status {
+        if !VALID_STATUSES.contains(&s) {
+            let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|vs| {
+                Action::new("did_you_mean", &format!("pokedex collection list --status={vs}"))
+            }).collect();
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid status '{s}'. Valid values: {}", VALID_STATUSES.join(", ")),
+                suggestions,
+            ).print()?;
+            return Ok(());
+        }
+    }
+
+    let valid_sorts = ["id", "dex"];
+    if !valid_sorts.contains(&sort) {
+        ErrorResponse::invalid_parameter(
+            &format!("Invalid sort '{sort}'. Valid values: {}", valid_sorts.join(", ")),
+            vec![Action::new("list", "pokedex collection list")],
+        ).print()?;
+        return Ok(());
+    }
+
     let limit = limit.max(1);
     let (entries, total) = queries::list_collection(conn, game, pokemon, shiny_only, in_home, status, limit, offset, sort)?;
 
@@ -454,6 +481,10 @@ pub fn show_entry(conn: &Connection, id: i64, format: &OutputFormat) -> Result<(
 }
 
 pub fn stats(conn: &Connection, game: Option<&str>, format: &OutputFormat) -> Result<()> {
+    if let Some(g) = game {
+        validate_game_filter(conn, g)?;
+    }
+
     let stats = queries::get_collection_stats(conn, game)?;
 
     let mut actions = vec![

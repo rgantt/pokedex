@@ -2366,6 +2366,11 @@ fn seed_za_encounters(conn: &mut Connection) -> Result<usize> {
         ).ok();
 
         let area_id = if let Some(id) = existing_area {
+            // Fix location_id in case it was created by PokeDB pointing to wrong location
+            tx.execute(
+                "UPDATE location_areas SET location_id = ?1 WHERE id = ?2",
+                rusqlite::params![loc_id, id],
+            )?;
             id
         } else {
             let id = next_area_id;

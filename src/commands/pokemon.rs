@@ -3,6 +3,9 @@ use rusqlite::Connection;
 
 use crate::db::queries;
 use crate::output::*;
+use super::validate_game_filter;
+
+const VALID_CATEGORIES: &[&str] = &["legendary", "mythical", "baby"];
 
 pub fn list(
     conn: &Connection,
@@ -13,6 +16,20 @@ pub fn list(
     offset: u64,
     format: &OutputFormat,
 ) -> Result<()> {
+    if let Some(ref t) = type_filter {
+        let types = queries::list_types(conn)?;
+        if !types.iter().any(|ty| ty.name.eq_ignore_ascii_case(t) || ty.display_name.eq_ignore_ascii_case(t)) {
+            ErrorResponse::not_found(&format!("No type named '{t}'"), vec![Action::new("types", "pokedex type list")]).print()?;
+        }
+    }
+    if let Some(ref c) = category {
+        if !VALID_CATEGORIES.iter().any(|v| v.eq_ignore_ascii_case(c)) {
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid category '{c}'. Valid values: {}", VALID_CATEGORIES.join(", ")),
+                vec![Action::new("list", "pokedex pokemon list")],
+            ).print()?;
+        }
+    }
     let limit = limit.max(1);
     let (species, total) = queries::list_species(conn, type_filter, generation, category, limit, offset)?;
 
@@ -65,16 +82,20 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
 
     let species = queries::get_species(conn, species_id)?;
 
-    let actions = vec![
+    let mut actions = vec![
         Action::new("evolutions", &format!("pokedex pokemon evolutions {}", species.name)),
         Action::new("forms", &format!("pokedex pokemon forms {}", species.name)),
         Action::new("stats", &format!("pokedex pokemon stats {}", species.name)),
         Action::new("moves", &format!("pokedex pokemon moves {}", species.name)),
         Action::new("encounters", &format!("pokedex pokemon encounters {}", species.name)),
         Action::new("add_to_collection", &format!("pokedex collection add --pokemon={} --game=<game>", species.name)),
-        Action::new("type_matchups", &format!("pokedex type matchups {}", species.types.first().map(|s| s.as_str()).unwrap_or("normal"))),
-        Action::new("same_type", &format!("pokedex type pokemon {}", species.types.first().map(|s| s.as_str()).unwrap_or("normal"))),
     ];
+    for type_name in &species.types {
+        actions.push(Action::new("type_matchups", &format!("pokedex type matchups {}", type_name.to_lowercase())));
+    }
+    if let Some(first_type) = species.types.first() {
+        actions.push(Action::new("same_type", &format!("pokedex type pokemon {}", first_type.to_lowercase())));
+    }
 
     let response = Response::new(
         species,
@@ -87,9 +108,12 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
 pub fn search(conn: &Connection, query: &str, limit: u64, format: &OutputFormat) -> Result<()> {
     let results = queries::search_species(conn, query, limit)?;
 
-    let actions: Vec<Action> = results.iter().map(|r| {
+    let mut actions: Vec<Action> = results.iter().map(|r| {
         Action::new("show", &format!("pokedex pokemon show {}", r.species.name))
     }).collect();
+    if actions.is_empty() {
+        actions.push(Action::new("list", "pokedex pokemon list --limit=20"));
+    }
 
     let response = Response::new(
         results,
@@ -210,6 +234,10 @@ pub fn encounters(conn: &Connection, pokemon: &str, game: Option<&str>, format: 
         }
     };
 
+    if let Some(g) = game {
+        validate_game_filter(conn, g)?;
+    }
+
     let encounters = queries::get_encounters(conn, species_id, game)?;
 
     let mut cmd = format!("pokedex pokemon encounters {name}");
@@ -232,7 +260,7 @@ pub fn encounters(conn: &Connection, pokemon: &str, game: Option<&str>, format: 
     response.print(format)
 }
 
-pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Option<&str>, format: &OutputFormat) -> Result<()> {
+pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Option<&str>, limit: u64, offset: u64, format: &OutputFormat) -> Result<()> {
     let resolved = queries::resolve_pokemon(conn, pokemon)?;
     let (species_id, name) = match resolved {
         Some(r) => r,
@@ -254,7 +282,12 @@ pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Optio
         }
     };
 
-    let moves = queries::get_pokemon_moves(conn, species_id, game, method)?;
+    if let Some(g) = game {
+        validate_game_filter(conn, g)?;
+    }
+
+    let limit = limit.max(1);
+    let (moves, total) = queries::get_pokemon_moves(conn, species_id, game, method, limit, offset)?;
 
     let mut cmd = format!("pokedex pokemon moves {name}");
     if let Some(g) = game { cmd.push_str(&format!(" --game={g}")); }
@@ -270,7 +303,14 @@ pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Optio
         actions.push(Action::new("filter_tutor", &format!("pokedex pokemon moves {name} --method=tutor")));
     }
 
-    let response = Response::new(moves, actions, Meta::simple(&cmd));
+    if offset + limit < total {
+        actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
+    }
+    if offset > 0 {
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={}", offset.saturating_sub(limit))));
+    }
+
+    let response = Response::new(moves, actions, Meta::paginated(&cmd, total, limit, offset));
     response.print(format)
 }
 

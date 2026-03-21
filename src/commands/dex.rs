@@ -3,6 +3,7 @@ use rusqlite::Connection;
 
 use crate::db::queries;
 use crate::output::*;
+use super::validate_game_filter;
 
 pub fn list(conn: &Connection, format: &OutputFormat) -> Result<()> {
     let dexes = queries::list_pokedexes(conn)?;
@@ -76,6 +77,24 @@ pub fn progress(
             return Ok(());
         }
     };
+
+    if let Some(g) = game {
+        validate_game_filter(conn, g)?;
+    }
+
+    if let Some(s) = status {
+        const VALID_STATUSES: &[&str] = &["caught", "living_dex", "evolved", "traded_away", "transferred"];
+        if !VALID_STATUSES.contains(&s) {
+            let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|vs| {
+                Action::new("did_you_mean", &format!("pokedex dex progress {dex} --status={vs}"))
+            }).collect();
+            ErrorResponse::invalid_parameter(
+                &format!("Invalid status '{s}'. Valid values: {}", VALID_STATUSES.join(", ")),
+                suggestions,
+            ).print()?;
+            return Ok(());
+        }
+    }
 
     let limit = limit.max(1);
     let (progress, filtered_count) = queries::get_dex_progress(conn, pokedex_id, &dex_name, missing, caught, game, status, limit, offset)?;

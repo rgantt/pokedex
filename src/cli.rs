@@ -108,6 +108,10 @@ pub enum PokemonCommands {
         /// Filter by learn method: level-up, tm, egg, tutor
         #[arg(long)]
         method: Option<String>,
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        #[arg(long, default_value = "0")]
+        offset: u64,
     },
     /// Show base stats for a Pokémon
     Stats {

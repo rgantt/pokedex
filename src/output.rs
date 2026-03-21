@@ -31,6 +31,8 @@ pub struct ErrorResponse {
     pub error: ErrorDetail,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub actions: Vec<Action>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta: Option<Meta>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -109,6 +111,7 @@ impl ErrorResponse {
                 message: message.to_string(),
             },
             actions: suggestions,
+            meta: None,
         }
     }
 
@@ -119,11 +122,12 @@ impl ErrorResponse {
                 message: message.to_string(),
             },
             actions: suggestions,
+            meta: None,
         }
     }
 
     pub fn print(&self) -> anyhow::Result<()> {
-        eprintln!("{}", serde_json::to_string_pretty(self)?);
+        println!("{}", serde_json::to_string_pretty(self)?);
         std::process::exit(1)
     }
 }

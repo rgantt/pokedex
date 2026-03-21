@@ -335,10 +335,10 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
 pub fn get_pokemon_forms(conn: &Connection, species_id: i64) -> Result<Vec<PokemonForm>> {
     let mut stmt = conn.prepare(
         "SELECT pf.id, pf.pokemon_id, pf.name, \
-         CASE WHEN pf.is_default = 1 THEN COALESCE(sn.name, s.name) \
+         CASE WHEN p.is_default = 1 THEN COALESCE(sn.name, s.name) \
               ELSE COALESCE(pfn.pokemon_name, pfn.name, pf.form_name, COALESCE(sn.name, s.name)) \
          END, \
-         pf.form_name, pf.is_default, pf.is_mega, pf.is_battle_only \
+         pf.form_name, p.is_default, pf.is_mega, pf.is_battle_only \
          FROM pokemon_forms pf \
          JOIN pokemon p ON p.id = pf.pokemon_id \
          JOIN species s ON s.id = p.species_id \
@@ -619,19 +619,17 @@ pub fn get_pokemon_moves(
     species_id: i64,
     game_filter: Option<&str>,
     method_filter: Option<&str>,
-) -> Result<Vec<PokemonMove>> {
+    limit: u64,
+    offset: u64,
+) -> Result<(Vec<PokemonMove>, u64)> {
     let pokemon_id: i64 = conn.query_row(
         "SELECT id FROM pokemon WHERE species_id = ?1 AND is_default = 1",
         params![species_id],
         |row| row.get(0),
     )?;
 
-    let mut sql = String::from(
-        "SELECT DISTINCT m.name, COALESCE(mn.name, m.name) as display_name, \
-         COALESCE(tn.name, t.name) as type_name, m.power, m.accuracy, m.pp, \
-         COALESCE(dcn.name, dc.name) as damage_class, \
-         pmm.name as method_name, pm.level, vg.name as vg_name \
-         FROM pokemon_moves pm \
+    let mut base_sql = String::from(
+        "FROM pokemon_moves pm \
          JOIN moves m ON m.id = pm.move_id \
          LEFT JOIN move_names mn ON mn.move_id = m.id \
          JOIN types t ON t.id = m.type_id \
@@ -647,7 +645,7 @@ pub fn get_pokemon_moves(
 
     if let Some(game) = game_filter {
         // Match version group by looking up the version
-        sql.push_str(
+        base_sql.push_str(
             " AND pm.version_group_id = (SELECT version_group_id FROM versions WHERE LOWER(name) = LOWER(?2) LIMIT 1)"
         );
         bind_values.push(Box::new(game.to_string()));
@@ -655,11 +653,31 @@ pub fn get_pokemon_moves(
 
     if let Some(method) = method_filter {
         let idx = bind_values.len() + 1;
-        sql.push_str(&format!(" AND LOWER(pmm.name) = LOWER(?{idx})"));
+        base_sql.push_str(&format!(" AND LOWER(pmm.name) = LOWER(?{idx})"));
         bind_values.push(Box::new(method.to_string()));
     }
 
-    sql.push_str(" ORDER BY pm.pokemon_move_method_id, pm.level, m.name");
+    // Count total
+    let count_sql = format!("SELECT COUNT(DISTINCT m.name || '|' || pmm.name || '|' || vg.name || '|' || pm.level) {base_sql}");
+    let total: u64 = {
+        let mut stmt = conn.prepare(&count_sql)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> = bind_values.iter().map(|b| b.as_ref()).collect();
+        stmt.query_row(params.as_slice(), |row| row.get(0))?
+    };
+
+    let sql = format!(
+        "SELECT DISTINCT m.name, COALESCE(mn.name, m.name) as display_name, \
+         COALESCE(tn.name, t.name) as type_name, m.power, m.accuracy, m.pp, \
+         COALESCE(dcn.name, dc.name) as damage_class, \
+         pmm.name as method_name, pm.level, vg.name as vg_name \
+         {base_sql} ORDER BY pm.pokemon_move_method_id, pm.level, m.name \
+         LIMIT ?{} OFFSET ?{}",
+        bind_values.len() + 1,
+        bind_values.len() + 2,
+    );
+
+    bind_values.push(Box::new(limit as i64));
+    bind_values.push(Box::new(offset as i64));
 
     let mut stmt = conn.prepare(&sql)?;
     let params: Vec<&dyn rusqlite::types::ToSql> = bind_values.iter().map(|b| b.as_ref()).collect();
@@ -682,7 +700,7 @@ pub fn get_pokemon_moves(
         .filter_map(|r| r.ok())
         .collect();
 
-    Ok(results)
+    Ok((results, total))
 }
 
 // ---- Type queries ----
@@ -1364,11 +1382,28 @@ pub fn get_home_status(conn: &Connection) -> Result<HomeStatus> {
 pub fn get_home_transferable(conn: &Connection, species_id: i64) -> Result<Vec<GameInfo>> {
     // Check if the species appears in any pokedex linked to a game's version group
     let mut stmt = conn.prepare(
-        "SELECT DISTINCT g.id, g.name, g.connects_to_home, g.transfer_direction \
+        "SELECT DISTINCT g.id, g.name, g.connects_to_home, g.transfer_direction, \
+         gen.id as generation, \
+         COALESCE(rn.name, r.name) as region, \
+         COALESCE(vn.name, \
+           CASE g.name \
+             WHEN 'pokemon-go' THEN 'Pokémon GO' \
+             WHEN 'pokemon-bank' THEN 'Pokémon Bank' \
+             WHEN 'home' THEN 'Pokémon HOME' \
+             WHEN 'legends-za' THEN 'Legends: Z-A' \
+             ELSE g.name \
+           END \
+         ) as display_name \
          FROM games g \
          JOIN version_groups vg ON vg.id = g.version_group_id \
          JOIN pokedex_version_groups pvg ON pvg.version_group_id = vg.id \
          JOIN pokemon_dex_numbers pdn ON pdn.pokedex_id = pvg.pokedex_id \
+         LEFT JOIN generations gen ON gen.id = vg.generation_id \
+         LEFT JOIN version_group_regions vgr ON vgr.version_group_id = vg.id \
+         LEFT JOIN regions r ON r.id = vgr.region_id \
+         LEFT JOIN region_names rn ON rn.region_id = r.id \
+         LEFT JOIN versions v ON v.version_group_id = vg.id AND LOWER(v.name) = LOWER(g.name) \
+         LEFT JOIN version_names vn ON vn.version_id = v.id \
          WHERE g.connects_to_home = 1 AND pdn.species_id = ?1 \
          ORDER BY g.id"
     )?;
@@ -1379,9 +1414,9 @@ pub fn get_home_transferable(conn: &Connection, species_id: i64) -> Result<Vec<G
                 name: row.get(1)?,
                 connects_to_home: true,
                 transfer_direction: row.get(3)?,
-                generation: None,
-                region: None,
-                display_name: None,
+                generation: row.get(4)?,
+                region: row.get(5)?,
+                display_name: row.get(6)?,
             })
         })?
         .filter_map(|r| r.ok())
@@ -1390,8 +1425,27 @@ pub fn get_home_transferable(conn: &Connection, species_id: i64) -> Result<Vec<G
     // Fallback: if no dex mapping exists, return all HOME-compatible games
     if results.is_empty() {
         let mut stmt = conn.prepare(
-            "SELECT id, name, connects_to_home, transfer_direction FROM games \
-             WHERE connects_to_home = 1 ORDER BY id"
+            "SELECT g.id, g.name, g.connects_to_home, g.transfer_direction, \
+             gen.id as generation, \
+             COALESCE(rn.name, r.name) as region, \
+             COALESCE(vn.name, \
+               CASE g.name \
+                 WHEN 'pokemon-go' THEN 'Pokémon GO' \
+                 WHEN 'pokemon-bank' THEN 'Pokémon Bank' \
+                 WHEN 'home' THEN 'Pokémon HOME' \
+                 WHEN 'legends-za' THEN 'Legends: Z-A' \
+                 ELSE g.name \
+               END \
+             ) as display_name \
+             FROM games g \
+             LEFT JOIN version_groups vg ON vg.id = g.version_group_id \
+             LEFT JOIN generations gen ON gen.id = vg.generation_id \
+             LEFT JOIN version_group_regions vgr ON vgr.version_group_id = vg.id \
+             LEFT JOIN regions r ON r.id = vgr.region_id \
+             LEFT JOIN region_names rn ON rn.region_id = r.id \
+             LEFT JOIN versions v ON v.version_group_id = vg.id AND LOWER(v.name) = LOWER(g.name) \
+             LEFT JOIN version_names vn ON vn.version_id = v.id \
+             WHERE g.connects_to_home = 1 ORDER BY g.id"
         )?;
         let fallback = stmt
             .query_map([], |row| {
@@ -1400,9 +1454,9 @@ pub fn get_home_transferable(conn: &Connection, species_id: i64) -> Result<Vec<G
                     name: row.get(1)?,
                     connects_to_home: true,
                     transfer_direction: row.get(3)?,
-                    generation: None,
-                    region: None,
-                    display_name: None,
+                    generation: row.get(4)?,
+                    region: row.get(5)?,
+                    display_name: row.get(6)?,
                 })
             })?
             .filter_map(|r| r.ok())

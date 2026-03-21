@@ -1026,3 +1026,106 @@ fn encounter_game_slug_populated() {
         assert!(!enc.game_slug.contains(' '), "game_slug should be a slug, not display name: {}", enc.game_slug);
     }
 }
+
+// ============================================================
+// Phase 15: Round 4 fixes validation
+// ============================================================
+
+#[test]
+fn type_matchups_invalid_type_returns_error_not_crash() {
+    let conn = open_test_db();
+    // This should return Err, not panic
+    let result = queries::get_type_matchups(&conn, "plasma");
+    assert!(result.is_err(), "Invalid type should return error, not crash");
+}
+
+#[test]
+fn forms_is_default_uses_pokemon_table() {
+    let conn = open_test_db();
+
+    // Rotom alternate forms should NOT be default
+    let forms = queries::get_pokemon_forms(&conn, 479).unwrap(); // Rotom
+    let non_default: Vec<_> = forms.iter().filter(|f| !f.is_default).collect();
+    assert!(non_default.len() >= 5,
+        "Rotom should have 5+ non-default forms, got {}", non_default.len());
+
+    let default_forms: Vec<_> = forms.iter().filter(|f| f.is_default).collect();
+    assert_eq!(default_forms.len(), 1,
+        "Rotom should have exactly 1 default form, got {}", default_forms.len());
+
+    // Deoxys alternate forms should NOT be default
+    let forms = queries::get_pokemon_forms(&conn, 386).unwrap(); // Deoxys
+    let default_forms: Vec<_> = forms.iter().filter(|f| f.is_default).collect();
+    assert_eq!(default_forms.len(), 1,
+        "Deoxys should have exactly 1 default form, got {}", default_forms.len());
+}
+
+#[test]
+fn form_display_names_correct_for_alternates() {
+    let conn = open_test_db();
+    let forms = queries::get_pokemon_forms(&conn, 479).unwrap(); // Rotom
+
+    let heat = forms.iter().find(|f| f.form_name.as_deref() == Some("heat"));
+    assert!(heat.is_some(), "Rotom-Heat form should exist");
+    let heat = heat.unwrap();
+    assert!(!heat.is_default, "Rotom-Heat should not be default");
+    // Display name should be form-specific, not just "Rotom"
+    assert_ne!(heat.display_name, "Rotom",
+        "Rotom-Heat display_name should be form-specific, not 'Rotom'");
+}
+
+#[test]
+fn tyrogue_evolutions_have_stat_conditions() {
+    let conn = open_test_db();
+    let chain = queries::get_evolution_chain(&conn, 236).unwrap(); // Tyrogue
+
+    // Tyrogue has 3 children: hitmonlee, hitmonchan, hitmontop
+    assert_eq!(chain.children.len(), 3, "Tyrogue should have 3 evolutions");
+
+    for child in &chain.children {
+        let detail = child.trigger_detail.as_ref()
+            .unwrap_or_else(|| panic!("{} should have trigger_detail", child.species_name));
+        assert!(detail.contains("Attack") || detail.contains("Defense"),
+            "{} trigger_detail should mention Attack/Defense conditions, got: {}",
+            child.species_name, detail);
+    }
+}
+
+#[test]
+fn home_transferable_has_display_names() {
+    let conn = open_test_db();
+    let resolved = queries::resolve_pokemon(&conn, "pikachu").unwrap().unwrap();
+    let games = queries::get_home_transferable(&conn, resolved.0).unwrap();
+
+    assert!(!games.is_empty(), "Pikachu should be transferable to some games");
+    for game in &games {
+        assert!(game.display_name.is_some(),
+            "Game {} in transferable list should have display_name", game.name);
+    }
+}
+
+#[test]
+fn empty_search_has_fallback_action() {
+    // The search function returns empty vec, but the command layer adds fallback actions.
+    // We can only test that empty search returns empty results here.
+    let conn = open_test_db();
+    let results = queries::search_species(&conn, "zzzzzzzzzzz", 10).unwrap();
+    assert!(results.is_empty(), "Gibberish search should return empty results");
+}
+
+#[test]
+fn wurmple_evolution_has_personality_detail() {
+    let conn = open_test_db();
+    let chain = queries::get_evolution_chain(&conn, 265).unwrap(); // Wurmple
+
+    // Wurmple has 2 children: silcoon, cascoon
+    assert_eq!(chain.children.len(), 2, "Wurmple should have 2 evolution branches");
+
+    for child in &chain.children {
+        let detail = child.trigger_detail.as_ref()
+            .unwrap_or_else(|| panic!("{} should have trigger_detail", child.species_name));
+        assert!(detail.contains("random") || detail.contains("personality"),
+            "{} trigger_detail should mention random/personality, got: {}",
+            child.species_name, detail);
+    }
+}

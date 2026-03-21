@@ -134,4 +134,7 @@ Compare against previous rounds. The goal is convergence toward zero bugs:
 - Round 7: 12 issues
 - Round 8: 7 issues
 - Round 9: 8 issues (6 fixed, 2 skipped as not actionable)
+- Round 10: 0 new bugs
+- Round 11: 7 issues (all fixed)
+- Round 12: 10 issues (5 fixed, 5 upstream WONTFIX)
 - This round: ?

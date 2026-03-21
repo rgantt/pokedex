@@ -2,27 +2,372 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Forms & Alpha Collection"
-persona: g_forms_alpha
-description: "Test alternate forms (Rotom, Vivillon, Mega), regional variants (Hisui, Galar, Paldea, Alola), form-specific stats, Unown/Alcremie many-form counts, HATEOAS action fidelity, and collection form auto-detection"
+name: "Forms & Alpha Specialist"
+persona: "G"
+description: "Test alpha collection for PLA/Z-A, alpha_levels in encounter details, form is_default correctness, form-specific stats/types, mega/gmax is_default=false, Z-A Wild Zone locations, and form display_name consistency"
 needs_seed: true
 mutates_collection: true
 
 steps:
-  # ===== Regional form show: correct types and display names =====
+  # ===== Hisuian Growlithe: form-specific types and stats =====
 
-  - name: "Alolan Meowth is Dark type with correct display_name"
+  - name: "Hisuian Growlithe is Fire/Rock with form-specific stats"
+    command: "pokedex pokemon show growlithe-hisui"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Hisuian Growlithe", "data.types": ["Fire", "Rock"]}
+      has_fields: ["data.stats", "data.abilities"]
+
+  - name: "Base Growlithe is Fire-only with different stats"
+    command: "pokedex pokemon show growlithe"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Growlithe", "data.types": ["Fire"]}
+      has_fields: ["data.stats.hp", "data.stats.attack"]
+
+  - name: "Hisuian Growlithe stats differ from base (HP=60, Atk=75, Spd=55)"
+    command: "pokedex pokemon stats growlithe-hisui"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Hisuian Growlithe", "data.hp": 60, "data.attack": 75, "data.speed": 55}
+      has_fields: ["data.total", "actions"]
+
+  - name: "Base Growlithe stats (HP=55, Atk=70, Spd=60)"
+    command: "pokedex pokemon stats growlithe"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Growlithe", "data.hp": 55, "data.attack": 70, "data.speed": 60}
+      has_fields: ["data.total", "actions"]
+
+  # ===== Growlithe forms: is_default correctness =====
+
+  - name: "Growlithe base form is_default=true, Hisuian is_default=false"
+    command: "pokedex pokemon forms growlithe"
+    assert:
+      exit_code: 0
+      equals: {"data.0.is_default": true, "data.0.display_name": "Growlithe"}
+      array_len: {"data": {"min": 2, "max": 2}}
+
+  - name: "Hisuian Growlithe form has is_default false and form_name hisui"
+    command: "pokedex pokemon forms growlithe"
+    assert:
+      exit_code: 0
+      equals: {"data.1.is_default": false, "data.1.form_name": "hisui"}
+      contains: {"data": "Hisuian Growlithe"}
+
+  # ===== Rotom alternate forms NOT is_default =====
+
+  - name: "Rotom base form is_default=true, Electric/Ghost"
+    command: "pokedex pokemon forms rotom"
+    assert:
+      exit_code: 0
+      equals: {"data.0.is_default": true, "data.0.display_name": "Rotom", "data.0.types": ["Electric", "Ghost"]}
+      array_len: {"data": {"min": 6, "max": 6}}
+
+  - name: "Rotom Heat form is_default=false with Electric/Fire"
+    command: "pokedex pokemon forms rotom"
+    assert:
+      exit_code: 0
+      equals: {"data.1.is_default": false, "data.1.form_name": "heat"}
+      contains: {"data": "Heat Rotom"}
+
+  # ===== Deoxys alternate forms NOT is_default =====
+
+  - name: "Deoxys has 4 forms, default is Normal"
+    command: "pokedex pokemon forms deoxys"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 4, "max": 4}}
+      equals: {"data.0.is_default": true, "data.0.form_name": "normal"}
+
+  - name: "Deoxys Attack form is not default"
+    command: "pokedex pokemon forms deoxys"
+    assert:
+      exit_code: 0
+      equals: {"data.1.is_default": false, "data.1.form_name": "attack"}
+      contains: {"data": "Attack Deoxys"}
+
+  # ===== Castform alternate forms NOT is_default =====
+
+  - name: "Castform base is_default=true, alternates are battle-only"
+    command: "pokedex pokemon forms castform"
+    assert:
+      exit_code: 0
+      equals: {"data.0.is_default": true, "data.0.display_name": "Castform"}
+      array_len: {"data": {"min": 4, "max": 4}}
+
+  - name: "Castform Sunny is battle-only and not default"
+    command: "pokedex pokemon forms castform"
+    assert:
+      exit_code: 0
+      equals: {"data.1.is_default": false, "data.1.is_battle_only": true}
+      contains: {"data": "Sunny Castform"}
+
+  # ===== Mega forms: is_default=false, is_mega=true =====
+
+  - name: "Charizard Mega X is_default=false, is_mega=true, Fire/Dragon"
+    command: "pokedex pokemon forms charizard"
+    assert:
+      exit_code: 0
+      contains: {"data": "Mega Charizard X"}
+      array_len: {"data": {"min": 4, "max": 4}}
+
+  - name: "Mega Charizard X show returns correct types"
+    command: "pokedex pokemon show charizard-mega-x"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Mega Charizard X", "data.types": ["Fire", "Dragon"]}
+      has_fields: ["data.stats", "data.abilities"]
+
+  # ===== Gmax forms: is_default=false =====
+
+  - name: "Charizard Gmax is_default=false, is_battle_only=true"
+    command: "pokedex pokemon forms charizard"
+    assert:
+      exit_code: 0
+      contains: {"data": "Gigantamax Charizard"}
+      equals: {"data.0.is_default": true, "data.0.display_name": "Charizard"}
+
+  - name: "Gengar Mega and Gmax both not default"
+    command: "pokedex pokemon forms gengar"
+    assert:
+      exit_code: 0
+      equals: {"data.0.is_default": true, "data.0.display_name": "Gengar"}
+      array_len: {"data": {"min": 3, "max": 3}}
+
+  # ===== Default form display_name is species name =====
+
+  - name: "Growlithe default form display_name is species name not Base"
+    command: "pokedex pokemon show growlithe"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Growlithe"}
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Castform default form display_name is species name"
+    command: "pokedex pokemon show castform"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Castform"}
+      has_fields: ["data.types"]
+
+  - name: "Rotom default form display_name is species name"
+    command: "pokedex pokemon show rotom"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Rotom"}
+      has_fields: ["data.types"]
+
+  # NOTE: Deoxys show returns "Deoxys" but forms endpoint shows "Normal Deoxys"
+  # for the default form. This is because the default form has form_name="normal"
+  # in upstream data. The show command uses species name, forms uses form-qualified name.
+  - name: "Deoxys show display_name is species name (not Normal Deoxys)"
+    command: "pokedex pokemon show deoxys"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Deoxys"}
+      has_fields: ["data.types", "data.stats"]
+
+  # ===== PLA encounters: alpha_levels in details =====
+
+  - name: "Growlithe PLA encounters have alpha_levels in details"
+    command: "pokedex pokemon encounters growlithe --game=legends-arceus"
+    assert:
+      exit_code: 0
+      contains: {"data": "alpha_levels"}
+      has_fields: ["data.0.details"]
+
+  - name: "Growlithe PLA encounters show Hisuian form name"
+    command: "pokedex pokemon encounters growlithe --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: {"data.0.pokemon_name": "Hisuian Growlithe"}
+      array_len: {"data": {"min": 1}}
+
+  - name: "Snorlax PLA encounters have alpha_levels"
+    command: "pokedex pokemon encounters snorlax --game=legends-arceus"
+    assert:
+      exit_code: 0
+      contains: {"data": "alpha_levels"}
+      array_len: {"data": {"min": 1}}
+
+  # ===== Z-A encounters: Wild Zone locations and alpha_levels =====
+
+  - name: "Pikachu Z-A encounters use Wild Zone locations"
+    command: "pokedex pokemon encounters pikachu --game=legends-za"
+    assert:
+      exit_code: 0
+      contains: {"data.0.location": "Wild Zone"}
+      array_len: {"data": {"min": 1}}
+
+  - name: "Z-A encounters have alpha details (alpha_levels or alpha note)"
+    command: "pokedex pokemon encounters pikachu --game=legends-za"
+    assert:
+      exit_code: 0
+      has_fields: ["data.0.details"]
+      equals: {"data.0.game_slug": "legends-za"}
+
+  - name: "Wild Zone 1 encounters exist for Z-A"
+    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 1}}
+      equals: {"data.0.game_slug": "legends-za"}
+
+  - name: "Wild Zone 20 encounters exist for Z-A"
+    command: "pokedex location encounters wild-zone-20 --game=legends-za"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 1}}
+      contains: {"data.0.location": "Wild Zone 20"}
+
+  - name: "Wild Zone 21 does not exist"
+    command: "pokedex location encounters wild-zone-21 --game=legends-za"
+    assert:
+      exit_code: 1
+      has_fields: ["error.code", "actions"]
+      equals: {"error.code": "NOT_FOUND"}
+
+  - name: "Lumiose City not used as Z-A location"
+    command: "pokedex location encounters lumiose-city --game=legends-za"
+    assert:
+      exit_code: 1
+      equals: {"error.code": "NOT_FOUND"}
+      has_fields: ["actions"]
+
+  # ===== Alpha collection: add 10 pokemon with --alpha =====
+
+  - name: "Add alpha Growlithe to PLA collection"
+    command: "pokedex collection add --pokemon=growlithe --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "growlithe", "data.game": "legends-arceus"}
+      has_fields: ["data.id", "data.created_at"]
+
+  - name: "Add alpha Snorlax to PLA collection"
+    command: "pokedex collection add --pokemon=snorlax --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "snorlax"}
+      has_fields: ["data.id", "actions"]
+
+  - name: "Add alpha Luxray to PLA collection"
+    command: "pokedex collection add --pokemon=luxray --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "luxray"}
+      has_fields: ["data.id"]
+
+  - name: "Add alpha Starly to PLA collection"
+    command: "pokedex collection add --pokemon=starly --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "starly"}
+      has_fields: ["data.id"]
+
+  - name: "Add alpha Shinx to PLA collection"
+    command: "pokedex collection add --pokemon=shinx --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "shinx"}
+      has_fields: ["data.id"]
+
+  - name: "Add alpha Ponyta to PLA collection"
+    command: "pokedex collection add --pokemon=ponyta --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "ponyta"}
+      has_fields: ["data.id"]
+
+  - name: "Add alpha Machop to PLA collection"
+    command: "pokedex collection add --pokemon=machop --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "machop"}
+      has_fields: ["data.id"]
+
+  - name: "Add alpha Geodude to PLA collection"
+    command: "pokedex collection add --pokemon=geodude --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "geodude"}
+      has_fields: ["data.id"]
+
+  - name: "Add alpha Bidoof to PLA collection"
+    command: "pokedex collection add --pokemon=bidoof --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "bidoof"}
+      has_fields: ["data.id"]
+
+  - name: "Add alpha Pikachu to PLA collection"
+    command: "pokedex collection add --pokemon=pikachu --game=legends-arceus --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.species_name": "pikachu"}
+      has_fields: ["data.id"]
+
+  # ===== Alpha validation: non-alpha and wrong-game alphas =====
+
+  - name: "Non-alpha PLA entry has is_alpha=false"
+    command: "pokedex collection add --pokemon=eevee --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": false, "data.species_name": "eevee"}
+      has_fields: ["data.id", "data.status"]
+
+  - name: "Alpha in non-PLA game gives warning but succeeds"
+    command: "pokedex collection add --pokemon=pikachu --game=red --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true}
+      contains: {"data.warning": "Alpha"}
+
+  - name: "Alpha in Z-A is valid (no warning)"
+    command: "pokedex collection add --pokemon=pikachu --game=legends-za --alpha"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.game": "legends-za"}
+      has_fields: ["data.id", "data.status"]
+
+  - name: "Shiny alpha in Z-A works"
+    command: "pokedex collection add --pokemon=eevee --game=legends-za --alpha --shiny"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true, "data.shiny": true, "data.game": "legends-za"}
+      has_fields: ["data.id", "data.created_at"]
+
+  # ===== Collection show verifies alpha persisted =====
+
+  - name: "Collection show for alpha entry has is_alpha=true"
+    command: "pokedex collection show 1"
+    assert:
+      exit_code: 0
+      equals: {"data.is_alpha": true}
+      has_fields: ["actions", "data.status", "data.game"]
+
+  - name: "Collection list for PLA shows all alpha entries"
+    command: "pokedex collection list --game=legends-arceus"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 10}}
+      has_fields: ["actions", "meta"]
+
+  # ===== Meowth regional forms =====
+
+  - name: "Meowth has 4 forms including Alolan and Galarian"
+    command: "pokedex pokemon forms meowth"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 4, "max": 4}}
+      equals: {"data.0.is_default": true, "data.0.display_name": "Meowth"}
+
+  - name: "Alolan Meowth is Dark type"
     command: "pokedex pokemon show meowth-alola"
     assert:
       exit_code: 0
       equals: {"data.display_name": "Alolan Meowth", "data.types": ["Dark"]}
-      has_fields: ["data.id", "data.name", "data.stats", "data.abilities"]
-
-  - name: "Alolan Meowth has form-specific abilities (Pickup, Technician, Rattled)"
-    command: "pokedex pokemon show meowth-alola"
-    assert:
-      exit_code: 0
-      contains: {"data.abilities": "Technician"}
+      has_fields: ["data.stats", "data.abilities"]
 
   - name: "Galarian Meowth is Steel type"
     command: "pokedex pokemon show meowth-galar"
@@ -31,416 +376,43 @@ steps:
       equals: {"data.display_name": "Galarian Meowth", "data.types": ["Steel"]}
       has_fields: ["data.stats", "data.abilities"]
 
-  - name: "Galarian Meowth has Tough Claws ability"
-    command: "pokedex pokemon show meowth-galar"
+  # ===== Arcanine Hisuian form =====
+
+  - name: "Arcanine Hisuian form is_default=false"
+    command: "pokedex pokemon forms arcanine"
     assert:
       exit_code: 0
-      contains: {"data.abilities": "Tough Claws"}
+      equals: {"data.0.is_default": true, "data.0.display_name": "Arcanine"}
+      contains: {"data": "Hisuian Arcanine"}
 
-  - name: "Galarian Darumaka is Ice type with display_name Galarian Darumaka"
-    command: "pokedex pokemon show darumaka-galar"
+  # ===== Game details for PLA and Z-A =====
+
+  - name: "PLA game is gen 8, Hisui region"
+    command: "pokedex game show legends-arceus"
     assert:
       exit_code: 0
-      equals: {"data.display_name": "Galarian Darumaka", "data.types": ["Ice"]}
-      has_fields: ["data.id", "data.name", "data.stats", "data.abilities"]
+      equals: {"data.name": "legends-arceus", "data.generation": 8, "data.region": "Hisui"}
+      has_fields: ["data.display_name"]
 
-  - name: "Paldean Wooper is Poison/Ground"
-    command: "pokedex pokemon show wooper-paldea"
+  - name: "Z-A game is gen 9, Kalos region"
+    command: "pokedex game show legends-za"
     assert:
       exit_code: 0
-      equals: {"data.display_name": "Paldean Wooper", "data.types": ["Poison", "Ground"]}
-      has_fields: ["data.stats", "data.abilities"]
+      equals: {"data.name": "legends-za", "data.generation": 9, "data.region": "Kalos"}
+      has_fields: ["data.display_name"]
 
-  - name: "Hisuian Sneasel is Fighting/Poison"
-    command: "pokedex pokemon show sneasel-hisui"
+  # ===== Error handling =====
+
+  - name: "Nonexistent pokemon returns NOT_FOUND with exit 1"
+    command: "pokedex pokemon encounters nonexistent --game=legends-arceus"
+    assert:
+      exit_code: 1
+      equals: {"error.code": "NOT_FOUND"}
+      has_fields: ["actions"]
+
+  - name: "Growlithe not in Z-A returns empty data (not error)"
+    command: "pokedex pokemon encounters growlithe --game=legends-za"
     assert:
       exit_code: 0
-      equals: {"data.display_name": "Hisuian Sneasel", "data.types": ["Fighting", "Poison"]}
-
-  # ===== Regional form stats: verify form-specific stat values =====
-
-  - name: "Alolan Meowth stats: SpA=50, Atk=35, Speed=90, BST=290"
-    command: "pokedex pokemon stats meowth-alola"
-    assert:
-      exit_code: 0
-      equals: {"data.pokemon_name": "Alolan Meowth", "data.attack": 35, "data.special_attack": 50, "data.speed": 90, "data.total": 290}
-
-  - name: "Regular Meowth has different stat spread (Atk=45, SpA=40, Speed=90)"
-    command: "pokedex pokemon stats meowth"
-    assert:
-      exit_code: 0
-      equals: {"data.pokemon_name": "Meowth", "data.attack": 45, "data.special_attack": 40, "data.speed": 90, "data.total": 290}
-
-  - name: "Galarian Meowth stats differ: Atk=65, Def=55, Speed=40"
-    command: "pokedex pokemon stats meowth-galar"
-    assert:
-      exit_code: 0
-      equals: {"data.attack": 65, "data.defense": 55, "data.speed": 40, "data.total": 290}
-
-  # BUG: show embeds stats with pokemon_name="Meowth" (base name) but standalone
-  # stats returns pokemon_name="Galarian Meowth". The nested stats.pokemon_name
-  # in show output does not reflect the form.
-  - name: "show meowth-galar embeds stats with base pokemon_name (inconsistency)"
-    command: "pokedex pokemon show meowth-galar"
-    assert:
-      exit_code: 0
-      equals: {"data.stats.pokemon_name": "Galarian Meowth"}
-
-  - name: "stats darumaka-galar returns form-specific stats (BST 315)"
-    command: "pokedex pokemon stats darumaka-galar"
-    assert:
-      exit_code: 0
-      equals: {"data.hp": 70, "data.attack": 90, "data.defense": 45, "data.special_attack": 15, "data.special_defense": 45, "data.speed": 50, "data.total": 315}
-
-  - name: "stats wooper-paldea returns BST 210"
-    command: "pokedex pokemon stats wooper-paldea"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 210}
-
-  - name: "Hisuian Sneasel stats BST 430 with Speed 115"
-    command: "pokedex pokemon stats sneasel-hisui"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 430, "data.speed": 115}
-
-  # ===== HATEOAS actions for meowth-alola show =====
-  # stats/encounters/moves correctly link to meowth-alola (form-specific)
-  # evolutions/forms correctly link to meowth (species-level)
-
-  - name: "meowth-alola show stats action links to meowth-alola"
-    command: "pokedex pokemon show meowth-alola"
-    assert:
-      exit_code: 0
-      contains: {"actions": "pokedex pokemon stats meowth-alola"}
-
-  - name: "meowth-alola show encounters action links to meowth-alola"
-    command: "pokedex pokemon show meowth-alola"
-    assert:
-      exit_code: 0
-      contains: {"actions": "pokedex pokemon encounters meowth-alola"}
-
-  - name: "meowth-alola show evolutions action links to base meowth (species-level)"
-    command: "pokedex pokemon show meowth-alola"
-    assert:
-      exit_code: 0
-      contains: {"actions": "pokedex pokemon evolutions meowth"}
-
-  - name: "meowth-alola show forms action links to base meowth (species-level)"
-    command: "pokedex pokemon show meowth-alola"
-    assert:
-      exit_code: 0
-      contains: {"actions": "pokedex pokemon forms meowth"}
-
-  # BUG: stats actions lose form context entirely — show/moves/evolutions
-  # all link to base "meowth" instead of "meowth-alola". An agent following
-  # the show action from stats would get base Meowth, not Alolan Meowth.
-  - name: "stats meowth-alola show action loses form context (links to base meowth)"
-    command: "pokedex pokemon stats meowth-alola"
-    assert:
-      exit_code: 0
-      contains: {"actions": "pokedex pokemon show meowth"}
-
-  - name: "stats meowth-alola moves action also loses form context"
-    command: "pokedex pokemon stats meowth-alola"
-    assert:
-      exit_code: 0
-      contains: {"actions": "pokedex pokemon moves meowth"}
-
-  # BUG: add_to_collection action from show uses --pokemon=meowth (base)
-  # not --pokemon=meowth-alola, losing form context for collection
-  - name: "meowth-alola show add_to_collection action uses base pokemon name"
-    command: "pokedex pokemon show meowth-alola"
-    assert:
-      exit_code: 0
-      contains: {"actions": "pokedex collection add --pokemon=meowth"}
-
-  # ===== Meowth forms =====
-
-  - name: "Meowth has exactly 4 forms (base, Gmax, Alolan, Galarian)"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 4, "max": 4}}
-
-  - name: "Default Meowth form is Normal type with is_default true"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      equals: {"data.0.is_default": true, "data.0.display_name": "Meowth", "data.0.types": ["Normal"]}
-
-  - name: "Meowth forms include Alolan Meowth"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      contains: {"data": "Alolan Meowth"}
-
-  - name: "Meowth forms include Galarian Meowth"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      contains: {"data": "Galarian Meowth"}
-
-  - name: "Meowth forms include Gigantamax Meowth"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      contains: {"data": "Gigantamax Meowth"}
-
-  # BUG: Default Meowth form omits form_name field entirely
-  # (skip_serializing_if = Option::is_none) while non-default forms include it.
-  # Inconsistent: default should have form_name: null or be explicitly absent.
-  - name: "Default Meowth form has no form_name field (inconsistency)"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      equals: {"data.0.is_default": true}
-
-  - name: "Alolan Meowth form has form_name alola"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      equals: {"data.2.form_name": "alola"}
-
-  - name: "Galarian Meowth form has form_name galar"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      equals: {"data.3.form_name": "galar"}
-
-  # ===== Deoxys: form-specific stats differ dramatically =====
-
-  - name: "Attack Deoxys has extreme offensive stats: Atk=180, SpA=180, Def=20"
-    command: "pokedex pokemon show deoxys-attack"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Attack Deoxys", "data.types": ["Psychic"], "data.stats.attack": 180, "data.stats.special_attack": 180, "data.stats.defense": 20, "data.stats.total": 600}
-      has_fields: ["data.abilities"]
-
-  - name: "Base Deoxys has balanced stats: Atk=150, SpA=150, Def=50"
-    command: "pokedex pokemon show deoxys"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Deoxys", "data.types": ["Psychic"], "data.stats.attack": 150, "data.stats.defense": 50, "data.stats.total": 600}
-
-  - name: "Deoxys-attack stats standalone: pokemon_name says Attack Deoxys"
-    command: "pokedex pokemon stats deoxys-attack"
-    assert:
-      exit_code: 0
-      equals: {"data.pokemon_name": "Attack Deoxys", "data.attack": 180, "data.defense": 20, "data.special_attack": 180, "data.special_defense": 20}
-
-  - name: "Deoxys has exactly 4 forms (Normal, Attack, Defense, Speed)"
-    command: "pokedex pokemon forms deoxys"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 4, "max": 4}}
-
-  - name: "Deoxys default form is Normal"
-    command: "pokedex pokemon forms deoxys"
-    assert:
-      exit_code: 0
-      equals: {"data.0.is_default": true, "data.0.form_name": "normal", "data.0.display_name": "Normal Deoxys"}
-
-  - name: "Deoxys forms include Attack, Defense, Speed"
-    command: "pokedex pokemon forms deoxys"
-    assert:
-      exit_code: 0
-      contains: {"data": "Attack Deoxys"}
-
-  - name: "Deoxys forms include Defense Deoxys"
-    command: "pokedex pokemon forms deoxys"
-    assert:
-      exit_code: 0
-      contains: {"data": "Defense Deoxys"}
-
-  - name: "Deoxys forms include Speed Deoxys"
-    command: "pokedex pokemon forms deoxys"
-    assert:
-      exit_code: 0
-      contains: {"data": "Speed Deoxys"}
-
-  # ===== Mega Charizard X vs Y: different types and stats =====
-
-  - name: "Mega Charizard X is Fire/Dragon with BST 634"
-    command: "pokedex pokemon show charizard-mega-x"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Mega Charizard X", "data.types": ["Fire", "Dragon"], "data.stats.total": 634, "data.stats.attack": 130}
-      has_fields: ["data.abilities"]
-
-  - name: "Mega Charizard Y is Fire/Flying with BST 634"
-    command: "pokedex pokemon show charizard-mega-y"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Mega Charizard Y", "data.types": ["Fire", "Flying"], "data.stats.total": 634, "data.stats.special_attack": 159}
-      has_fields: ["data.abilities"]
-
-  - name: "Mega Charizard X stats: Atk=130, SpA=130, Def=111"
-    command: "pokedex pokemon stats charizard-mega-x"
-    assert:
-      exit_code: 0
-      equals: {"data.attack": 130, "data.special_attack": 130, "data.defense": 111}
-
-  - name: "Mega Charizard Y stats: Atk=104, SpA=159, Def=78"
-    command: "pokedex pokemon stats charizard-mega-y"
-    assert:
-      exit_code: 0
-      equals: {"data.attack": 104, "data.special_attack": 159, "data.defense": 78}
-
-  - name: "Charizard has 4 forms (base, Gmax, Mega X, Mega Y)"
-    command: "pokedex pokemon forms charizard"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 4, "max": 4}}
-
-  - name: "Charizard forms include Mega X and Mega Y"
-    command: "pokedex pokemon forms charizard"
-    assert:
-      exit_code: 0
-      contains: {"data": "Mega Charizard X"}
-
-  - name: "Charizard forms include Mega Y"
-    command: "pokedex pokemon forms charizard"
-    assert:
-      exit_code: 0
-      contains: {"data": "Mega Charizard Y"}
-
-  # ===== Rotom forms =====
-
-  - name: "Base Rotom is Electric/Ghost with BST 440"
-    command: "pokedex pokemon show rotom"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Rotom", "data.types": ["Electric", "Ghost"], "data.stats.total": 440}
-
-  - name: "Heat Rotom is Electric/Fire with BST 520"
-    command: "pokedex pokemon show rotom-heat"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Heat Rotom", "data.types": ["Electric", "Fire"], "data.stats.total": 520}
-
-  - name: "Rotom forms list includes at least 6 forms"
-    command: "pokedex pokemon forms rotom"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 6}}
-      has_fields: ["data.0.types", "data.0.is_default"]
-
-  # ===== Unown: 28 forms (A-Z + ! + ?) =====
-
-  - name: "Unown has exactly 28 forms"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 28, "max": 28}}
-      has_fields: ["data.0.display_name", "data.0.is_default", "data.0.types"]
-
-  - name: "First Unown form is default and Psychic type"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      equals: {"data.0.is_default": true, "data.0.types": ["Psychic"]}
-
-  - name: "Unown ! form exists"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      contains: {"data": "Unown !"}
-
-  - name: "Unown ? form exists"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      contains: {"data": "Unown ?"}
-
-  # ===== Alcremie: many forms (63 flavor combos + Gmax) =====
-
-  - name: "Alcremie has at least 63 forms"
-    command: "pokedex pokemon forms alcremie"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 63}}
-
-  - name: "Alcremie default form is first and Vanilla Cream"
-    command: "pokedex pokemon forms alcremie"
-    assert:
-      exit_code: 0
-      equals: {"data.0.is_default": true}
-      contains: {"data.0.display_name": "Vanilla Cream"}
-
-  - name: "Alcremie has Gigantamax form"
-    command: "pokedex pokemon forms alcremie"
-    assert:
-      exit_code: 0
-      contains: {"data": "Gigantamax Alcremie"}
-
-  # ===== Vivillon forms =====
-
-  - name: "Vivillon has at least 18 pattern forms"
-    command: "pokedex pokemon forms vivillon"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 18}}
-
-  - name: "Vivillon-meadow shows Meadow Vivillon Bug/Flying"
-    command: "pokedex pokemon show vivillon-meadow"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Meadow Vivillon", "data.types": ["Bug", "Flying"]}
-
-  # ===== Sneasel forms =====
-
-  - name: "Sneasel has 2 forms (base and Hisuian)"
-    command: "pokedex pokemon forms sneasel"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 2, "max": 2}}
-
-  # ===== Collection: add with form auto-detection =====
-
-  - name: "collection add meowth-alola auto-detects alola form with correct display_name"
-    command: "pokedex collection add --pokemon=meowth-alola --game=sword"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "meowth", "data.form_name": "alola", "data.display_name": "Alolan Meowth", "data.game": "sword", "data.status": "caught"}
-      has_fields: ["data.id", "data.created_at"]
-
-  - name: "collection add darumaka-galar auto-detects galar form"
-    command: "pokedex collection add --pokemon=darumaka-galar --game=sword"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "darumaka", "data.form_name": "galar", "data.game": "sword", "data.status": "caught"}
-      has_fields: ["data.id", "data.created_at"]
-
-  - name: "collection add with explicit --form=paldea works"
-    command: "pokedex collection add --pokemon=wooper --form=paldea --game=scarlet"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "wooper", "data.form_name": "paldea", "data.game": "scarlet"}
-
-  # ===== PLA alpha collection =====
-
-  - name: "add alpha Kleavor to PLA"
-    command: "pokedex collection add --pokemon=kleavor --game=legends-arceus --alpha"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "kleavor", "data.game": "legends-arceus", "data.is_alpha": true, "data.status": "caught"}
-      has_fields: ["data.id", "data.created_at"]
-
-  - name: "add alpha Snorlax to PLA"
-    command: "pokedex collection add --pokemon=snorlax --game=legends-arceus --alpha"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "snorlax", "data.is_alpha": true}
-
-  - name: "add alpha Walrein to PLA"
-    command: "pokedex collection add --pokemon=walrein --game=legends-arceus --alpha"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "walrein", "data.is_alpha": true}
-
-  - name: "PLA collection has alphas"
-    command: "pokedex collection list --game=legends-arceus"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 3}}
+      array_len: {"data": {"min": 0, "max": 0}}
+      has_fields: ["actions", "meta"]

@@ -60,3 +60,34 @@ Issues are referenced by the exploratory test skill so testers don't re-report k
 - **Source**: Design limitation
 - **Detail**: `pokemon encounters geodude-alola` resolves to species geodude and returns all Geodude encounters (base form). The encounter table stores base pokemon_id for most games. The regional annotation overlay handles display names but can't filter encounters to form-specific ones.
 - **Found**: Round 12 (Tester K)
+
+## Location Data
+
+### L001: unknown-area-* identifiers in Gen 6 locations
+- **Status**: WONTFIX (upstream)
+- **Source**: PokeAPI location_areas.csv
+- **Games**: X, Y, Omega Ruby, Alpha Sapphire
+- **Detail**: Some Gen 6 locations have areas named `unknown-area-303`, `unknown-area-313`, etc. instead of human-readable names. PokeAPI lacks proper area names for these locations.
+- **Found**: Round 12 (Tester P)
+
+### L002: avaluggs-lagacy misspelled location slug
+- **Status**: WONTFIX (upstream)
+- **Source**: PokeAPI locations.csv
+- **Games**: Legends: Arceus
+- **Detail**: PokeAPI has location slug `avaluggs-lagacy` (misspelling of "legacy"). PokeDB has the correct `avaluggs-legacy`. Both exist as separate entries in the database.
+- **Found**: Round 12 (Tester T)
+
+## Evolution Data (continued)
+
+### V003: Pancham/Inkay evolution triggers incomplete
+- **Status**: WONTFIX (upstream)
+- **Source**: PokeAPI pokemon_evolution.csv
+- **Detail**: Pancham→Pangoro shows "Level 32" but the actual mechanic requires a Dark-type in the party. Inkay→Malamar shows "Level 30" but requires holding the device upside down. PokeAPI doesn't capture party/physical conditions.
+- **Found**: Round 12 (Tester P)
+
+### V004: Unown encounter method has "Reasearch" typo
+- **Status**: WONTFIX (upstream)
+- **Source**: PokeDB encounter data
+- **Games**: Legends: Arceus
+- **Detail**: Unown encounter method rendered as "Contact (Unown Reasearch Notes)" with "Reasearch" misspelled. Upstream PokeDB data issue.
+- **Found**: Round 12 (Tester T)

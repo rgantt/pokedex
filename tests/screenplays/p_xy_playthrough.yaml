@@ -1,0 +1,715 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "X/Y Kalos Completionist Playthrough"
+persona: p_xy_completionist
+description: >
+  End-to-end Pokemon X playthrough testing the discover-inspect-catch-evolve-verify
+  loop across kalos-route-2, santalune-forest, kalos-route-3 through kalos-route-5,
+  kalos-route-7, kalos-route-8, glittering-cave, kalos-route-10 through kalos-route-12,
+  kalos-route-14, kalos-route-15, frost-cavern, kalos-route-18 through kalos-route-20,
+  and kalos-victory-road. Covers Gen 6 features: Fairy type, fossil pokemon,
+  version exclusives, trade evolutions, and Kalos regional dex progress.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # LOCATION 1: kalos-route-2
+  # ============================================================
+  - name: "Route 2 -- discover encounters"
+    command: "pokedex location encounters kalos-route-2 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 12 }
+      array_len: { "data": { "min": 6 } }
+
+  - name: "Route 2 -- wrong slug returns error"
+    command: "pokedex location encounters route-2 --game=x"
+    assert:
+      exit_code: 1
+      has_fields: ["error.code", "error.message", "actions"]
+      equals: { "error.code": "NOT_FOUND" }
+
+  - name: "Route 2 -- inspect Bunnelby"
+    command: "pokedex pokemon show bunnelby"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "bunnelby", "data.generation": 6 }
+      has_fields: ["data.types", "data.stats", "data.abilities"]
+
+  - name: "Route 2 -- catch Bunnelby"
+    command: "pokedex collection add --pokemon=bunnelby --game=x --method=catch"
+    capture: { "bunnelby_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bunnelby", "data.status": "caught", "data.method": "catch" }
+      has_fields: ["data.id", "data.created_at"]
+
+  - name: "Route 2 -- catch Fletchling"
+    command: "pokedex collection add --pokemon=fletchling --game=x --method=catch"
+    capture: { "fletchling_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "fletchling", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Route 2 -- catch Scatterbug"
+    command: "pokedex collection add --pokemon=scatterbug --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "scatterbug", "data.status": "caught" }
+
+  - name: "Route 2 -- catch Pidgey"
+    command: "pokedex collection add --pokemon=pidgey --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pidgey", "data.status": "caught" }
+
+  - name: "Route 2 -- catch Weedle"
+    command: "pokedex collection add --pokemon=weedle --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "weedle", "data.status": "caught" }
+
+  - name: "Route 2 -- catch Zigzagoon"
+    command: "pokedex collection add --pokemon=zigzagoon --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zigzagoon", "data.status": "caught" }
+
+  - name: "Route 2 -- Bunnelby evolution chain"
+    command: "pokedex pokemon evolutions bunnelby"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bunnelby" }
+      has_fields: ["data.children"]
+      array_len: { "data.children": { "min": 1, "max": 1 } }
+
+  - name: "Route 2 -- evolve Bunnelby to Diggersby"
+    command: "pokedex collection add --pokemon=diggersby --game=x --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "diggersby", "data.status": "living_dex" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # LOCATION 2: santalune-forest
+  # ============================================================
+  - name: "Santalune Forest -- discover encounters"
+    command: "pokedex location encounters santalune-forest --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      array_len: { "data": { "min": 5 } }
+
+  - name: "Santalune Forest -- catch Pikachu"
+    command: "pokedex collection add --pokemon=pikachu --game=x --method=catch"
+    capture: { "pikachu_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Santalune Forest -- catch Caterpie"
+    command: "pokedex collection add --pokemon=caterpie --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "caterpie", "data.status": "caught" }
+
+  - name: "Santalune Forest -- catch Pansage"
+    command: "pokedex collection add --pokemon=pansage --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pansage", "data.status": "caught" }
+
+  - name: "Santalune Forest -- Pikachu evolution chain"
+    command: "pokedex pokemon evolutions pikachu"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pichu" }
+      has_fields: ["data.children"]
+
+  # ============================================================
+  # LOCATION 3: kalos-route-3
+  # ============================================================
+  - name: "Route 3 -- discover encounters"
+    command: "pokedex location encounters kalos-route-3 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 10 } }
+
+  - name: "Route 3 -- catch Azurill"
+    command: "pokedex collection add --pokemon=azurill --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "azurill", "data.status": "caught" }
+
+  - name: "Route 3 -- catch Burmy"
+    command: "pokedex collection add --pokemon=burmy --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "burmy", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 4: kalos-route-4
+  # ============================================================
+  - name: "Route 4 -- discover encounters"
+    command: "pokedex location encounters kalos-route-4 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 4 } }
+
+  - name: "Route 4 -- inspect Flabebe (unicode name)"
+    command: "pokedex pokemon show flabebe"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "flabebe", "data.generation": 6 }
+      contains: { "data.display_name": "b\u00e9b\u00e9" }
+
+  - name: "Route 4 -- catch Flabebe"
+    command: "pokedex collection add --pokemon=flabebe --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "flabebe", "data.status": "caught" }
+
+  - name: "Route 4 -- catch Ralts"
+    command: "pokedex collection add --pokemon=ralts --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ralts", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 5: kalos-route-5
+  # ============================================================
+  - name: "Route 5 -- discover encounters"
+    command: "pokedex location encounters kalos-route-5 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 8 } }
+
+  - name: "Route 5 -- catch Pancham"
+    command: "pokedex collection add --pokemon=pancham --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pancham", "data.status": "caught" }
+
+  - name: "Route 5 -- catch Furfrou"
+    command: "pokedex collection add --pokemon=furfrou --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "furfrou", "data.status": "caught" }
+
+  - name: "Route 5 -- catch Skiddo"
+    command: "pokedex collection add --pokemon=skiddo --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "skiddo", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 6: kalos-route-7
+  # ============================================================
+  - name: "Route 7 -- discover encounters"
+    command: "pokedex location encounters kalos-route-7 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 8 } }
+
+  - name: "Route 7 -- inspect Swirlix (X exclusive, Fairy type)"
+    command: "pokedex pokemon show swirlix"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "swirlix", "data.generation": 6 }
+      has_fields: ["data.types", "data.abilities"]
+
+  - name: "Route 7 -- catch Swirlix"
+    command: "pokedex collection add --pokemon=swirlix --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "swirlix", "data.status": "caught" }
+
+  - name: "Route 7 -- Swirlix encounters absent in Y"
+    command: "pokedex pokemon encounters swirlix --game=y"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+
+  # ============================================================
+  # LOCATION 7: kalos-route-8
+  # ============================================================
+  - name: "Route 8 -- discover encounters"
+    command: "pokedex location encounters kalos-route-8 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 15 } }
+
+  - name: "Route 8 -- catch Inkay"
+    command: "pokedex collection add --pokemon=inkay --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "inkay", "data.status": "caught" }
+
+  - name: "Route 8 -- catch Binacle"
+    command: "pokedex collection add --pokemon=binacle --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "binacle", "data.status": "caught" }
+
+  - name: "Route 8 -- Inkay evolution chain"
+    command: "pokedex pokemon evolutions inkay"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "inkay" }
+      has_fields: ["data.children"]
+      array_len: { "data.children": { "min": 1 } }
+
+  # ============================================================
+  # LOCATION 8: glittering-cave
+  # ============================================================
+  - name: "Glittering Cave -- discover encounters"
+    command: "pokedex location encounters glittering-cave --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 8 } }
+
+  - name: "Glittering Cave -- catch Tyrunt (fossil)"
+    command: "pokedex collection add --pokemon=tyrunt --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tyrunt", "data.status": "caught" }
+
+  - name: "Glittering Cave -- catch Amaura (fossil)"
+    command: "pokedex collection add --pokemon=amaura --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "amaura", "data.status": "caught" }
+
+  - name: "Glittering Cave -- Tyrunt evolution (daytime)"
+    command: "pokedex pokemon evolutions tyrunt"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tyrunt" }
+      contains: { "data.children[0].methods[0].trigger_detail": "day" }
+
+  - name: "Glittering Cave -- Amaura evolution (nighttime)"
+    command: "pokedex pokemon evolutions amaura"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "amaura" }
+      contains: { "data.children[0].methods[0].trigger_detail": "night" }
+
+  - name: "Glittering Cave -- evolve Tyrunt to Tyrantrum"
+    command: "pokedex collection add --pokemon=tyrantrum --game=x --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tyrantrum", "data.status": "living_dex" }
+
+  # ============================================================
+  # LOCATION 9: kalos-route-10
+  # ============================================================
+  - name: "Route 10 -- discover encounters"
+    command: "pokedex location encounters kalos-route-10 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 6 } }
+
+  - name: "Route 10 -- catch Eevee"
+    command: "pokedex collection add --pokemon=eevee --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "eevee", "data.status": "caught" }
+
+  - name: "Route 10 -- Eevee evolution chain (8 evolutions)"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "eevee" }
+      array_len: { "data.children": { "min": 8, "max": 8 } }
+
+  - name: "Route 10 -- catch Hawlucha (Gen 6 exclusive)"
+    command: "pokedex collection add --pokemon=hawlucha --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "hawlucha", "data.status": "caught" }
+
+  - name: "Route 10 -- inspect Hawlucha"
+    command: "pokedex pokemon show hawlucha"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "hawlucha", "data.generation": 6 }
+      has_fields: ["data.types", "data.stats"]
+
+  # ============================================================
+  # LOCATION 10: kalos-route-11
+  # ============================================================
+  - name: "Route 11 -- discover encounters"
+    command: "pokedex location encounters kalos-route-11 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 8 } }
+
+  - name: "Route 11 -- catch Dedenne (Gen 6 Electric/Fairy)"
+    command: "pokedex collection add --pokemon=dedenne --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dedenne", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 11: kalos-route-12
+  # ============================================================
+  - name: "Route 12 -- discover encounters"
+    command: "pokedex location encounters kalos-route-12 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 15 } }
+
+  - name: "Route 12 -- catch Lapras"
+    command: "pokedex collection add --pokemon=lapras --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "lapras", "data.status": "caught" }
+
+  - name: "Route 12 -- catch Mareep"
+    command: "pokedex collection add --pokemon=mareep --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mareep", "data.status": "caught" }
+
+  # ============================================================
+  # VERIFY: First collection checkpoint
+  # ============================================================
+  - name: "Checkpoint -- collection stats"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_game"]
+      type_of: { "data.total_entries": "number" }
+
+  - name: "Checkpoint -- Kalos Central dex progress"
+    command: "pokedex dex progress kalos-central"
+    assert:
+      exit_code: 0
+      has_fields: ["data.dex_name", "data.total", "data.caught", "data.percentage"]
+      equals: { "data.dex_name": "kalos-central", "data.total": 150 }
+
+  - name: "Checkpoint -- Kalos Coastal dex progress"
+    command: "pokedex dex progress kalos-coastal"
+    assert:
+      exit_code: 0
+      equals: { "data.dex_name": "kalos-coastal", "data.total": 153 }
+      has_fields: ["data.caught", "data.percentage"]
+
+  - name: "Checkpoint -- Kalos Mountain dex progress"
+    command: "pokedex dex progress kalos-mountain"
+    assert:
+      exit_code: 0
+      equals: { "data.dex_name": "kalos-mountain", "data.total": 151 }
+      has_fields: ["data.caught", "data.percentage"]
+
+  # ============================================================
+  # LOCATION 12: kalos-route-14
+  # ============================================================
+  - name: "Route 14 -- discover encounters"
+    command: "pokedex location encounters kalos-route-14 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 10 } }
+
+  - name: "Route 14 -- catch Goomy (pseudo-legendary)"
+    command: "pokedex collection add --pokemon=goomy --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "goomy", "data.status": "caught" }
+
+  - name: "Route 14 -- Goomy evolution chain"
+    command: "pokedex pokemon evolutions goomy"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "goomy" }
+      has_fields: ["data.children"]
+      array_len: { "data.children": { "min": 1 } }
+
+  - name: "Route 14 -- Goomy encounters verify"
+    command: "pokedex pokemon encounters goomy --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      array_len: { "data": { "min": 1 } }
+
+  # ============================================================
+  # LOCATION 13: kalos-route-15
+  # ============================================================
+  - name: "Route 15 -- discover encounters"
+    command: "pokedex location encounters kalos-route-15 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 8 } }
+
+  - name: "Route 15 -- catch Klefki (Gen 6 Steel/Fairy)"
+    command: "pokedex collection add --pokemon=klefki --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "klefki", "data.status": "caught" }
+
+  - name: "Route 15 -- Klefki has no evolutions"
+    command: "pokedex pokemon evolutions klefki"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "klefki" }
+      array_len: { "data.children": { "min": 0, "max": 0 } }
+
+  # ============================================================
+  # LOCATION 14: frost-cavern
+  # ============================================================
+  - name: "Frost Cavern -- discover encounters"
+    command: "pokedex location encounters frost-cavern --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 8 } }
+
+  - name: "Frost Cavern -- catch Bergmite"
+    command: "pokedex collection add --pokemon=bergmite --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bergmite", "data.status": "caught" }
+
+  - name: "Frost Cavern -- catch Cubchoo"
+    command: "pokedex collection add --pokemon=cubchoo --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cubchoo", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 15: kalos-route-18
+  # ============================================================
+  - name: "Route 18 -- discover encounters"
+    command: "pokedex location encounters kalos-route-18 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 6 } }
+
+  - name: "Route 18 -- catch Durant"
+    command: "pokedex collection add --pokemon=durant --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "durant", "data.status": "caught" }
+
+  - name: "Route 18 -- catch Heatmor"
+    command: "pokedex collection add --pokemon=heatmor --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "heatmor", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 16: kalos-route-19
+  # ============================================================
+  - name: "Route 19 -- discover encounters"
+    command: "pokedex location encounters kalos-route-19 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 10 } }
+
+  - name: "Route 19 -- catch Sliggoo (Goomy evolution in wild)"
+    command: "pokedex collection add --pokemon=sliggoo --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sliggoo", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 17: kalos-route-20
+  # ============================================================
+  - name: "Route 20 -- discover encounters"
+    command: "pokedex location encounters kalos-route-20 --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 5 } }
+
+  - name: "Route 20 -- catch Trevenant"
+    command: "pokedex collection add --pokemon=trevenant --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "trevenant", "data.status": "caught" }
+
+  - name: "Route 20 -- Trevenant evolves from Phantump via trade"
+    command: "pokedex pokemon evolutions trevenant"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "phantump" }
+      has_fields: ["data.children"]
+
+  - name: "Route 20 -- catch Zoroark"
+    command: "pokedex collection add --pokemon=zoroark --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zoroark", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 18: kalos-victory-road
+  # ============================================================
+  - name: "Victory Road -- discover encounters"
+    command: "pokedex location encounters kalos-victory-road --game=x"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 4 } }
+
+  - name: "Victory Road -- catch Druddigon"
+    command: "pokedex collection add --pokemon=druddigon --game=x --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "druddigon", "data.status": "caught" }
+
+  # ============================================================
+  # EVOLVE: Update base forms and add evolved forms
+  # ============================================================
+  - name: "Evolve -- add Malamar (evolved Inkay)"
+    command: "pokedex collection add --pokemon=malamar --game=x --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "malamar", "data.status": "living_dex" }
+
+  - name: "Evolve -- Scatterbug evolution chain"
+    command: "pokedex pokemon evolutions scatterbug"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "scatterbug" }
+      array_len: { "data.children": { "min": 1 } }
+
+  - name: "Evolve -- Swirlix trade evolution"
+    command: "pokedex pokemon evolutions swirlix"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "swirlix" }
+      contains: { "data.children[0].methods[0].trigger": "trade" }
+
+  # ============================================================
+  # ERROR HANDLING
+  # ============================================================
+  - name: "Error -- invalid pokemon name"
+    command: "pokedex collection add --pokemon=missingno --game=x --method=catch"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Error -- invalid game name"
+    command: "pokedex collection add --pokemon=pikachu --game=invalid-game --method=catch"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Error -- invalid status filter"
+    command: "pokedex collection list --game=x --status=invalid"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
+
+  - name: "Error -- update nonexistent collection entry"
+    command: "pokedex collection update 999999 --status=caught"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Error -- remove nonexistent collection entry"
+    command: "pokedex collection remove 999999"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Error -- fuzzy match suggests pikachu for typo"
+    command: "pokedex pokemon show pikchu"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+      array_len: { "actions": { "min": 1 } }
+
+  # ============================================================
+  # EDGE CASES
+  # ============================================================
+  - name: "Edge -- pokemon lookup by ID"
+    command: "pokedex pokemon show 25"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "pikachu" }
+      has_fields: ["data.types"]
+
+  - name: "Edge -- case insensitive lookup"
+    command: "pokedex pokemon show PIKACHU"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "pikachu" }
+
+  - name: "Edge -- Fairy type matchups (introduced Gen 6)"
+    command: "pokedex type matchups fairy"
+    assert:
+      exit_code: 0
+      equals: { "data.type_name": "fairy" }
+      has_fields: ["data.attacking.super_effective", "data.defending.no_effect"]
+
+  - name: "Edge -- encounter pagination"
+    command: "pokedex location encounters kalos-route-2 --game=x --limit=2 --offset=0"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 12, "meta.limit": 2 }
+      array_len: { "data": { "min": 2, "max": 2 } }
+
+  - name: "Edge -- collection list pagination"
+    command: "pokedex collection list --game=x --limit=5 --offset=0"
+    assert:
+      exit_code: 0
+      has_fields: ["meta.total", "meta.limit", "meta.offset"]
+      array_len: { "data": { "min": 5, "max": 5 } }
+
+  - name: "Edge -- Flabebe forms list"
+    command: "pokedex pokemon forms flabebe"
+    assert:
+      exit_code: 0
+      has_fields: ["data"]
+      array_len: { "data": { "min": 5 } }
+
+  - name: "Edge -- HATEOAS actions on pokemon show"
+    command: "pokedex pokemon show klefki"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      array_len: { "actions": { "min": 5 } }
+
+  # ============================================================
+  # FINAL VERIFY
+  # ============================================================
+  - name: "Final -- national dex progress"
+    command: "pokedex dex progress national"
+    assert:
+      exit_code: 0
+      equals: { "data.dex_name": "national", "data.total": 1025 }
+      has_fields: ["data.caught", "data.percentage"]
+      type_of: { "data.percentage": "number" }
+
+  - name: "Final -- collection stats summary"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status", "data.by_game"]
+      type_of: { "data.total_entries": "number" }

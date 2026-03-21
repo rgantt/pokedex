@@ -255,11 +255,16 @@ pub fn add(
         warning: encounter_warning,
     };
 
+    let pokemon_slug = if let Some(ref f) = effective_form {
+        format!("{species_name}-{f}")
+    } else {
+        species_name.to_string()
+    };
     let actions = vec![
         Action::new("show", &format!("pokedex collection show {id}")),
         Action::new("list", "pokedex collection list"),
         Action::new("stats", "pokedex collection stats"),
-        Action::new("pokemon_info", &format!("pokedex pokemon show {species_name}")),
+        Action::new("pokemon_info", &format!("pokedex pokemon show {pokemon_slug}")),
     ];
 
     let mut meta_cmd = format!("pokedex collection add --pokemon={pokemon} --game={game}");
@@ -497,10 +502,15 @@ pub fn show_entry(conn: &Connection, id: i64, format: &OutputFormat) -> Result<(
     let entry = queries::get_collection_entry(conn, id)?;
     match entry {
         Some(e) => {
+            let pokemon_slug = if let Some(ref f) = e.form_name {
+                format!("{}-{f}", e.species_name)
+            } else {
+                e.species_name.clone()
+            };
             let actions = vec![
                 Action::new("update", &format!("pokedex collection update {id} --status=<status>")),
                 Action::new("remove", &format!("pokedex collection remove {id}")),
-                Action::new("pokemon_info", &format!("pokedex pokemon show {}", e.species_name)),
+                Action::new("pokemon_info", &format!("pokedex pokemon show {pokemon_slug}")),
                 Action::new("list", "pokedex collection list"),
             ];
             let response = Response::new(e, actions, Meta::simple(&format!("pokedex collection show {id}")));

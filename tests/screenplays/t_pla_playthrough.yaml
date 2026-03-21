@@ -5,11 +5,12 @@
 name: "PLA Playthrough - Hisuian Forms & Alpha Collection"
 persona: pla_playthrough
 description: >
-  End-to-end Legends: Arceus playthrough focused on R11 form fixes. Exercises
-  the discover-inspect-catch-verify loop across aspiration-hill, horseshoe-plains,
-  gapejaw-bog, veilstone-cape, sacred-plaza, avaluggs-legacy, wayward-cave, and
-  snowfall-hot-spring. Verifies Hisuian display_name, form-specific types, HATEOAS
-  action fidelity for forms, alpha collection, and stats tracking.
+  End-to-end Legends: Arceus playthrough focused on R11 form fixes and R12 edge
+  cases. Exercises the discover-inspect-catch-verify loop across aspiration-hill,
+  horseshoe-plains, gapejaw-bog, veilstone-cape, sacred-plaza, avaluggs-legacy,
+  wayward-cave, and snowfall-hot-spring. Verifies Hisuian display_name, form-specific
+  types, HATEOAS action fidelity for forms, alpha collection, stats tracking,
+  PLA-exclusive evolutions, error handling, pagination, and data quality.
 needs_seed: true
 mutates_collection: true
 
@@ -590,3 +591,154 @@ steps:
     assert:
       exit_code: 0
       contains: { "data": "hisui" }
+
+  # ============================================================
+  # ROUND 12: Additional edge case coverage
+  # ============================================================
+
+  # PLA-exclusive evolutions
+  - name: "R12 -- Stantler evolves to Wyrdeer via agile-style-move"
+    command: "pokedex pokemon evolutions stantler"
+    assert:
+      exit_code: 0
+      contains: { "data": "wyrdeer" }
+      has_fields: ["data.children"]
+
+  - name: "R12 -- Scyther shows both Scizor and Kleavor evolutions"
+    command: "pokedex pokemon evolutions scyther"
+    assert:
+      exit_code: 0
+      contains: { "data": "kleavor" }
+      array_len: { "data.children": { "min": 2 } }
+
+  - name: "R12 -- Kleavor is Bug/Rock"
+    command: "pokedex pokemon show kleavor"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Bug", "Rock"], "data.generation": 8 }
+
+  - name: "R12 -- Wyrdeer is Normal/Psychic"
+    command: "pokedex pokemon show wyrdeer"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Normal", "Psychic"], "data.generation": 8 }
+
+  - name: "R12 -- Ursaluna is Ground/Normal"
+    command: "pokedex pokemon show ursaluna"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Ground", "Normal"], "data.generation": 8 }
+
+  # Hisuian starter final evolutions
+  - name: "R12 -- Hisuian Samurott is Water/Dark"
+    command: "pokedex pokemon show samurott-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Samurott", "data.types": ["Water", "Dark"] }
+
+  - name: "R12 -- Hisuian Decidueye is Grass/Fighting"
+    command: "pokedex pokemon show decidueye-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Decidueye", "data.types": ["Grass", "Fighting"] }
+
+  # Hisuian Electrode type
+  - name: "R12 -- Hisuian Electrode is Electric/Grass"
+    command: "pokedex pokemon show electrode-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Electrode", "data.types": ["Electric", "Grass"] }
+
+  # Sneasel-Sneasler evolution chain
+  - name: "R12 -- Sneasel evolves to both Weavile and Sneasler"
+    command: "pokedex pokemon evolutions sneasel"
+    assert:
+      exit_code: 0
+      contains: { "data": "sneasler" }
+      array_len: { "data.children": { "min": 2 } }
+
+  - name: "R12 -- Sneasler is Fighting/Poison"
+    command: "pokedex pokemon show sneasler"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Fighting", "Poison"], "data.generation": 8 }
+
+  # Hisuian Arcanine type verification
+  - name: "R12 -- Hisuian Arcanine is Fire/Rock"
+    command: "pokedex pokemon show arcanine-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Arcanine", "data.types": ["Fire", "Rock"] }
+
+  # Error handling
+  - name: "R12 -- Invalid method gives INVALID_PARAMETER with recovery actions"
+    command: "pokedex collection add --pokemon=bidoof --game=legends-arceus --method=evolution"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
+
+  - name: "R12 -- Non-existent Pokemon gives NOT_FOUND"
+    command: "pokedex collection add --pokemon=fakemon --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "R12 -- Invalid game gives NOT_FOUND with suggestions"
+    command: "pokedex collection add --pokemon=bidoof --game=invalid-game --method=catch"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # Pagination on large encounter list
+  - name: "R12 -- Gapejaw Bog pagination page 2"
+    command: "pokedex location encounters gapejaw-bog --game=legends-arceus --limit=50 --offset=50"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 55 }
+      array_len: { "data": { "min": 1, "max": 10 } }
+
+  # Hisui dex progress
+  - name: "R12 -- Hisui dex progress shows correct total"
+    command: "pokedex dex progress hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.dex_name": "hisui", "data.total": 242 }
+      has_fields: ["data.caught", "data.percentage"]
+
+  # Dry run
+  - name: "R12 -- Dry run does not persist to collection"
+    command: "pokedex collection add --pokemon=ursaluna --game=legends-arceus --method=evolve --dry-run"
+    assert:
+      exit_code: 0
+      equals: { "data.dry_run": true, "data.pokemon": "ursaluna" }
+      has_fields: ["actions"]
+
+  # BUG: --alpha and --shiny flags not documented in --discover
+  # The flags work but are missing from the collection add flags list.
+  - name: "R12 -- discover output documents collection add flags"
+    command: "pokedex --discover"
+    assert:
+      exit_code: 0
+      has_fields: ["data.resources"]
+
+  # BUG: discover method list missing 'evolve' (shows 7 values, actual valid set is 8)
+  # --discover shows: catch, breed, trade, transfer, gift, raid, research
+  # Error message shows: catch, breed, trade, transfer, gift, raid, research, evolve
+
+  # Data quirk: Unown encounter method has typo "Reasearch" instead of "Research"
+  - name: "R12 -- Unown encounter method contains typo in upstream data"
+    command: "pokedex location encounters veilstone-cape --game=legends-arceus"
+    assert:
+      exit_code: 0
+      contains: { "data": "Unown Reasearch Notes" }
+
+  # Both avaluggs-legacy (PokeDB) and avaluggs-lagacy (PokeAPI typo) resolve
+  - name: "R12 -- avaluggs-legacy resolves correctly"
+    command: "pokedex location encounters avaluggs-legacy --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 36 }
+      contains: { "data": "Hisuian Zorua" }

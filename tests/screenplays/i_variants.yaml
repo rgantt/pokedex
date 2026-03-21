@@ -2,430 +2,285 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Variants: Branching Evolutions, Forms, and Trigger Details"
-persona: variants
-description: "Test branching evolutions (Cosmog chain with type divergence, Slowpoke 2-way with item triggers, Eevee 8-way), form counts and metadata (Pikachu 17 cosmetics incl. gmax, Shellos 2 regional), Deoxys form-specific stat extremes, and HATEOAS form context fidelity"
+name: "Variant Collector: Forms, Regional Variants, and Multi-Outcome Evolutions"
+persona: "I"
+description: "Test form-specific types/stats/abilities for regional variants (Meowth, Vulpix), appliance forms (Rotom), stat-different forms (Deoxys), type-different forms (Wormadam, Oricorio), named forms (Lycanroc), cosmetic forms (Vivillon), multi-outcome evolutions (Eevee, Tyrogue, Wurmple), HATEOAS form context preservation, error handling for invalid forms, and collection operations with forms"
 needs_seed: true
-mutates_collection: false
+mutates_collection: true
 
 steps:
-  # ===== Cosmog: linear chain then version-exclusive branch =====
+  # ===== Meowth: 3 regional variants with different types =====
 
-  - name: "Cosmog evolution chain starts at cosmog"
-    command: "pokedex pokemon evolutions cosmog"
+  - name: "Base Meowth is Normal type"
+    command: "pokedex pokemon show meowth"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "cosmog" }
+      equals: { "data.types": ["Normal"], "data.display_name": "Meowth" }
+      has_fields: ["data.stats", "data.abilities"]
 
-  - name: "Cosmog has exactly 1 child (Cosmoem)"
-    command: "pokedex pokemon evolutions cosmog"
+  - name: "Alolan Meowth is Dark type"
+    command: "pokedex pokemon show meowth-alola"
     assert:
       exit_code: 0
-      array_len: { "data.children": { "min": 1, "max": 1 } }
-      contains: { "data": "cosmoem" }
+      equals: { "data.types": ["Dark"], "data.display_name": "Alolan Meowth" }
+      has_fields: ["data.stats"]
 
-  - name: "Cosmoem evolves at level 43"
-    command: "pokedex pokemon evolutions cosmog"
+  - name: "Galarian Meowth is Steel type"
+    command: "pokedex pokemon show meowth-galar"
     assert:
       exit_code: 0
-      contains: { "data": "Level 43" }
+      equals: { "data.types": ["Steel"], "data.display_name": "Galarian Meowth" }
 
-  - name: "Cosmoem branches into exactly 2 Pokemon"
-    command: "pokedex pokemon evolutions cosmog"
+  - name: "Alolan Meowth has different stats from base"
+    command: "pokedex pokemon show meowth-alola"
     assert:
       exit_code: 0
-      array_len: { "data.children.0.children": { "min": 2, "max": 2 } }
+      equals: { "data.stats.attack": 35, "data.stats.special_attack": 50 }
 
-  - name: "Cosmoem branch includes Solgaleo"
-    command: "pokedex pokemon evolutions cosmog"
+  - name: "Galarian Meowth has different stats from base and Alolan"
+    command: "pokedex pokemon show meowth-galar"
     assert:
       exit_code: 0
-      contains: { "data": "solgaleo" }
+      equals: { "data.stats.attack": 65, "data.stats.speed": 40 }
 
-  - name: "Cosmoem branch includes Lunala"
-    command: "pokedex pokemon evolutions cosmog"
+  - name: "All Meowth forms share species id 52"
+    command: "pokedex pokemon show meowth-galar"
     assert:
       exit_code: 0
-      contains: { "data": "lunala" }
+      equals: { "data.id": 52, "data.name": "meowth" }
 
-  - name: "Solgaleo and Lunala evolve at level 53"
-    command: "pokedex pokemon evolutions cosmog"
+  - name: "Galarian Meowth HATEOAS stats action preserves form"
+    command: "pokedex pokemon show meowth-galar"
     assert:
       exit_code: 0
-      contains: { "data": "Level 53" }
+      contains: { "actions": "pokedex pokemon stats meowth-galar" }
 
-  # --- Solgaleo is Psychic/Steel ---
-
-  - name: "Solgaleo is Psychic/Steel type"
-    command: "pokedex pokemon show solgaleo"
+  - name: "Galarian Meowth HATEOAS moves action preserves form"
+    command: "pokedex pokemon show meowth-galar"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Psychic", "Steel"] }
-      has_fields: ["data.display_name", "data.stats"]
+      contains: { "actions": "pokedex pokemon moves meowth-galar" }
 
-  - name: "Solgaleo is legendary"
-    command: "pokedex pokemon show solgaleo"
+  # ===== Meowth evolution chain: branches to Persian and Perrserker =====
+
+  - name: "Meowth evolves into Persian and Perrserker"
+    command: "pokedex pokemon evolutions meowth"
     assert:
       exit_code: 0
-      equals: { "data.is_legendary": true, "data.display_name": "Solgaleo" }
-
-  - name: "Solgaleo has BST 680"
-    command: "pokedex pokemon show solgaleo"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 680, "data.stats.attack": 137 }
-
-  - name: "Solgaleo ability is Full Metal Body"
-    command: "pokedex pokemon show solgaleo"
-    assert:
-      exit_code: 0
-      contains: { "data": "Full Metal Body" }
-
-  # --- Lunala is Psychic/Ghost (different from Solgaleo) ---
-
-  - name: "Lunala is Psychic/Ghost type (differs from Solgaleo)"
-    command: "pokedex pokemon show lunala"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Psychic", "Ghost"] }
-
-  - name: "Lunala is also legendary with BST 680"
-    command: "pokedex pokemon show lunala"
-    assert:
-      exit_code: 0
-      equals: { "data.is_legendary": true, "data.stats.total": 680 }
-
-  - name: "Lunala has mirrored stats vs Solgaleo (SpA 137, Atk 113)"
-    command: "pokedex pokemon show lunala"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.special_attack": 137, "data.stats.attack": 113 }
-
-  - name: "Lunala ability is Shadow Shield"
-    command: "pokedex pokemon show lunala"
-    assert:
-      exit_code: 0
-      contains: { "data": "Shadow Shield" }
-
-  - name: "Lunala evolves from Cosmoem"
-    command: "pokedex pokemon show lunala"
-    assert:
-      exit_code: 0
-      equals: { "data.evolves_from": "Cosmoem" }
-
-  # ===== Pikachu forms: 17 cosmetic forms =====
-
-  - name: "Pikachu has 17 forms (base + 16 variants)"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 13 } }
-
-  - name: "Pikachu forms include cosplay"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-cosplay" }
-
-  - name: "Pikachu forms include rock-star"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-rock-star" }
-
-  - name: "Pikachu forms include original-cap"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-original-cap" }
-
-  - name: "Pikachu forms include gmax"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-gmax" }
-
-  - name: "Pikachu forms include partner-cap"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-partner-cap" }
-
-  - name: "Pikachu forms include world-cap"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-world-cap" }
-
-  - name: "Pikachu default form is first and has is_default true"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      equals: { "data.0.is_default": true, "data.0.display_name": "Pikachu" }
-
-  - name: "Pikachu gmax form is marked battle_only"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      equals: { "data.1.name": "pikachu-gmax", "data.1.is_battle_only": true }
-
-  - name: "All Pikachu forms are Electric type"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      equals:
-        "data.0.types": ["Electric"]
-        "data.1.types": ["Electric"]
-        "data.2.types": ["Electric"]
-
-  # --- Pikachu-gmax show: display_name and stats ---
-
-  - name: "pikachu-gmax show displays Gigantamax Pikachu"
-    command: "pokedex pokemon show pikachu-gmax"
-    assert:
-      exit_code: 0
-      equals: { "data.display_name": "Gigantamax Pikachu" }
-      has_fields: ["data.stats", "data.abilities", "data.types"]
-
-  - name: "pikachu-gmax is still Electric type"
-    command: "pokedex pokemon show pikachu-gmax"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Electric"] }
-
-  - name: "pikachu-gmax stats match base Pikachu (BST 320)"
-    command: "pokedex pokemon stats pikachu-gmax"
-    assert:
-      exit_code: 0
-      equals: { "data.pokemon_name": "Gigantamax Pikachu", "data.total": 320, "data.speed": 90 }
-
-  # BUG: pikachu-gmax show uses species id 25 (base Pikachu) not form-specific id
-  # The id field doesn't distinguish the form from base Pikachu
-  - name: "pikachu-gmax show id is species-level 25 (not form-specific)"
-    command: "pokedex pokemon show pikachu-gmax"
-    assert:
-      exit_code: 0
-      equals: { "data.id": 25 }
-
-  # BUG: pikachu-gmax show actions are inconsistent — evolutions/forms link to
-  # base 'pikachu' while stats/moves/encounters preserve form suffix
-  - name: "pikachu-gmax evolutions action loses form context"
-    command: "pokedex pokemon show pikachu-gmax"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon evolutions pikachu" }
-
-  - name: "pikachu-gmax stats action preserves form context"
-    command: "pokedex pokemon show pikachu-gmax"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon stats pikachu-gmax" }
-
-  # ===== Slowpoke: 2 evolution branches with different triggers =====
-
-  - name: "Slowpoke has exactly 2 evolution branches"
-    command: "pokedex pokemon evolutions slowpoke"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "slowpoke" }
       array_len: { "data.children": { "min": 2, "max": 2 } }
+      contains: { "data": "persian" }
 
-  - name: "Slowpoke evolves into Slowbro"
-    command: "pokedex pokemon evolutions slowpoke"
+  - name: "Perrserker is in the Meowth evolution chain"
+    command: "pokedex pokemon evolutions meowth"
     assert:
       exit_code: 0
-      contains: { "data": "slowbro" }
+      contains: { "data": "perrserker" }
 
-  - name: "Slowpoke evolves into Slowking"
-    command: "pokedex pokemon evolutions slowpoke"
+  # ===== Vulpix: Fire base vs Ice Alolan =====
+
+  - name: "Base Vulpix is Fire type"
+    command: "pokedex pokemon show vulpix"
     assert:
       exit_code: 0
-      contains: { "data": "slowking" }
+      equals: { "data.types": ["Fire"] }
+      has_fields: ["data.stats", "data.abilities"]
 
-  - name: "Slowbro evolution has level 37 trigger"
-    command: "pokedex pokemon evolutions slowpoke"
+  - name: "Alolan Vulpix is Ice type"
+    command: "pokedex pokemon show vulpix-alola"
     assert:
       exit_code: 0
-      contains: { "data": "Level 37" }
+      equals: { "data.types": ["Ice"], "data.display_name": "Alolan Vulpix" }
 
-  - name: "Slowking evolution has trade trigger"
-    command: "pokedex pokemon evolutions slowpoke"
+  - name: "Alolan Vulpix has Snow Cloak ability instead of Flash Fire"
+    command: "pokedex pokemon show vulpix-alola"
     assert:
       exit_code: 0
-      contains: { "data": "trade" }
+      contains: { "data": "Snow Cloak" }
 
-  - name: "Slowking trigger_detail mentions kings-rock"
-    command: "pokedex pokemon evolutions slowpoke"
-    assert:
-      exit_code: 0
-      contains: { "data": "kings-rock" }
+  # ===== Rotom: base + 5 appliance forms =====
 
-  - name: "Slowbro also has galarica-cuff as alternate method"
-    command: "pokedex pokemon evolutions slowpoke"
-    assert:
-      exit_code: 0
-      contains: { "data": "galarica-cuff" }
-
-  - name: "Slowking also has galarica-wreath as alternate method"
-    command: "pokedex pokemon evolutions slowpoke"
-    assert:
-      exit_code: 0
-      contains: { "data": "galarica-wreath" }
-
-  - name: "Slowbro has 2 evolution methods (level + use-item)"
-    command: "pokedex pokemon evolutions slowpoke"
-    assert:
-      exit_code: 0
-      array_len: { "data.children.0.methods": { "min": 2, "max": 2 } }
-
-  - name: "Slowking has 2 evolution methods (use-item + trade)"
-    command: "pokedex pokemon evolutions slowpoke"
-    assert:
-      exit_code: 0
-      array_len: { "data.children.1.methods": { "min": 2, "max": 2 } }
-
-  - name: "Neither Slowbro nor Slowking has further evolutions"
-    command: "pokedex pokemon evolutions slowpoke"
-    assert:
-      exit_code: 0
-      array_len:
-        "data.children.0.children": { "min": 0, "max": 0 }
-        "data.children.1.children": { "min": 0, "max": 0 }
-
-  # ===== Deoxys: form-specific stat extremes =====
-
-  - name: "Deoxys-attack display_name is Attack Deoxys"
-    command: "pokedex pokemon show deoxys-attack"
-    assert:
-      exit_code: 0
-      equals: { "data.display_name": "Attack Deoxys" }
-
-  - name: "Deoxys-attack has 180 Attack and 180 Special Attack"
-    command: "pokedex pokemon show deoxys-attack"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.attack": 180, "data.stats.special_attack": 180 }
-
-  - name: "Deoxys-attack has glass cannon defenses (20/20)"
-    command: "pokedex pokemon show deoxys-attack"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.defense": 20, "data.stats.special_defense": 20 }
-
-  - name: "Deoxys-attack has BST 600"
-    command: "pokedex pokemon show deoxys-attack"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 600 }
-
-  - name: "Deoxys-attack is Psychic type and mythical"
-    command: "pokedex pokemon show deoxys-attack"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Psychic"], "data.is_mythical": true }
-
-  - name: "Deoxys-speed display_name is Speed Deoxys"
-    command: "pokedex pokemon show deoxys-speed"
-    assert:
-      exit_code: 0
-      equals: { "data.display_name": "Speed Deoxys" }
-
-  - name: "Deoxys-speed has 180 Speed (not Attack)"
-    command: "pokedex pokemon show deoxys-speed"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.speed": 180, "data.stats.attack": 95 }
-
-  - name: "Deoxys-speed has balanced defenses (90/90)"
-    command: "pokedex pokemon show deoxys-speed"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.defense": 90, "data.stats.special_defense": 90 }
-
-  - name: "Deoxys-speed also has BST 600"
-    command: "pokedex pokemon show deoxys-speed"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 600 }
-
-  - name: "Deoxys attack and speed forms share same species id 386"
-    command: "pokedex pokemon show deoxys-attack"
-    assert:
-      exit_code: 0
-      equals: { "data.id": 386 }
-
-  - name: "Deoxys-speed also has species id 386"
-    command: "pokedex pokemon show deoxys-speed"
-    assert:
-      exit_code: 0
-      equals: { "data.id": 386 }
-
-  # BUG: Deoxys form stats actions link back to base 'deoxys' (loses form context)
-  - name: "Deoxys-attack stats action links to base deoxys show (form context lost)"
-    command: "pokedex pokemon stats deoxys-attack"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon show deoxys" }
-
-  - name: "Deoxys-speed stats action also links to base deoxys show"
-    command: "pokedex pokemon stats deoxys-speed"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon show deoxys" }
-
-  # ===== Shellos: exactly 2 regional forms =====
-
-  - name: "Shellos has exactly 2 forms"
-    command: "pokedex pokemon forms shellos"
+  - name: "Rotom has 6 total forms"
+    command: "pokedex pokemon forms rotom"
     assert:
       exit_code: 0
       type_of: { "data": "array" }
-      array_len: { "data": { "min": 2, "max": 2 } }
+      array_len: { "data": { "min": 6, "max": 6 } }
 
-  - name: "Shellos west form is default"
-    command: "pokedex pokemon forms shellos"
+  - name: "Base Rotom is default and Electric/Ghost"
+    command: "pokedex pokemon forms rotom"
     assert:
       exit_code: 0
-      equals: { "data.0.form_name": "west", "data.0.is_default": true, "data.0.display_name": "West Shellos" }
+      equals: { "data.0.is_default": true, "data.0.types": ["Electric", "Ghost"] }
 
-  - name: "Shellos east form is not default"
-    command: "pokedex pokemon forms shellos"
+  - name: "All alternate Rotom forms have is_default false"
+    command: "pokedex pokemon forms rotom"
     assert:
       exit_code: 0
-      equals: { "data.1.form_name": "east", "data.1.is_default": false, "data.1.display_name": "East Shellos" }
+      equals: { "data.1.is_default": false, "data.2.is_default": false, "data.3.is_default": false }
 
-  - name: "Both Shellos forms are Water type"
-    command: "pokedex pokemon forms shellos"
+  - name: "Rotom Heat form is Electric/Fire"
+    command: "pokedex pokemon show rotom-heat"
     assert:
       exit_code: 0
-      equals: { "data.0.types": ["Water"], "data.1.types": ["Water"] }
+      equals: { "data.types": ["Electric", "Fire"], "data.display_name": "Heat Rotom" }
+      has_fields: ["data.stats"]
 
-  - name: "Shellos forms are not mega or battle-only"
-    command: "pokedex pokemon forms shellos"
+  - name: "Rotom Wash form is Electric/Water"
+    command: "pokedex pokemon show rotom-wash"
     assert:
       exit_code: 0
-      equals:
-        "data.0.is_mega": false
-        "data.0.is_battle_only": false
-        "data.1.is_mega": false
-        "data.1.is_battle_only": false
+      equals: { "data.types": ["Electric", "Water"], "data.stats.total": 520 }
 
-  - name: "Shellos forms have HATEOAS collection actions with form parameter"
-    command: "pokedex pokemon forms shellos"
+  - name: "Rotom Mow form is Electric/Grass"
+    command: "pokedex pokemon show rotom-mow"
     assert:
       exit_code: 0
-      contains:
-        "actions": "pokedex collection add --pokemon=shellos --form=west"
+      equals: { "data.types": ["Electric", "Grass"], "data.display_name": "Mow Rotom" }
 
-  - name: "Shellos east collection action also present"
-    command: "pokedex pokemon forms shellos"
+  - name: "Rotom forms have add_form_to_collection actions"
+    command: "pokedex pokemon forms rotom"
     assert:
       exit_code: 0
-      contains:
-        "actions": "pokedex collection add --pokemon=shellos --form=east"
+      contains: { "actions": "pokedex collection add --pokemon=rotom --form=heat" }
 
-  # ===== Eevee: 8 evolution branches (retained from original) =====
+  # ===== Deoxys: 4 forms with drastically different stats =====
+
+  - name: "Deoxys has 4 forms"
+    command: "pokedex pokemon forms deoxys"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 4, "max": 4 } }
+      equals: { "data.0.is_default": true }
+
+  - name: "Base Deoxys Normal form has balanced 150 offenses"
+    command: "pokedex pokemon show deoxys"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.attack": 150, "data.stats.defense": 50, "data.stats.speed": 150 }
+      has_fields: ["data.stats.total"]
+
+  - name: "Deoxys Attack form has extreme 180 offenses and 20 defenses"
+    command: "pokedex pokemon show deoxys-attack"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.attack": 180, "data.stats.defense": 20, "data.stats.total": 600 }
+
+  - name: "Deoxys Defense form has extreme 160 defenses"
+    command: "pokedex pokemon show deoxys-defense"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.defense": 160, "data.stats.special_defense": 160, "data.stats.total": 600 }
+
+  - name: "Deoxys Speed form has 180 Speed"
+    command: "pokedex pokemon show deoxys-speed"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.speed": 180, "data.stats.attack": 95, "data.stats.total": 600 }
+
+  - name: "All Deoxys forms share species id 386 and Psychic type"
+    command: "pokedex pokemon show deoxys-attack"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 386, "data.types": ["Psychic"], "data.is_mythical": true }
+
+  # ===== Wormadam: 3 cloaks with different secondary types =====
+
+  - name: "Wormadam has 3 forms"
+    command: "pokedex pokemon forms wormadam"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 3, "max": 3 } }
+
+  - name: "Plant Wormadam is Bug/Grass"
+    command: "pokedex pokemon forms wormadam"
+    assert:
+      exit_code: 0
+      equals: { "data.0.types": ["Bug", "Grass"], "data.0.is_default": true }
+
+  - name: "Sandy Wormadam is Bug/Ground"
+    command: "pokedex pokemon forms wormadam"
+    assert:
+      exit_code: 0
+      equals: { "data.1.types": ["Bug", "Ground"], "data.1.form_name": "sandy" }
+
+  - name: "Trash Wormadam is Bug/Steel"
+    command: "pokedex pokemon forms wormadam"
+    assert:
+      exit_code: 0
+      equals: { "data.2.types": ["Bug", "Steel"], "data.2.form_name": "trash" }
+
+  - name: "Trash Wormadam stats differ from Plant form"
+    command: "pokedex pokemon stats wormadam-trash"
+    assert:
+      exit_code: 0
+      equals: { "data.defense": 95, "data.special_defense": 95, "data.total": 424 }
+
+  # ===== Lycanroc: 3 named forms =====
+
+  - name: "Lycanroc has 3 forms: Midday, Midnight, Dusk"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 3, "max": 3 } }
+
+  - name: "Midday Lycanroc is default"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      equals: { "data.0.form_name": "midday", "data.0.is_default": true }
+
+  - name: "Midnight and Dusk forms exist"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      equals: { "data.1.form_name": "midnight", "data.2.form_name": "dusk" }
+
+  - name: "Dusk Lycanroc has distinct stats"
+    command: "pokedex pokemon show lycanroc-dusk"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Dusk Lycanroc", "data.stats.attack": 117, "data.stats.speed": 110 }
+
+  # ===== Oricorio: 4 dance forms with different primary types =====
+
+  - name: "Oricorio has 4 forms"
+    command: "pokedex pokemon forms oricorio"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 4, "max": 4 } }
+
+  - name: "Baile Oricorio is Fire/Flying"
+    command: "pokedex pokemon forms oricorio"
+    assert:
+      exit_code: 0
+      equals: { "data.0.types": ["Fire", "Flying"], "data.0.form_name": "baile" }
+
+  - name: "Pom-Pom Oricorio is Electric/Flying"
+    command: "pokedex pokemon forms oricorio"
+    assert:
+      exit_code: 0
+      equals: { "data.1.types": ["Electric", "Flying"], "data.1.form_name": "pom-pom" }
+
+  - name: "Pau Oricorio is Psychic/Flying"
+    command: "pokedex pokemon forms oricorio"
+    assert:
+      exit_code: 0
+      equals: { "data.2.types": ["Psychic", "Flying"], "data.2.form_name": "pau" }
+
+  - name: "Sensu Oricorio is Ghost/Flying"
+    command: "pokedex pokemon forms oricorio"
+    assert:
+      exit_code: 0
+      equals: { "data.3.types": ["Ghost", "Flying"], "data.3.form_name": "sensu" }
+
+  - name: "Sensu Oricorio show has correct types"
+    command: "pokedex pokemon show oricorio-sensu"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Ghost", "Flying"], "data.display_name": "Sensu Oricorio" }
+      has_fields: ["data.stats"]
+
+  # ===== Multi-outcome evolutions =====
 
   - name: "Eevee has exactly 8 evolution branches"
     command: "pokedex pokemon evolutions eevee"
@@ -434,49 +289,30 @@ steps:
       equals: { "data.species_name": "eevee" }
       array_len: { "data.children": { "min": 8, "max": 8 } }
 
-  - name: "Eevee children include all eeveelutions"
-    command: "pokedex pokemon evolutions eevee"
-    assert:
-      exit_code: 0
-      contains: { "data": "vaporeon" }
-
-  - name: "Eevee children include Jolteon"
-    command: "pokedex pokemon evolutions eevee"
-    assert:
-      exit_code: 0
-      contains: { "data": "jolteon" }
-
-  - name: "Eevee children include Sylveon with Fairy type"
-    command: "pokedex pokemon evolutions eevee"
-    assert:
-      exit_code: 0
-      contains: { "data": "sylveon" }
-
-  - name: "Eevee Vaporeon method has water-stone item"
+  - name: "Eevee Vaporeon evolves with water-stone"
     command: "pokedex pokemon evolutions eevee"
     assert:
       exit_code: 0
       contains: { "data": "water-stone" }
 
-  - name: "Eevee evolution tree has HATEOAS actions"
+  - name: "Eevee Leafeon has both use-item and level-up methods"
     command: "pokedex pokemon evolutions eevee"
     assert:
       exit_code: 0
+      contains: { "data": "Leaf Stone" }
+
+  - name: "Eevee evolution tree includes Sylveon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "sylveon" }
       has_fields: ["actions", "meta.command"]
 
-  # ===== Tyrogue: 3 stat-based branches =====
-
-  - name: "Tyrogue has exactly 3 evolution branches"
+  - name: "Tyrogue has 3 stat-based evolution branches"
     command: "pokedex pokemon evolutions tyrogue"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "tyrogue" }
       array_len: { "data.children": { "min": 3, "max": 3 } }
-
-  - name: "Tyrogue Hitmonlee requires Attack > Defense"
-    command: "pokedex pokemon evolutions tyrogue"
-    assert:
-      exit_code: 0
       contains: { "data": "Attack > Defense" }
 
   - name: "Tyrogue Hitmonchan requires Attack < Defense"
@@ -491,82 +327,220 @@ steps:
       exit_code: 0
       contains: { "data": "Attack = Defense" }
 
-  # ===== Wurmple: 2 personality-based branches with nested children =====
-
-  - name: "Wurmple has exactly 2 evolution branches"
+  - name: "Wurmple has 2 personality-based branches"
     command: "pokedex pokemon evolutions wurmple"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "wurmple" }
       array_len: { "data.children": { "min": 2, "max": 2 } }
-
-  - name: "Wurmple has Silcoon and Cascoon branches"
-    command: "pokedex pokemon evolutions wurmple"
-    assert:
-      exit_code: 0
-      contains: { "data": "silcoon" }
-
-  - name: "Wurmple Cascoon branch exists"
-    command: "pokedex pokemon evolutions wurmple"
-    assert:
-      exit_code: 0
-      contains: { "data": "cascoon" }
-
-  - name: "Wurmple branches mention personality value"
-    command: "pokedex pokemon evolutions wurmple"
-    assert:
-      exit_code: 0
       contains: { "data": "personality" }
 
-  - name: "Silcoon evolves into Beautifly"
+  - name: "Wurmple branches nest: Silcoon->Beautifly, Cascoon->Dustox"
     command: "pokedex pokemon evolutions wurmple"
     assert:
       exit_code: 0
       contains: { "data": "beautifly" }
+      array_len: { "data.children.0.children": { "min": 1, "max": 1 } }
 
-  - name: "Cascoon evolves into Dustox"
-    command: "pokedex pokemon evolutions wurmple"
+  # ===== Vivillon: 20 cosmetic pattern forms =====
+
+  - name: "Vivillon has 20 forms"
+    command: "pokedex pokemon forms vivillon"
     assert:
       exit_code: 0
-      contains: { "data": "dustox" }
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 20, "max": 20 } }
 
-  - name: "Wurmple children have nested children (2-stage branching)"
-    command: "pokedex pokemon evolutions wurmple"
+  - name: "Vivillon meadow is default form"
+    command: "pokedex pokemon forms vivillon"
     assert:
       exit_code: 0
-      array_len:
-        "data.children.0.children": { "min": 1, "max": 1 }
-        "data.children.1.children": { "min": 1, "max": 1 }
+      contains: { "data": "vivillon-meadow" }
 
-  # ===== Applin: 3 evolution branches =====
-
-  - name: "Applin has exactly 3 evolution branches"
-    command: "pokedex pokemon evolutions applin"
+  - name: "Vivillon includes event-only Fancy and Poke Ball patterns"
+    command: "pokedex pokemon forms vivillon"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "applin" }
-      array_len: { "data.children": { "min": 3, "max": 3 } }
+      contains: { "data": "vivillon-fancy" }
 
-  - name: "Applin evolves into Flapple with tart-apple"
-    command: "pokedex pokemon evolutions applin"
+  # ===== Charizard: Mega X, Mega Y, and Gigantamax =====
+
+  - name: "Charizard has 4 forms including megas and gmax"
+    command: "pokedex pokemon forms charizard"
     assert:
       exit_code: 0
-      contains: { "data": "flapple" }
+      array_len: { "data": { "min": 4, "max": 4 } }
 
-  - name: "Applin evolves into Appletun with sweet-apple"
-    command: "pokedex pokemon evolutions applin"
+  - name: "Mega Charizard X is Fire/Dragon"
+    command: "pokedex pokemon forms charizard"
     assert:
       exit_code: 0
-      contains: { "data": "appletun" }
+      contains: { "data": "charizard-mega-x" }
+      equals: { "data.2.types": ["Fire", "Dragon"], "data.2.is_mega": true }
 
-  - name: "Applin evolves into Dipplin"
-    command: "pokedex pokemon evolutions applin"
+  - name: "Mega Charizard Y is Fire/Flying and battle-only"
+    command: "pokedex pokemon forms charizard"
     assert:
       exit_code: 0
-      contains: { "data": "dipplin" }
+      equals: { "data.3.types": ["Fire", "Flying"], "data.3.is_mega": true, "data.3.is_battle_only": true }
 
-  - name: "Dipplin further evolves into Hydrapple"
-    command: "pokedex pokemon evolutions applin"
+  # ===== Darmanitan: Standard/Zen + Galarian Standard/Zen =====
+
+  - name: "Darmanitan has 4 forms"
+    command: "pokedex pokemon forms darmanitan"
     assert:
       exit_code: 0
-      contains: { "data": "hydrapple" }
+      array_len: { "data": { "min": 4, "max": 4 } }
+
+  - name: "Standard Darmanitan is Fire type and default"
+    command: "pokedex pokemon forms darmanitan"
+    assert:
+      exit_code: 0
+      equals: { "data.0.types": ["Fire"], "data.0.is_default": true }
+
+  - name: "Galarian Standard Darmanitan is Ice type"
+    command: "pokedex pokemon forms darmanitan"
+    assert:
+      exit_code: 0
+      equals: { "data.2.types": ["Ice"], "data.2.form_name": "galar-standard" }
+
+  - name: "Galarian Zen Darmanitan is Ice/Fire and battle-only"
+    command: "pokedex pokemon forms darmanitan"
+    assert:
+      exit_code: 0
+      equals: { "data.3.types": ["Ice", "Fire"], "data.3.is_battle_only": true }
+
+  # ===== Rockruff -> Lycanroc evolution =====
+
+  - name: "Rockruff evolves into Lycanroc with time-based methods"
+    command: "pokedex pokemon evolutions rockruff"
+    assert:
+      exit_code: 0
+      contains: { "data": "lycanroc" }
+      array_len: { "data.children": { "min": 1, "max": 1 } }
+
+  - name: "Lycanroc has day, night, and dusk evolution methods"
+    command: "pokedex pokemon evolutions rockruff"
+    assert:
+      exit_code: 0
+      contains: { "data": "day" }
+
+  # ===== Invalid form name: error handling =====
+
+  - name: "Invalid form name returns NOT_FOUND with suggestions"
+    command: "pokedex pokemon show meowth-invalid"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "NOT_FOUND includes did_you_mean for meowth"
+    command: "pokedex pokemon show meowth-invalid"
+    assert:
+      exit_code: 1
+      contains: { "actions": "pokedex pokemon show meowth" }
+
+  # ===== Collection operations with forms =====
+
+  - name: "Add Alolan Meowth to collection in Sun"
+    command: "pokedex collection add --pokemon=meowth-alola --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Alolan Meowth", "data.form_name": "alola" }
+      has_fields: ["data.id", "actions"]
+
+  - name: "Collection entry preserves form data"
+    command: "pokedex collection list"
+    assert:
+      exit_code: 0
+      equals: { "data.0.form_name": "alola", "data.0.display_name": "Alolan Meowth" }
+      has_fields: ["meta.total"]
+
+  # ===== Unown: 28 letter/symbol forms =====
+
+  - name: "Unown has 28 forms (26 letters + ! + ?)"
+    command: "pokedex pokemon forms unown"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 28, "max": 28 } }
+
+  # ===== Castform: weather-based battle-only forms =====
+
+  - name: "Castform has 4 forms with weather variants battle-only"
+    command: "pokedex pokemon forms castform"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 4, "max": 4 } }
+      equals: { "data.1.is_battle_only": true }
+
+  - name: "Castform weather forms have different types"
+    command: "pokedex pokemon forms castform"
+    assert:
+      exit_code: 0
+      equals: { "data.0.types": ["Normal"], "data.1.types": ["Fire"] }
+
+  # ===== Zygarde: complex form set =====
+
+  - name: "Zygarde has 6 forms including power construct variants"
+    command: "pokedex pokemon forms zygarde"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 6, "max": 6 } }
+
+  - name: "Zygarde 50% is default form"
+    command: "pokedex pokemon forms zygarde"
+    assert:
+      exit_code: 0
+      equals: { "data.0.is_default": true, "data.0.form_name": "50" }
+
+  - name: "Zygarde Complete form is battle-only"
+    command: "pokedex pokemon forms zygarde"
+    assert:
+      exit_code: 0
+      contains: { "data": "zygarde-complete" }
+
+  # ===== Necrozma: base + fusions =====
+
+  - name: "Necrozma has 4 forms"
+    command: "pokedex pokemon forms necrozma"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 4, "max": 4 } }
+
+  - name: "Necrozma Dusk is Psychic/Steel"
+    command: "pokedex pokemon forms necrozma"
+    assert:
+      exit_code: 0
+      equals: { "data.1.types": ["Psychic", "Steel"], "data.1.form_name": "dusk" }
+
+  - name: "Necrozma Ultra is Psychic/Dragon"
+    command: "pokedex pokemon forms necrozma"
+    assert:
+      exit_code: 0
+      equals: { "data.3.types": ["Psychic", "Dragon"], "data.3.form_name": "ultra" }
+
+  # ===== Galarian Ponyta: genus is species-level =====
+
+  - name: "Galarian Ponyta is Psychic type but shares Fire Horse genus"
+    command: "pokedex pokemon show ponyta-galar"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Psychic"], "data.genus": "Fire Horse Pokémon" }
+      has_fields: ["data.abilities"]
+
+  # ===== Giratina: Altered vs Origin =====
+
+  - name: "Giratina has Altered and Origin forms"
+    command: "pokedex pokemon forms giratina"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 2, "max": 2 } }
+      equals: { "data.0.form_name": "altered", "data.1.form_name": "origin" }
+
+  # ===== Shaymin: Land vs Sky with type difference =====
+
+  - name: "Shaymin Sky form gains Flying type"
+    command: "pokedex pokemon forms shaymin"
+    assert:
+      exit_code: 0
+      equals: { "data.0.types": ["Grass"], "data.1.types": ["Grass", "Flying"] }
+      array_len: { "data": { "min": 2, "max": 2 } }

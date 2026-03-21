@@ -3,59 +3,21 @@
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
 name: "HOME Transfers & Game Compatibility"
-persona: home_transfer_tester
+persona: "H"
 description: >
-  Tests game show for sword/red/diamond, game list uniqueness, HOME transferable
-  for pikachu (many games) and kleavor (PLA only), collection add on pre-HOME
-  games, home missing defaults to national, --in-home on pre-HOME game warns,
-  --method=evolve works, and game list --home-compatible filters correctly.
+  Tests game show for every HOME-compatible game (generation, region, display_name),
+  HOME transferable for pikachu (many games), kleavor (PLA only), meowscarada (SV only),
+  legends-za appears in transferable results, adding pokemon to games where they don't
+  exist shows warnings, game list --home-compatible returns only HOME games,
+  home status/coverage/missing with dex filters, collection add with --in-home on
+  pre-HOME games, alpha flag validation, and service games (pokemon-go, pokemon-bank).
 needs_seed: true
 mutates_collection: true
 
 steps:
-  # -- Game show: sword (HOME-compatible, Gen 8) --
+  # -- Game list basics --
 
-  - name: "game show sword is HOME-compatible"
-    command: "pokedex game show sword"
-    assert:
-      exit_code: 0
-      has_fields: ["data.id", "data.name", "data.generation", "data.region"]
-      equals:
-        "data.name": "sword"
-        "data.connects_to_home": true
-        "data.transfer_direction": "both"
-        "data.generation": 8
-        "data.region": "Galar"
-
-  # -- Game show: red (pre-HOME, Gen 1) --
-
-  - name: "game show red is pre-HOME"
-    command: "pokedex game show red"
-    assert:
-      exit_code: 0
-      has_fields: ["data.id", "data.name", "data.generation", "data.region"]
-      equals:
-        "data.name": "red"
-        "data.connects_to_home": false
-        "data.generation": 1
-        "data.region": "Kanto"
-
-  # -- Game show: diamond (pre-HOME, Gen 4) --
-
-  - name: "game show diamond is pre-HOME"
-    command: "pokedex game show diamond"
-    assert:
-      exit_code: 0
-      has_fields: ["data.id", "data.name", "data.generation", "data.region"]
-      equals:
-        "data.name": "diamond"
-        "data.connects_to_home": false
-        "data.generation": 4
-        "data.region": "Sinnoh"
-
-  # -- Game list: no duplicate names --
-
-  - name: "game list returns all games with no duplicate names"
+  - name: "game list returns all games with no duplicates"
     command: "pokedex game list"
     assert:
       exit_code: 0
@@ -65,128 +27,6 @@ steps:
       array_len:
         "data": { min: 40 }
 
-  # -- HOME transferable: pikachu (many games) --
-
-  - name: "pikachu is transferable to many HOME games"
-    command: "pokedex home transferable pikachu"
-    assert:
-      exit_code: 0
-      has_fields: ["data", "actions"]
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 8 }
-
-  - name: "pikachu transferable includes sword"
-    command: "pokedex home transferable pikachu"
-    assert:
-      exit_code: 0
-      contains:
-        "data": "sword"
-
-  # -- HOME transferable: kleavor (PLA only) --
-
-  - name: "kleavor is transferable only to Legends Arceus"
-    command: "pokedex home transferable kleavor"
-    assert:
-      exit_code: 0
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 1, max: 1 }
-      equals:
-        "data.0.name": "legends-arceus"
-
-  # -- Collection add: pikachu to red (pre-HOME, should work) --
-
-  - name: "collection add pikachu to red succeeds"
-    command: "pokedex collection add --pokemon=pikachu --game=red --method=catch"
-    capture:
-      pikachu_red_id: "data.id"
-    assert:
-      exit_code: 0
-      equals:
-        "data.species_name": "pikachu"
-        "data.game": "red"
-        "data.method": "catch"
-        "data.in_home": false
-      has_fields: ["data.id", "data.created_at"]
-
-  # -- Collection add: geodude to diamond (pre-HOME, should work) --
-
-  - name: "collection add geodude to diamond succeeds"
-    command: "pokedex collection add --pokemon=geodude --game=diamond --method=catch"
-    capture:
-      geodude_diamond_id: "data.id"
-    assert:
-      exit_code: 0
-      equals:
-        "data.species_name": "geodude"
-        "data.game": "diamond"
-        "data.method": "catch"
-        "data.in_home": false
-      has_fields: ["data.id", "data.created_at"]
-
-  # -- Collection add: ralts to ruby (pre-HOME, should work) --
-
-  - name: "collection add ralts to ruby succeeds"
-    command: "pokedex collection add --pokemon=ralts --game=ruby --method=catch"
-    capture:
-      ralts_ruby_id: "data.id"
-    assert:
-      exit_code: 0
-      equals:
-        "data.species_name": "ralts"
-        "data.game": "ruby"
-        "data.method": "catch"
-        "data.in_home": false
-      has_fields: ["data.id", "data.created_at"]
-
-  # -- --in-home on pre-HOME game should warn --
-
-  - name: "--in-home on pre-HOME game red produces warning"
-    command: "pokedex collection add --pokemon=charmander --game=red --in-home"
-    assert:
-      exit_code: 0
-      equals:
-        "data.species_name": "charmander"
-        "data.game": "red"
-        "data.in_home": true
-      has_fields: ["data.warning"]
-      contains:
-        "data.warning": "does not connect to"
-
-  # -- home missing defaults to national --
-
-  - name: "home missing defaults to national dex"
-    command: "pokedex home missing"
-    assert:
-      exit_code: 0
-      has_fields: ["data", "meta.total", "meta.limit", "meta.offset"]
-      contains:
-        "meta.command": "national"
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 1 }
-
-  # -- --method=evolve works --
-
-  - name: "--method=evolve records correctly"
-    command: "pokedex collection add --pokemon=gardevoir --game=ruby --method=evolve"
-    capture:
-      gardevoir_id: "data.id"
-    assert:
-      exit_code: 0
-      equals:
-        "data.species_name": "gardevoir"
-        "data.game": "ruby"
-        "data.method": "evolve"
-        "data.in_home": false
-      has_fields: ["data.id", "data.created_at"]
-
-  # -- game list --home-compatible only shows HOME games --
-
   - name: "game list --home-compatible only returns HOME-connected games"
     command: "pokedex game list --home-compatible"
     assert:
@@ -195,6 +35,443 @@ steps:
         "data": "array"
       array_len:
         "data": { min: 10, max: 15 }
-      has_fields: ["data.0.connects_to_home"]
       equals:
         "data.0.connects_to_home": true
+
+  # -- Game show: HOME-compatible games have generation, region, display_name --
+
+  - name: "game show sword has all fields"
+    command: "pokedex game show sword"
+    assert:
+      exit_code: 0
+      has_fields: ["data.id", "data.generation", "data.region", "data.display_name"]
+      equals:
+        "data.connects_to_home": true
+        "data.transfer_direction": "both"
+        "data.generation": 8
+        "data.region": "Galar"
+
+  - name: "game show legends-za has generation and region"
+    command: "pokedex game show legends-za"
+    assert:
+      exit_code: 0
+      has_fields: ["data.generation", "data.region", "data.display_name"]
+      equals:
+        "data.connects_to_home": true
+        "data.generation": 9
+        "data.region": "Kalos"
+
+  - name: "game show legends-arceus shows Hisui region"
+    command: "pokedex game show legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data.generation", "data.region"]
+      equals:
+        "data.generation": 8
+        "data.region": "Hisui"
+        "data.connects_to_home": true
+
+  - name: "game show scarlet shows Paldea region"
+    command: "pokedex game show scarlet"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 9
+        "data.region": "Paldea"
+        "data.connects_to_home": true
+      has_fields: ["data.display_name"]
+
+  - name: "game show lets-go-pikachu has proper display name"
+    command: "pokedex game show lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data.display_name", "data.generation"]
+      equals:
+        "data.generation": 7
+        "data.region": "Kanto"
+
+  - name: "game show brilliant-diamond shows Sinnoh"
+    command: "pokedex game show brilliant-diamond"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 8
+        "data.region": "Sinnoh"
+        "data.connects_to_home": true
+
+  # -- Service games: pokemon-go, pokemon-bank, home --
+
+  - name: "game show pokemon-go has display_name not raw slug"
+    command: "pokedex game show pokemon-go"
+    assert:
+      exit_code: 0
+      has_fields: ["data.display_name", "data.transfer_direction"]
+      equals:
+        "data.transfer_direction": "to_home_only"
+        "data.connects_to_home": true
+
+  - name: "game show pokemon-bank is to_home_only"
+    command: "pokedex game show pokemon-bank"
+    assert:
+      exit_code: 0
+      has_fields: ["data.display_name"]
+      equals:
+        "data.transfer_direction": "to_home_only"
+        "data.connects_to_home": true
+
+  - name: "game show home has proper display name"
+    command: "pokedex game show home"
+    assert:
+      exit_code: 0
+      has_fields: ["data.display_name"]
+      equals:
+        "data.connects_to_home": true
+
+  # -- Pre-HOME games --
+
+  - name: "game show red is pre-HOME Gen 1"
+    command: "pokedex game show red"
+    assert:
+      exit_code: 0
+      has_fields: ["data.generation", "data.region"]
+      equals:
+        "data.connects_to_home": false
+        "data.generation": 1
+
+  - name: "game show diamond is pre-HOME Gen 4"
+    command: "pokedex game show diamond"
+    assert:
+      exit_code: 0
+      equals:
+        "data.connects_to_home": false
+        "data.generation": 4
+        "data.region": "Sinnoh"
+
+  # -- Error: nonexistent game --
+
+  - name: "game show nonexistent returns error with recovery actions"
+    command: "pokedex game show nonexistent"
+    assert:
+      exit_code: 1
+      has_fields: ["error.code", "error.message", "actions"]
+      equals:
+        "error.code": "NOT_FOUND"
+
+  # -- HOME transferable: pikachu (many games) --
+
+  - name: "pikachu is transferable to many HOME games"
+    command: "pokedex home transferable pikachu"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 8 }
+      has_fields: ["actions"]
+
+  # -- HOME transferable: kleavor (PLA only) --
+
+  - name: "kleavor is transferable only to Legends Arceus"
+    command: "pokedex home transferable kleavor"
+    assert:
+      exit_code: 0
+      array_len:
+        "data": { min: 1, max: 1 }
+      equals:
+        "data.0.name": "legends-arceus"
+
+  # -- HOME transferable: meowscarada (SV only) --
+
+  - name: "meowscarada is transferable to Scarlet and Violet"
+    command: "pokedex home transferable meowscarada"
+    assert:
+      exit_code: 0
+      array_len:
+        "data": { min: 2, max: 2 }
+      equals:
+        "data.0.name": "scarlet"
+
+  # -- HOME transferable: wyrdeer (PLA exclusive evolution) --
+
+  - name: "wyrdeer is transferable only to PLA"
+    command: "pokedex home transferable wyrdeer"
+    assert:
+      exit_code: 0
+      array_len:
+        "data": { min: 1, max: 1 }
+      equals:
+        "data.0.name": "legends-arceus"
+
+  # -- HOME transferable: legends-za pokemon --
+
+  - name: "pikachu transferable includes legends-za"
+    command: "pokedex home transferable pikachu"
+    assert:
+      exit_code: 0
+      contains:
+        "data": "legends-za"
+      array_len:
+        "data": { min: 8 }
+
+  # -- HOME transferable: numeric ID works --
+
+  - name: "home transferable accepts numeric pokemon ID"
+    command: "pokedex home transferable 25"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 8 }
+
+  # -- HOME transferable: nonexistent pokemon --
+
+  - name: "home transferable nonexistent pokemon returns error"
+    command: "pokedex home transferable nonexistent"
+    assert:
+      exit_code: 1
+      has_fields: ["error.code", "actions"]
+      equals:
+        "error.code": "NOT_FOUND"
+
+  # -- HOME status: empty collection --
+
+  - name: "home status with empty collection shows zeros"
+    command: "pokedex home status"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_in_home", "data.unique_species_in_home", "data.shiny_in_home"]
+      type_of:
+        "data.total_in_home": "number"
+
+  # -- Collection add: pikachu to sword with --in-home --
+
+  - name: "add pikachu to sword with in-home flag"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "pikachu"
+        "data.game": "sword"
+        "data.in_home": true
+      has_fields: ["data.id", "data.created_at"]
+
+  # -- HOME status: reflects added pokemon --
+
+  - name: "home status shows pikachu after adding"
+    command: "pokedex home status"
+    assert:
+      exit_code: 0
+      equals:
+        "data.total_in_home": 1
+        "data.unique_species_in_home": 1
+      has_fields: ["data.by_game_origin"]
+
+  # -- HOME coverage: reflects added pokemon --
+
+  - name: "home coverage shows 1 caught after adding pikachu"
+    command: "pokedex home coverage"
+    assert:
+      exit_code: 0
+      has_fields: ["data.dex_name", "data.total", "data.caught", "data.percentage"]
+      equals:
+        "data.caught": 1
+
+  # -- Collection add: kleavor to PLA with --in-home --
+
+  - name: "add kleavor to legends-arceus with in-home flag"
+    command: "pokedex collection add --pokemon=kleavor --game=legends-arceus --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "kleavor"
+        "data.game": "legends-arceus"
+        "data.in_home": true
+
+  # -- Collection add: meowscarada to scarlet --
+
+  - name: "add meowscarada to scarlet with in-home flag"
+    command: "pokedex collection add --pokemon=meowscarada --game=scarlet --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "meowscarada"
+        "data.game": "scarlet"
+        "data.in_home": true
+
+  # -- Dry-run: adding to game where pokemon doesn't exist warns --
+
+  - name: "dry-run adding meowscarada to PLA shows warning"
+    command: "pokedex collection add --pokemon=meowscarada --game=legends-arceus --dry-run"
+    assert:
+      exit_code: 0
+      has_fields: ["data.warning", "data.dry_run"]
+      equals:
+        "data.dry_run": true
+      contains:
+        "data.warning": "No encounter data"
+
+  # -- --in-home on pre-HOME game warns --
+
+  - name: "--in-home on pre-HOME game red produces warning"
+    command: "pokedex collection add --pokemon=charmander --game=red --in-home --dry-run"
+    assert:
+      exit_code: 0
+      has_fields: ["data.warning"]
+      contains:
+        "data.warning": "does not connect"
+      equals:
+        "data.dry_run": true
+
+  # -- Alpha flag on non-PLA game warns --
+
+  - name: "alpha flag on non-PLA game produces warning"
+    command: "pokedex collection add --pokemon=arceus --game=sword --alpha --dry-run"
+    assert:
+      exit_code: 0
+      has_fields: ["data.warning"]
+      contains:
+        "data.warning": "Alpha"
+      equals:
+        "data.is_alpha": true
+
+  # -- Add alpha pokemon to PLA --
+
+  - name: "add alpha arceus to PLA succeeds"
+    command: "pokedex collection add --pokemon=arceus --game=legends-arceus --alpha --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.is_alpha": true
+        "data.game": "legends-arceus"
+        "data.in_home": true
+
+  # -- Add pikachu to legends-za --
+
+  - name: "add pikachu to legends-za with in-home"
+    command: "pokedex collection add --pokemon=pikachu --game=legends-za --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "pikachu"
+        "data.game": "legends-za"
+        "data.in_home": true
+
+  # -- HOME status: shows multiple game origins --
+
+  - name: "home status shows multiple game origins"
+    command: "pokedex home status"
+    assert:
+      exit_code: 0
+      type_of:
+        "data.by_game_origin": "array"
+      array_len:
+        "data.by_game_origin": { min: 3 }
+
+  # -- HOME missing: defaults to national dex --
+
+  - name: "home missing defaults to national dex"
+    command: "pokedex home missing --limit=5"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta.total", "meta.limit"]
+      contains:
+        "meta.command": "national"
+      type_of:
+        "data": "array"
+
+  # -- HOME missing: --dex=national works --
+
+  - name: "home missing --dex=national returns results"
+    command: "pokedex home missing --dex=national --limit=5"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 1, max: 5 }
+
+  # -- HOME missing: --dex=home fails (no home dex exists) --
+
+  - name: "home missing --dex=home fails with NOT_FOUND"
+    command: "pokedex home missing --dex=home"
+    assert:
+      exit_code: 1
+      has_fields: ["error.code", "actions"]
+      equals:
+        "error.code": "NOT_FOUND"
+
+  # -- HOME missing: pagination --
+
+  - name: "home missing pagination works with offset"
+    command: "pokedex home missing --limit=3 --offset=10"
+    assert:
+      exit_code: 0
+      has_fields: ["meta.total", "meta.offset"]
+      array_len:
+        "data": { min: 1, max: 3 }
+      equals:
+        "meta.offset": 10
+
+  # -- HOME missing: owned_elsewhere flag --
+
+  - name: "add bulbasaur to red without in-home"
+    command: "pokedex collection add --pokemon=bulbasaur --game=red"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "bulbasaur"
+        "data.in_home": false
+
+  - name: "bulbasaur shows owned_elsewhere in home missing"
+    command: "pokedex home missing --limit=3"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      has_fields: ["data.0.owned_elsewhere"]
+      equals:
+        "data.0.owned_elsewhere": true
+
+  # -- Collection list --in-home --
+
+  - name: "collection list --in-home shows only HOME entries"
+    command: "pokedex collection list --in-home"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 4 }
+      has_fields: ["meta.total"]
+
+  # -- Collection stats --
+
+  - name: "collection stats shows aggregate data"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.in_home_count"]
+      type_of:
+        "data.total_entries": "number"
+
+  # -- Collection stats filtered by game --
+
+  - name: "collection stats --game=sword shows game-specific data"
+    command: "pokedex collection stats --game=sword"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species"]
+      type_of:
+        "data.total_entries": "number"
+
+  # -- Method evolve works --
+
+  - name: "--method=evolve records correctly"
+    command: "pokedex collection add --pokemon=gardevoir --game=ruby --method=evolve"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "gardevoir"
+        "data.method": "evolve"
+        "data.in_home": false

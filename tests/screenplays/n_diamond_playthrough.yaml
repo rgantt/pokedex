@@ -1,0 +1,709 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "N - Diamond/Pearl Sinnoh Completionist"
+persona: n_diamond_playthrough
+description: >
+  Diamond playthrough testing discover-inspect-catch-evolve-verify loop across
+  sinnoh-route-201 through sinnoh-route-217, oreburgh-mine, eterna-forest,
+  iron-island, and sinnoh-victory-road. Tests 45+ species collection, evolution
+  workflows, dex progress, error handling, and HATEOAS navigation.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # LOCATION 1: sinnoh-route-201
+  # ============================================================
+  - name: "Route 201 -- discover encounters (sinnoh prefix)"
+    command: "pokedex location encounters sinnoh-route-201 --game=diamond"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta.total"]
+      equals: { "meta.total": 8 }
+
+  - name: "Route 201 -- route-201 slug fails for Diamond (different location)"
+    command: "pokedex location encounters route-201 --game=diamond"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Route 201 -- inspect Bidoof"
+    command: "pokedex pokemon show bidoof"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "bidoof", "data.generation": 4 }
+      has_fields: ["data.types", "data.stats", "data.abilities"]
+
+  - name: "Route 201 -- inspect Starly"
+    command: "pokedex pokemon show starly"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "starly", "data.generation": 4 }
+      has_fields: ["data.types", "data.egg_groups"]
+
+  - name: "Route 201 -- catch Bidoof"
+    command: "pokedex collection add --pokemon=bidoof --game=diamond --method=catch"
+    capture: { "bidoof_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bidoof", "data.status": "caught", "data.method": "catch" }
+      has_fields: ["data.id", "data.created_at"]
+
+  - name: "Route 201 -- catch Starly"
+    command: "pokedex collection add --pokemon=starly --game=diamond --method=catch"
+    capture: { "starly_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "starly", "data.status": "caught", "data.game": "diamond" }
+
+  # ============================================================
+  # LOCATION 2: sinnoh-route-202
+  # ============================================================
+  - name: "Route 202 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-202 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 15 }
+      has_fields: ["data", "actions"]
+
+  - name: "Route 202 -- catch Shinx"
+    command: "pokedex collection add --pokemon=shinx --game=diamond --method=catch"
+    capture: { "shinx_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "shinx", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Route 202 -- catch Kricketot"
+    command: "pokedex collection add --pokemon=kricketot --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kricketot", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 3: sinnoh-route-203
+  # ============================================================
+  - name: "Route 203 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-203 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 35 }
+      array_len: { "data": { "min": 20 } }
+
+  - name: "Route 203 -- catch Abra"
+    command: "pokedex collection add --pokemon=abra --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "abra", "data.status": "caught" }
+
+  - name: "Route 203 -- catch Zubat"
+    command: "pokedex collection add --pokemon=zubat --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zubat", "data.status": "caught" }
+
+  - name: "Route 203 -- catch Magikarp"
+    command: "pokedex collection add --pokemon=magikarp --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "magikarp", "data.status": "caught" }
+
+  - name: "Route 203 -- catch Psyduck"
+    command: "pokedex collection add --pokemon=psyduck --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "psyduck", "data.status": "caught" }
+
+  # ============================================================
+  # EVOLVE: Starly -> Staravia
+  # ============================================================
+  - name: "Starly evolution chain"
+    command: "pokedex pokemon evolutions starly"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "starly" }
+      has_fields: ["data.children"]
+      array_len: { "data.children": { "min": 1, "max": 1 } }
+
+  - name: "Add evolved Staravia to collection"
+    command: "pokedex collection add --pokemon=staravia --game=diamond --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "staravia", "data.status": "living_dex" }
+
+  - name: "Update Starly to evolved status"
+    command: "pokedex collection update {starly_id} --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+      has_fields: ["data.updated_at"]
+
+  # ============================================================
+  # LOCATION 4: oreburgh-mine
+  # ============================================================
+  - name: "Oreburgh Mine -- discover encounters"
+    command: "pokedex location encounters oreburgh-mine --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 12 }
+      has_fields: ["data", "actions"]
+
+  - name: "Oreburgh Mine -- catch Geodude"
+    command: "pokedex collection add --pokemon=geodude --game=diamond --method=catch"
+    capture: { "geodude_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "geodude", "data.status": "caught" }
+
+  - name: "Oreburgh Mine -- catch Onix"
+    command: "pokedex collection add --pokemon=onix --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "onix", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 5: sinnoh-route-204
+  # ============================================================
+  - name: "Route 204 -- discover encounters (paginated)"
+    command: "pokedex location encounters sinnoh-route-204 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 63 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Route 204 -- catch Budew"
+    command: "pokedex collection add --pokemon=budew --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "budew", "data.status": "caught" }
+
+  - name: "Route 204 -- catch Goldeen"
+    command: "pokedex collection add --pokemon=goldeen --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "goldeen", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 6: sinnoh-route-205
+  # ============================================================
+  - name: "Route 205 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-205 --game=diamond"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta.total"]
+      array_len: { "data": { "min": 10 } }
+
+  - name: "Route 205 -- catch Buizel"
+    command: "pokedex collection add --pokemon=buizel --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "buizel", "data.status": "caught" }
+
+  - name: "Route 205 -- catch Pachirisu"
+    command: "pokedex collection add --pokemon=pachirisu --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pachirisu", "data.status": "caught" }
+
+  - name: "Route 205 -- catch Shellos"
+    command: "pokedex collection add --pokemon=shellos --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "shellos", "data.status": "caught" }
+
+  - name: "Route 205 -- catch Barboach"
+    command: "pokedex collection add --pokemon=barboach --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "barboach", "data.status": "caught" }
+
+  - name: "Route 205 -- catch Finneon"
+    command: "pokedex collection add --pokemon=finneon --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "finneon", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 7: eterna-forest
+  # ============================================================
+  - name: "Eterna Forest -- discover encounters"
+    command: "pokedex location encounters eterna-forest --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 20 }
+      has_fields: ["data", "actions"]
+
+  - name: "Eterna Forest -- catch Buneary"
+    command: "pokedex collection add --pokemon=buneary --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "buneary", "data.status": "caught" }
+
+  - name: "Eterna Forest -- catch Wurmple"
+    command: "pokedex collection add --pokemon=wurmple --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "wurmple", "data.status": "caught" }
+
+  - name: "Eterna Forest -- catch Murkrow"
+    command: "pokedex collection add --pokemon=murkrow --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "murkrow", "data.status": "caught" }
+
+  # ============================================================
+  # VERIFY: First checkpoint
+  # ============================================================
+  - name: "First stats checkpoint"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status", "data.by_game"]
+      type_of: { "data.total_entries": "number" }
+
+  # ============================================================
+  # EVOLVE: Shinx -> Luxio
+  # ============================================================
+  - name: "Shinx evolution chain"
+    command: "pokedex pokemon evolutions shinx"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "shinx" }
+      has_fields: ["data.children"]
+
+  - name: "Add evolved Luxio"
+    command: "pokedex collection add --pokemon=luxio --game=diamond --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "luxio", "data.status": "living_dex" }
+
+  - name: "Update Shinx to evolved"
+    command: "pokedex collection update {shinx_id} --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # LOCATION 8-10: sinnoh-route-206 through 208
+  # ============================================================
+  - name: "Route 206 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-206 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 17 }
+      has_fields: ["data"]
+
+  - name: "Route 206 -- catch Ponyta"
+    command: "pokedex collection add --pokemon=ponyta --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ponyta", "data.status": "caught" }
+
+  - name: "Route 206 -- catch Bronzor"
+    command: "pokedex collection add --pokemon=bronzor --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bronzor", "data.status": "caught" }
+
+  - name: "Route 206 -- catch Stunky"
+    command: "pokedex collection add --pokemon=stunky --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "stunky", "data.status": "caught" }
+
+  - name: "Route 207 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-207 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 12 }
+      has_fields: ["data"]
+
+  - name: "Route 207 -- catch Machop"
+    command: "pokedex collection add --pokemon=machop --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "machop", "data.status": "caught" }
+
+  - name: "Route 208 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-208 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 31 }
+      has_fields: ["data"]
+
+  - name: "Route 208 -- catch Meditite"
+    command: "pokedex collection add --pokemon=meditite --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "meditite", "data.status": "caught" }
+
+  # ============================================================
+  # EVOLVE: Geodude -> Graveler, Bidoof -> Bibarel
+  # ============================================================
+  - name: "Geodude evolution chain"
+    command: "pokedex pokemon evolutions geodude"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "geodude" }
+      has_fields: ["data.children"]
+
+  - name: "Add Graveler to collection"
+    command: "pokedex collection add --pokemon=graveler --game=diamond --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "graveler", "data.status": "living_dex" }
+
+  - name: "Update Geodude to evolved"
+    command: "pokedex collection update {geodude_id} --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  - name: "Bidoof evolution chain"
+    command: "pokedex pokemon evolutions bidoof"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bidoof" }
+      has_fields: ["data.children"]
+
+  - name: "Add Bibarel to collection"
+    command: "pokedex collection add --pokemon=bibarel --game=diamond --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bibarel", "data.status": "living_dex" }
+
+  - name: "Update Bidoof to evolved"
+    command: "pokedex collection update {bidoof_id} --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # LOCATION 11-12: sinnoh-route-209, sinnoh-route-210
+  # ============================================================
+  - name: "Route 209 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-209 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 31 }
+      has_fields: ["data"]
+
+  - name: "Route 209 -- catch Gastly"
+    command: "pokedex collection add --pokemon=gastly --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gastly", "data.status": "caught" }
+
+  - name: "Route 209 -- catch Mime Jr."
+    command: "pokedex collection add --pokemon=mime-jr --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mime-jr", "data.status": "caught" }
+
+  - name: "Route 209 -- catch Chansey"
+    command: "pokedex collection add --pokemon=chansey --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "chansey", "data.status": "caught" }
+
+  - name: "Route 210 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-210 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 45 }
+      has_fields: ["data"]
+
+  - name: "Route 210 -- catch Hoothoot"
+    command: "pokedex collection add --pokemon=hoothoot --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "hoothoot", "data.status": "caught" }
+
+  - name: "Route 210 -- catch Kecleon"
+    command: "pokedex collection add --pokemon=kecleon --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kecleon", "data.status": "caught" }
+
+  # ============================================================
+  # VERIFY: Second checkpoint
+  # ============================================================
+  - name: "Second stats checkpoint"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.total_entries": "number" }
+
+  # ============================================================
+  # LOCATION 13-14: sinnoh-route-214, sinnoh-route-215
+  # ============================================================
+  - name: "Route 214 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-214 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 31 }
+      has_fields: ["data"]
+
+  - name: "Route 214 -- catch Girafarig"
+    command: "pokedex collection add --pokemon=girafarig --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "girafarig", "data.status": "caught" }
+
+  - name: "Route 214 -- catch Gligar"
+    command: "pokedex collection add --pokemon=gligar --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gligar", "data.status": "caught" }
+
+  - name: "Route 214 -- catch Spoink"
+    command: "pokedex collection add --pokemon=spoink --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "spoink", "data.status": "caught" }
+
+  - name: "Route 215 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-215 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 17 }
+      has_fields: ["data"]
+
+  - name: "Route 215 -- catch Kadabra"
+    command: "pokedex collection add --pokemon=kadabra --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kadabra", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 15: iron-island
+  # ============================================================
+  - name: "Iron Island -- discover encounters (many areas)"
+    command: "pokedex location encounters iron-island --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 99 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Iron Island -- catch Golbat"
+    command: "pokedex collection add --pokemon=golbat --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "golbat", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 16-17: sinnoh-route-216, sinnoh-route-217
+  # ============================================================
+  - name: "Route 216 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-216 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 17 }
+      has_fields: ["data"]
+
+  - name: "Route 216 -- catch Sneasel"
+    command: "pokedex collection add --pokemon=sneasel --game=diamond --method=catch"
+    capture: { "sneasel_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sneasel", "data.status": "caught" }
+
+  - name: "Route 216 -- catch Snover"
+    command: "pokedex collection add --pokemon=snover --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "snover", "data.status": "caught" }
+
+  - name: "Route 217 -- discover encounters"
+    command: "pokedex location encounters sinnoh-route-217 --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 15 }
+      has_fields: ["data"]
+
+  - name: "Route 217 -- catch Snorunt"
+    command: "pokedex collection add --pokemon=snorunt --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "snorunt", "data.status": "caught" }
+
+  - name: "Route 217 -- catch Swinub"
+    command: "pokedex collection add --pokemon=swinub --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "swinub", "data.status": "caught" }
+
+  - name: "Route 217 -- catch Medicham"
+    command: "pokedex collection add --pokemon=medicham --game=diamond --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "medicham", "data.status": "caught" }
+
+  # ============================================================
+  # EVOLVE: Sneasel -> Weavile
+  # ============================================================
+  - name: "Sneasel evolution chain"
+    command: "pokedex pokemon evolutions sneasel"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sneasel" }
+      has_fields: ["data.children"]
+
+  - name: "Add Weavile to collection"
+    command: "pokedex collection add --pokemon=weavile --game=diamond --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "weavile", "data.status": "living_dex" }
+
+  - name: "Update Sneasel to evolved"
+    command: "pokedex collection update {sneasel_id} --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # LOCATION 18: sinnoh-victory-road
+  # ============================================================
+  - name: "Victory Road -- discover encounters"
+    command: "pokedex location encounters sinnoh-victory-road --game=diamond"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 95 }
+      has_fields: ["data", "actions"]
+
+  # ============================================================
+  # ERROR HANDLING TESTS
+  # ============================================================
+  - name: "Error -- invalid game name"
+    command: "pokedex collection add --pokemon=pikachu --game=fakegame --method=catch"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Error -- invalid pokemon name with fuzzy suggestions"
+    command: "pokedex collection add --pokemon=fakemon --game=diamond --method=catch"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Error -- update non-existent collection entry"
+    command: "pokedex collection update 9999 --status=evolved"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Error -- invalid status value"
+    command: "pokedex collection update 1 --status=fake_status"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
+
+  # ============================================================
+  # POKEMON INSPECTION EDGE CASES
+  # ============================================================
+  - name: "Pokemon show by numeric ID"
+    command: "pokedex pokemon show 399"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "bidoof", "data.generation": 4 }
+
+  - name: "Nidoran-F special character display"
+    command: "pokedex pokemon show nidoran-f"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "nidoran-f" }
+      contains: { "data.display_name": "Nidoran" }
+
+  - name: "Mime Jr. hyphenated name handling"
+    command: "pokedex pokemon show mime-jr"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "mime-jr" }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Gastly evolution chain to Gengar"
+    command: "pokedex pokemon evolutions gastly"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gastly" }
+      has_fields: ["data.children"]
+
+  # ============================================================
+  # GAME AND DEX VERIFICATION
+  # ============================================================
+  - name: "Game show diamond"
+    command: "pokedex game show diamond"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "diamond", "data.generation": 4, "data.region": "Sinnoh" }
+      has_fields: ["data.display_name"]
+
+  - name: "Original Sinnoh dex progress"
+    command: "pokedex dex progress original-sinnoh"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 151 }
+      has_fields: ["data.caught", "data.percentage", "data.entries"]
+
+  - name: "National dex progress"
+    command: "pokedex dex progress national"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 1025 }
+      has_fields: ["data.caught", "data.percentage"]
+
+  - name: "Dex progress -- caught filter"
+    command: "pokedex dex progress original-sinnoh --caught"
+    assert:
+      exit_code: 0
+      has_fields: ["data.caught", "data.entries"]
+      type_of: { "data.caught": "number" }
+
+  # ============================================================
+  # COLLECTION MANAGEMENT TESTS
+  # ============================================================
+  - name: "Collection list filtered by game"
+    command: "pokedex collection list --game=diamond"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta.total"]
+      type_of: { "meta.total": "number" }
+
+  - name: "Collection list filtered by evolved status"
+    command: "pokedex collection list --status=evolved"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta.total"]
+      array_len: { "data": { "min": 1 } }
+
+  - name: "Collection show specific entry"
+    command: "pokedex collection show 1"
+    assert:
+      exit_code: 0
+      has_fields: ["data.id", "data.species_name", "data.status", "actions"]
+      equals: { "data.game": "diamond" }
+
+  - name: "HOME status (nothing transferred)"
+    command: "pokedex home status"
+    assert:
+      exit_code: 0
+      equals: { "data.total_in_home": 0 }
+      has_fields: ["actions"]
+
+  # ============================================================
+  # FINAL VERIFICATION
+  # ============================================================
+  - name: "Final collection stats"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.unique_species": "number" }

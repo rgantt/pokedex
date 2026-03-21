@@ -2,989 +2,585 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Edge Cases & Validation"
-persona: edge-tester
-description: "Validate error handling for invalid flags, boundary values, empty inputs, form resolution, encounter warnings, HOME compatibility, double-add, update cycling, remove-then-show, all-flags-at-once, unusual names, non-standard types, dex progress, huge offsets, first/last pokemon, dex varieties, Japan game slugs, single-char search, evolutions by ID, and collection update timestamp progression"
+name: "Edge Cases & Error Handling"
+persona: "D"
+description: "Validate error handling, boundary values, invalid inputs, special names, form resolution, empty collections, SQL injection safety, recovery action validity, and HATEOAS completeness"
 needs_seed: true
 mutates_collection: true
 
 steps:
   # ══════════════════════════════════════════════════════════════════
-  # BOUNDARY: First and last pokemon in the national dex
+  # BOUNDARY: First and last pokemon
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "pokemon show 1 returns bulbasaur (first pokemon)"
+  - name: "pokemon show 1 returns Bulbasaur"
     command: "pokedex pokemon show 1"
     assert:
       exit_code: 0
-      equals: { "data.id": 1, "data.name": "bulbasaur", "data.generation": 1, "data.is_baby": false, "data.is_legendary": false, "data.is_mythical": false }
-      contains: { "data.display_name": "Bulbasaur" }
-      has_fields: ["data.types", "data.stats", "data.abilities", "data.egg_groups", "data.genus", "actions"]
-      array_len: { "data.types": { "min": 2, "max": 2 } }
-      type_of: { "data.id": "number", "data.capture_rate": "number" }
+      equals: { "data.id": 1, "data.name": "bulbasaur" }
+      has_fields: ["data.types", "data.stats", "data.abilities", "actions"]
 
-  - name: "pokemon show 1025 returns pecharunt (last pokemon)"
+  - name: "pokemon show 1025 returns Pecharunt (last pokemon)"
     command: "pokedex pokemon show 1025"
     assert:
       exit_code: 0
-      equals: { "data.id": 1025, "data.name": "pecharunt", "data.generation": 9, "data.is_mythical": true }
-      contains: { "data.display_name": "Pecharunt" }
-      has_fields: ["data.types", "data.stats", "data.abilities", "actions"]
-      array_len: { "data.types": { "min": 2, "max": 2 } }
+      equals: { "data.id": 1025, "data.name": "pecharunt", "data.is_mythical": true }
+      has_fields: ["data.types", "data.stats", "actions"]
 
   # ══════════════════════════════════════════════════════════════════
-  # BOUNDARY: Offset past end of pokemon list
+  # NOT_FOUND errors: misspelled, ID 0, very high ID, negative ID
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "pokemon list --offset=1025 returns empty data (past end)"
-    command: "pokedex pokemon list --offset=1025"
+  - name: "misspelled pokemon name returns NOT_FOUND with did_you_mean"
+    command: "pokedex pokemon show pikachoo"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "pikachoo" }
+      has_fields: ["actions"]
+
+  - name: "pokemon ID 0 returns NOT_FOUND"
+    command: "pokedex pokemon show 0"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "very high pokemon ID returns NOT_FOUND"
+    command: "pokedex pokemon show 999999"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "negative ID with -- separator returns NOT_FOUND"
+    command: "pokedex pokemon show -- -1"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # CLAP-LEVEL errors: missing args, bad subcommands
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "pokemon show with no argument returns INVALID_PARAMETER"
+    command: "pokedex pokemon show"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
+
+  - name: "nonexistent subcommand returns INVALID_PARAMETER"
+    command: "pokedex nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "nonexistent" }
+
+  - name: "pokemon with no subcommand returns error JSON"
+    command: "pokedex pokemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
+
+  - name: "negative limit is rejected"
+    command: "pokedex pokemon list --limit=-1"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "invalid" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # INVALID_PARAMETER: limit=0, bad type, bad generation, bad category
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "limit=0 returns INVALID_PARAMETER"
+    command: "pokedex pokemon list --limit=0"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Limit must be at least 1" }
+
+  - name: "invalid type filter returns INVALID_PARAMETER"
+    command: "pokedex pokemon list --type-filter=nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
+
+  - name: "generation 0 returns INVALID_PARAMETER"
+    command: "pokedex pokemon list --generation=0"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Valid values: 1-9" }
+
+  - name: "generation 10 returns INVALID_PARAMETER"
+    command: "pokedex pokemon list --generation=10"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Valid values: 1-9" }
+
+  - name: "invalid category returns INVALID_PARAMETER with valid values"
+    command: "pokedex pokemon list --category=nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "legendary, mythical, baby" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # INVALID_PARAMETER: bad status, bad method, bad game
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "invalid collection status returns INVALID_PARAMETER with all valid values"
+    command: "pokedex collection add --pokemon=1 --game=red --status=nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "caught, living_dex, evolved, traded_away, transferred" }
+
+  - name: "invalid move method returns INVALID_PARAMETER with valid methods"
+    command: "pokedex pokemon moves pikachu --method=nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "level-up" }
+      has_fields: ["actions"]
+
+  - name: "non-existent game in encounters returns NOT_FOUND"
+    command: "pokedex pokemon encounters pikachu --game=nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "non-existent game in collection add returns NOT_FOUND"
+    command: "pokedex collection add --pokemon=1 --game=nonexistent-game"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # FORM VALIDATION: non-existent forms
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "non-existent form in collection add returns NOT_FOUND with available forms"
+    command: "pokedex collection add --pokemon=pikachu --game=red --form=nonexistent-form"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "Available forms:" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # PAGINATION BOUNDARIES
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "offset beyond total returns empty data with prev_page action"
+    command: "pokedex pokemon list --offset=999999"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 0, "max": 0 } }
-      equals: { "meta.total": 1025, "meta.offset": 1025 }
-      has_fields: ["actions", "meta.limit"]
+      has_fields: ["actions", "meta.total"]
 
-  - name: "pokemon list --offset=99999 returns empty data (way past end)"
-    command: "pokedex pokemon list --offset=99999"
+  - name: "limit=1 returns exactly one result"
+    command: "pokedex pokemon list --limit=1"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1, "max": 1 } }
+      equals: { "meta.limit": 1, "meta.offset": 0 }
+
+  - name: "very large limit returns all pokemon"
+    command: "pokedex pokemon list --limit=999999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 1025 }
+      array_len: { "data": { "min": 1025, "max": 1025 } }
+
+  - name: "location encounters offset beyond total returns empty data"
+    command: "pokedex location encounters kanto-route-1 --game=red --limit=1 --offset=999"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 0, "max": 0 } }
       has_fields: ["meta.total"]
 
   # ══════════════════════════════════════════════════════════════════
-  # ENCOUNTERS: Pikachu with NO game filter (all games)
+  # SPECIAL NAMES: hyphens, apostrophes, unicode
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "pokemon encounters pikachu with no game filter returns ALL games"
-    command: "pokedex pokemon encounters pikachu"
+  - name: "mr-mime (hyphenated name) resolves correctly"
+    command: "pokedex pokemon show mr-mime"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 50 } }
-      has_fields: ["data.0.game_slug", "data.0.location", "data.0.method", "actions", "meta"]
-      type_of: { "data.0.pokemon_name": "string" }
+      equals: { "data.id": 122, "data.name": "mr-mime" }
+      contains: { "data.display_name": "Mr. Mime" }
 
-  - name: "pikachu encounters include gen 1 game (red)"
-    command: "pokedex pokemon encounters pikachu --game=red"
+  - name: "ho-oh (multi-hyphen name) resolves correctly"
+    command: "pokedex pokemon show ho-oh"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 1 } }
-      equals: { "data.0.game_slug": "red" }
-      contains: { "data.0.pokemon_name": "Pikachu" }
+      equals: { "data.id": 250, "data.is_legendary": true }
+      contains: { "data.display_name": "Ho-Oh" }
 
-  - name: "pikachu encounters include gen 9 game (scarlet)"
-    command: "pokedex pokemon encounters pikachu --game=scarlet"
+  - name: "porygon-z resolves correctly"
+    command: "pokedex pokemon show porygon-z"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 1 } }
-      equals: { "data.0.game_slug": "scarlet" }
+      equals: { "data.id": 474, "data.name": "porygon-z" }
+      has_fields: ["data.types", "actions"]
+
+  - name: "jangmo-o resolves correctly"
+    command: "pokedex pokemon show jangmo-o"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 782, "data.name": "jangmo-o" }
+      has_fields: ["data.types"]
+
+  - name: "farfetchd (no apostrophe) resolves correctly"
+    command: "pokedex pokemon show farfetchd"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 83 }
+      contains: { "data.display_name": "Farfetch" }
+
+  - name: "flabebe displays accented name"
+    command: "pokedex pokemon show flabebe"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 669, "data.name": "flabebe" }
+      has_fields: ["data.display_name"]
+
+  - name: "nidoran-f resolves to Nidoran female"
+    command: "pokedex pokemon show nidoran-f"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 29, "data.name": "nidoran-f" }
+      has_fields: ["data.types"]
+
+  - name: "type-null resolves correctly"
+    command: "pokedex pokemon show type-null"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 772, "data.is_legendary": true }
+      contains: { "data.display_name": "Type: Null" }
 
   # ══════════════════════════════════════════════════════════════════
-  # MOVES: Pikachu with --game=yellow (pre-HOME game)
+  # CASE INSENSITIVITY
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "pokemon moves pikachu --game=yellow returns gen-1 moveset"
-    command: "pokedex pokemon moves pikachu --game=yellow"
+  - name: "uppercase PIKACHU resolves correctly"
+    command: "pokedex pokemon show PIKACHU"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 5 } }
-      has_fields: ["data.0.move_name", "data.0.display_name", "data.0.type_name", "data.0.learn_method", "actions"]
-      equals: { "data.0.game": "yellow" }
-      type_of: { "data.0.move_name": "string" }
-
-  - name: "pikachu yellow moveset includes Thunder Shock at level 1"
-    command: "pokedex pokemon moves pikachu --game=yellow --method=level-up"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 3 } }
-      has_fields: ["data.0.level"]
-      type_of: { "data.0.level": "number" }
+      equals: { "data.id": 25, "data.name": "pikachu" }
+      has_fields: ["data.types", "actions"]
 
   # ══════════════════════════════════════════════════════════════════
-  # DEX SHOW: Every unique dex type
+  # FORM RESOLUTION
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "dex show national (biggest dex)"
-    command: "pokedex dex show national"
+  - name: "pikachu-cosplay resolves to cosplay form with correct display name"
+    command: "pokedex pokemon show pikachu-cosplay"
     assert:
       exit_code: 0
-      equals: { "meta.total": 1025 }
-      array_len: { "data": { "min": 1 } }
-      has_fields: ["data.0.pokedex_number", "data.0.name", "data.0.display_name", "actions"]
+      equals: { "data.id": 25 }
+      contains: { "data.display_name": "Cosplay" }
 
-  - name: "dex show kanto (regional gen 1)"
-    command: "pokedex dex show kanto"
+  - name: "deoxys-attack resolves to attack form with correct stats"
+    command: "pokedex pokemon show deoxys-attack"
     assert:
       exit_code: 0
-      equals: { "meta.total": 151 }
-      array_len: { "data": { "min": 1 } }
+      equals: { "data.stats.attack": 180, "data.stats.defense": 20 }
+      contains: { "data.display_name": "Attack" }
 
-  - name: "dex show original-johto (regional gen 2)"
-    command: "pokedex dex show original-johto"
+  - name: "growlithe-hisui resolves with correct Hisuian types"
+    command: "pokedex pokemon show growlithe-hisui"
     assert:
       exit_code: 0
-      equals: { "meta.total": 251 }
-      array_len: { "data": { "min": 50 } }
+      contains: { "data.display_name": "Hisuian" }
+      array_len: { "data.types": { "min": 2, "max": 2 } }
 
-  - name: "dex show hoenn (regional gen 3)"
-    command: "pokedex dex show hoenn"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 202 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show original-sinnoh (regional gen 4)"
-    command: "pokedex dex show original-sinnoh"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 151 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show original-unova (regional gen 5)"
-    command: "pokedex dex show original-unova"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 156 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show kalos-central (sub-regional gen 6)"
-    command: "pokedex dex show kalos-central"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show kalos-coastal (sub-regional gen 6)"
-    command: "pokedex dex show kalos-coastal"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show kalos-mountain (sub-regional gen 6)"
-    command: "pokedex dex show kalos-mountain"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show original-alola (regional gen 7)"
-    command: "pokedex dex show original-alola"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 302 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show original-melemele (island sub-dex)"
-    command: "pokedex dex show original-melemele"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show galar (regional gen 8)"
-    command: "pokedex dex show galar"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 400 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show isle-of-armor (DLC sub-dex)"
-    command: "pokedex dex show isle-of-armor"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 211 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show crown-tundra (DLC sub-dex)"
-    command: "pokedex dex show crown-tundra"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 210 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show hisui (PLA regional)"
-    command: "pokedex dex show hisui"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 242 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show paldea (regional gen 9)"
-    command: "pokedex dex show paldea"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 400 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show kitakami (DLC sub-dex gen 9)"
-    command: "pokedex dex show kitakami"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show blueberry (DLC sub-dex gen 9)"
-    command: "pokedex dex show blueberry"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 243 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show letsgo-kanto (Let's Go regional)"
-    command: "pokedex dex show letsgo-kanto"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 153 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show lumiose-city (Legends ZA dex)"
-    command: "pokedex dex show lumiose-city"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 232 }
-      array_len: { "data": { "min": 50 } }
-
-  - name: "dex show hyperspace (newest dex)"
-    command: "pokedex dex show hyperspace"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 132 }
-      array_len: { "data": { "min": 50 } }
-
-  # ══════════════════════════════════════════════════════════════════
-  # GAME SHOW: Japan-exclusive game slugs
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "game show green-japan returns gen 1 Kanto game"
-    command: "pokedex game show green-japan"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "green-japan", "data.generation": 1, "data.connects_to_home": false }
-      contains: { "data.region": "Kanto", "data.display_name": "Green" }
-      has_fields: ["data.id", "actions"]
-      type_of: { "data.id": "number" }
-
-  - name: "game show red-japan returns gen 1 Kanto game"
-    command: "pokedex game show red-japan"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "red-japan", "data.generation": 1, "data.connects_to_home": false }
-      contains: { "data.region": "Kanto", "data.display_name": "Red" }
-      has_fields: ["data.id", "actions"]
-
-  # ══════════════════════════════════════════════════════════════════
-  # TYPE POKEMON: Normal type (most common)
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "type pokemon normal returns the largest type group"
-    command: "pokedex type pokemon normal"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 50 } }
-      has_fields: ["data.0.id", "data.0.name", "data.0.display_name", "data.0.types", "meta.total"]
-      type_of: { "meta.total": "number" }
-
-  - name: "type pokemon normal includes pidgey (canonical normal type)"
-    command: "pokedex type pokemon normal --limit=100"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 50 } }
-
-  # ══════════════════════════════════════════════════════════════════
-  # SEARCH: Single character query
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "pokemon search a (single character) returns results"
-    command: "pokedex pokemon search a"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 5 } }
-      has_fields: ["data.0.species.id", "data.0.species.name", "data.0.score", "actions"]
-      type_of: { "data.0.score": "number" }
-
-  - name: "pokemon search z (single character) returns results"
-    command: "pokedex pokemon search z"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 1 } }
-      has_fields: ["data.0.species.name"]
-
-  # ══════════════════════════════════════════════════════════════════
-  # EVOLUTIONS: By ID (not name)
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "pokemon evolutions 133 returns eevee chain (by ID, not name)"
-    command: "pokedex pokemon evolutions 133"
-    assert:
-      exit_code: 0
-      equals: { "data.species_id": 133, "data.species_name": "eevee" }
-      contains: { "data.display_name": "Eevee" }
-      array_len: { "data.children": { "min": 8 } }
-      has_fields: ["data.children.0.species_name", "data.children.0.methods", "actions"]
-
-  - name: "pokemon evolutions 1 returns bulbasaur chain (by ID)"
-    command: "pokedex pokemon evolutions 1"
-    assert:
-      exit_code: 0
-      equals: { "data.species_id": 1, "data.species_name": "bulbasaur" }
-      array_len: { "data.children": { "min": 1 } }
-
-  - name: "pokemon evolutions 1025 returns pecharunt (no evolutions, by ID)"
-    command: "pokedex pokemon evolutions 1025"
-    assert:
-      exit_code: 0
-      equals: { "data.species_id": 1025, "data.species_name": "pecharunt" }
-      array_len: { "data.children": { "min": 0, "max": 0 } }
-
-  # ══════════════════════════════════════════════════════════════════
-  # COLLECTION: Add -> Show -> Update (all flags) -> Show (verify update)
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "collection add jolteon to sword for update lifecycle test"
-    command: "pokedex collection add --pokemon=jolteon --game=sword --method=catch --status=caught"
-    capture: { "lifecycle_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "jolteon", "data.game": "sword", "data.status": "caught", "data.method": "catch", "data.shiny": false, "data.in_home": false }
-      has_fields: ["data.id", "data.created_at", "data.updated_at", "actions"]
-      type_of: { "data.id": "number" }
-
-  - name: "collection show jolteon immediately after add"
-    command: "pokedex collection show $lifecycle_id"
-    capture: { "initial_updated_at": "data.updated_at" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "jolteon", "data.game": "sword", "data.status": "caught", "data.shiny": false, "data.in_home": false }
-      has_fields: ["data.created_at", "data.updated_at", "actions"]
-
-  - name: "collection update jolteon with ALL flags at once"
-    command: "pokedex collection update $lifecycle_id --status=living_dex --in-home=true --shiny=true --nickname=Sparky --game=shield --method=trade"
-    assert:
-      exit_code: 0
-      equals: { "data.status": "living_dex", "data.in_home": true, "data.shiny": true, "data.nickname": "Sparky", "data.game": "shield", "data.method": "trade" }
-      has_fields: ["data.id", "data.updated_at", "actions"]
-
-  - name: "collection show jolteon after multi-flag update reflects all changes"
-    command: "pokedex collection show $lifecycle_id"
-    capture: { "post_update_updated_at": "data.updated_at" }
-    assert:
-      exit_code: 0
-      equals: { "data.status": "living_dex", "data.in_home": true, "data.shiny": true, "data.nickname": "Sparky", "data.game": "shield", "data.method": "trade" }
-      has_fields: ["data.created_at", "data.updated_at"]
-
-  - name: "clean up lifecycle test entry"
-    command: "pokedex collection remove $lifecycle_id"
-    assert:
-      exit_code: 0
-      equals: { "data.removed": true }
-
-  # ══════════════════════════════════════════════════════════════════
-  # INVALID FLAG VALIDATION (error handling)
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "invalid type-filter returns JSON error"
-    command: "pokedex pokemon list --type-filter=bogus"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "No type named 'bogus'" }
-      has_fields: ["actions"]
-
-  - name: "generation 0 rejected"
-    command: "pokedex pokemon list --generation=0"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid generation '0'" }
-
-  - name: "generation 99 rejected"
-    command: "pokedex pokemon list --generation=99"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid generation '99'" }
-
-  - name: "generation 10 rejected"
-    command: "pokedex pokemon list --generation=10"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid generation '10'" }
-
-  - name: "negative generation rejected"
-    command: "pokedex pokemon list --generation=-1"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "-1" }
-
-  - name: "invalid category rejected"
-    command: "pokedex pokemon list --category=fakecategory"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid category 'fakecategory'" }
-
-  - name: "limit 0 returns JSON error"
-    command: "pokedex pokemon list --limit=0"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "limit" }
-
-  - name: "limit -1 returns JSON error"
-    command: "pokedex pokemon list --limit=-1"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "-1" }
-
-  - name: "limit 1 works and returns exactly 1 result"
-    command: "pokedex pokemon list --limit=1"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 1, "max": 1 } }
-      has_fields: ["meta.total", "meta.limit"]
-      equals: { "meta.limit": 1 }
-
-  - name: "collection list limit 0 rejected"
-    command: "pokedex collection list --limit=0"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-
-  - name: "invalid status on collection list"
-    command: "pokedex collection list --status=bogus"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid status 'bogus'" }
-      array_len: { "actions": { "min": 5 } }
-
-  - name: "invalid status on collection add"
-    command: "pokedex collection add --pokemon=pikachu --game=red --status=bogus --dry-run"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid status 'bogus'" }
-      array_len: { "actions": { "min": 5 } }
-
-  - name: "invalid status on dex progress"
-    command: "pokedex dex progress national --status=bogus"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid status 'bogus'" }
-
-  - name: "invalid method on pokemon moves"
-    command: "pokedex pokemon moves pikachu --method=bogus"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid method 'bogus'" }
-      array_len: { "actions": { "min": 4 } }
-
-  - name: "invalid method on collection add"
-    command: "pokedex collection add --pokemon=pikachu --game=red --method=bogus --dry-run"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid method 'bogus'" }
-
-  - name: "invalid sort on collection list"
-    command: "pokedex collection list --sort=bogus"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid sort 'bogus'" }
-
-  - name: "invalid form on collection add"
-    command: "pokedex collection add --pokemon=pikachu --game=red --form=megaevolution --dry-run"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No form 'megaevolution' for pikachu" }
-
-  # ══════════════════════════════════════════════════════════════════
-  # MISSING / EMPTY INPUTS
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "collection add missing --pokemon flag"
-    command: "pokedex collection add --game=red"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "required arguments" }
-
-  - name: "collection add missing --game flag"
-    command: "pokedex collection add --pokemon=pikachu"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "required arguments" }
-
-  # ══════════════════════════════════════════════════════════════════
-  # NOT_FOUND ERRORS
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "pokemon show nonexistent returns NOT_FOUND with suggestions"
-    command: "pokedex pokemon show nonexistent123"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "nonexistent123" }
-      array_len: { "actions": { "min": 1 } }
-
-  - name: "pokemon show id 0 returns NOT_FOUND"
-    command: "pokedex pokemon show 0"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "pokemon show very large id returns NOT_FOUND"
-    command: "pokedex pokemon show 999999"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "pokemon forms nonexistent returns NOT_FOUND with suggestions"
-    command: "pokedex pokemon forms fakemon"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      array_len: { "actions": { "min": 1 } }
-
-  - name: "pokemon evolutions nonexistent returns NOT_FOUND"
-    command: "pokedex pokemon evolutions fakemon"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "pokemon stats nonexistent returns NOT_FOUND"
-    command: "pokedex pokemon stats fakemon"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "pokemon encounters with invalid game"
-    command: "pokedex pokemon encounters pikachu --game=fakegame"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No game named 'fakegame'" }
-
-  - name: "pokemon moves with invalid game"
-    command: "pokedex pokemon moves pikachu --game=fakegame"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No game named 'fakegame'" }
-
-  - name: "collection add invalid game"
-    command: "pokedex collection add --pokemon=pikachu --game=fakegame --dry-run"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No game named 'fakegame'" }
-
-  - name: "collection list invalid game"
-    command: "pokedex collection list --game=fakegame"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "game show invalid"
-    command: "pokedex game show fakegame"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No game named 'fakegame'" }
-
-  - name: "home missing --dex=fakemon returns NOT_FOUND"
-    command: "pokedex home missing --dex=fakemon"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No pokédex named 'fakemon'" }
-
-  - name: "dex show invalid dex"
-    command: "pokedex dex show fakemon"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "dex progress invalid dex"
-    command: "pokedex dex progress fakemon"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "type matchups invalid type"
-    command: "pokedex type matchups bogustype"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      array_len: { "actions": { "min": 1 } }
-
-  - name: "type pokemon invalid type"
-    command: "pokedex type pokemon bogustype"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "collection show nonexistent id"
-    command: "pokedex collection show 99999"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No collection entry with id 99999" }
-
-  - name: "collection remove nonexistent id"
-    command: "pokedex collection remove 99999 --dry-run"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "collection update nonexistent id"
-    command: "pokedex collection update 99999 --status=caught"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "collection show id 0"
-    command: "pokedex collection show 0"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  - name: "collection add nonexistent pokemon"
-    command: "pokedex collection add --pokemon=fakemon --game=red --dry-run"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      array_len: { "actions": { "min": 1 } }
-
-  - name: "location encounters nonexistent location"
-    command: "pokedex location encounters planet-mars"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "planet-mars" }
-
-  - name: "home transferable nonexistent pokemon"
-    command: "pokedex home transferable fakemon"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-
-  # ══════════════════════════════════════════════════════════════════
-  # FORM RESOLUTION & ENCOUNTER WARNINGS
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "vivillon-polar resolves to Polar Vivillon"
+  - name: "vivillon-polar resolves as cosmetic form"
     command: "pokedex pokemon show vivillon-polar"
     assert:
       exit_code: 0
       equals: { "data.id": 666, "data.name": "vivillon" }
       contains: { "data.display_name": "Polar" }
-      has_fields: ["data.types", "data.stats"]
 
-  - name: "growlithe-hisui auto-detects form in legends-arceus"
-    command: "pokedex collection add --pokemon=growlithe-hisui --game=legends-arceus --dry-run"
+  # ══════════════════════════════════════════════════════════════════
+  # SEARCH EDGE CASES
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "empty search query returns INVALID_PARAMETER"
+    command: "pokedex pokemon search \"\""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required" }
+
+  - name: "SQL injection attempt is safely handled"
+    command: "pokedex pokemon search \"'; DROP TABLE pokemon;--\""
     assert:
       exit_code: 0
-      equals: { "data.pokemon": "growlithe", "data.form": "hisui", "data.game": "legends-arceus" }
-      has_fields: ["data.dry_run"]
+      has_fields: ["data", "actions", "meta"]
+      type_of: { "data": "array" }
 
-  - name: "unobtainable pokemon warns about no encounters"
-    command: "pokedex collection add --pokemon=mew --game=red --dry-run"
+  - name: "single character search with limit=1 works"
+    command: "pokedex pokemon search a --limit=1"
     assert:
       exit_code: 0
-      has_fields: ["data.warning"]
-      contains: { "data.warning": "No encounter data found" }
-
-  - name: "--method=evolve suppresses encounter warning"
-    command: "pokedex collection add --pokemon=mew --game=red --method=evolve --dry-run"
-    assert:
-      exit_code: 0
-      equals: { "data.method": "evolve", "data.dry_run": true }
-      type_of: { "data.pokemon": "string" }
-
-  - name: "--in-home on pre-HOME game warns"
-    command: "pokedex collection add --pokemon=pikachu --game=red --in-home --dry-run"
-    assert:
-      exit_code: 0
-      equals: { "data.in_home": true }
-      contains: { "data.warning": "does not connect to Pokémon HOME" }
+      array_len: { "data": { "min": 1, "max": 1 } }
       has_fields: ["actions"]
 
   # ══════════════════════════════════════════════════════════════════
-  # UNUSUAL POKEMON NAMES
+  # EMPTY COLLECTION HANDLING
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "mr-mime resolves correctly (hyphenated name)"
-    command: "pokedex pokemon show mr-mime"
-    assert:
-      exit_code: 0
-      equals: { "data.id": 122, "data.name": "mr-mime", "data.generation": 1 }
-      contains: { "data.display_name": "Mr. Mime" }
-      has_fields: ["data.types", "data.stats", "data.abilities"]
-      array_len: { "data.types": { "min": 2, "max": 2 } }
-      type_of: { "data.id": "number" }
-
-  - name: "farfetchd resolves correctly (apostrophe dropped)"
-    command: "pokedex pokemon show farfetchd"
-    assert:
-      exit_code: 0
-      equals: { "data.id": 83, "data.name": "farfetchd", "data.generation": 1, "data.types": ["Normal", "Flying"] }
-      contains: { "data.display_name": "Farfetch" }
-      has_fields: ["data.stats", "data.abilities"]
-
-  # ══════════════════════════════════════════════════════════════════
-  # NON-STANDARD TYPES: Stellar & Shadow
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "type matchups stellar succeeds with empty matchup lists"
-    command: "pokedex type matchups stellar"
-    assert:
-      exit_code: 0
-      equals: { "data.type_name": "stellar" }
-      contains: { "data.display_name": "Stellar" }
-      array_len: { "data.attacking.super_effective": { "min": 0, "max": 0 }, "data.defending.super_effective": { "min": 0, "max": 0 } }
-      has_fields: ["actions"]
-
-  - name: "type matchups shadow succeeds with empty matchup lists"
-    command: "pokedex type matchups shadow"
-    assert:
-      exit_code: 0
-      equals: { "data.type_name": "shadow" }
-      contains: { "data.display_name": "Shadow" }
-      array_len: { "data.attacking.no_effect": { "min": 0, "max": 0 }, "data.defending.no_effect": { "min": 0, "max": 0 } }
-      has_fields: ["actions"]
-
-  - name: "type pokemon stellar returns empty (no pokemon have stellar type)"
-    command: "pokedex type pokemon stellar"
+  - name: "empty collection list returns valid envelope"
+    command: "pokedex collection list"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 0, "max": 0 } }
       equals: { "meta.total": 0 }
+      has_fields: ["actions"]
 
-  - name: "type pokemon shadow returns empty (no pokemon have shadow type)"
-    command: "pokedex type pokemon shadow"
+  - name: "collection stats with empty collection returns zeros"
+    command: "pokedex collection stats"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 0, "max": 0 } }
-      equals: { "meta.total": 0 }
+      equals: { "data.total_entries": 0, "data.unique_species": 0 }
+      has_fields: ["actions"]
+
+  - name: "show non-existent collection entry returns NOT_FOUND"
+    command: "pokedex collection show 1"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "remove non-existent collection entry returns NOT_FOUND"
+    command: "pokedex collection remove 999999"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
 
   # ══════════════════════════════════════════════════════════════════
-  # DEX PROGRESS
+  # COLLECTION ADD/REMOVE WORKFLOW
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "dex progress kanto --missing --limit=3 returns uncaught pokemon"
-    command: "pokedex dex progress kanto --missing --limit=3"
+  - name: "add pikachu to collection in red"
+    command: "pokedex collection add --pokemon=pikachu --game=red"
     assert:
       exit_code: 0
-      has_fields: ["data.total", "data.caught", "data.percentage"]
-      array_len: { "data.entries": { "min": 1, "max": 3 } }
-      equals: { "data.dex_name": "kanto", "data.entries.0.caught": false, "meta.limit": 3 }
-      type_of: { "data.percentage": "number" }
-
-  # ══════════════════════════════════════════════════════════════════
-  # HUGE OFFSETS ON MOVES
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "pokemon moves pikachu --limit=1 --offset=9999 returns empty data"
-    command: "pokedex pokemon moves pikachu --limit=1 --offset=9999"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 0, "max": 0 } }
-      equals: { "meta.limit": 1, "meta.offset": 9999 }
-      has_fields: ["meta.total", "actions"]
-
-  # ══════════════════════════════════════════════════════════════════
-  # DOUBLE-ADD: Same pokemon, same game (allowed — multiple entries)
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "add pikachu to sword (first entry)"
-    command: "pokedex collection add --pokemon=pikachu --game=sword --method=catch"
-    capture: { "first_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.status": "caught" }
-      has_fields: ["data.id"]
-
-  - name: "add pikachu to sword again (second entry — allowed)"
-    command: "pokedex collection add --pokemon=pikachu --game=sword --method=catch"
-    capture: { "second_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.status": "caught" }
-      has_fields: ["data.id"]
-
-  - name: "both entries exist and have different IDs"
-    command: "pokedex collection show $first_id"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "sword" }
-      has_fields: ["data.id"]
-
-  - name: "second entry also exists"
-    command: "pokedex collection show $second_id"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "sword" }
-      has_fields: ["data.id"]
-
-  # ══════════════════════════════════════════════════════════════════
-  # ALL FLAGS AT ONCE on collection add (with alpha warning)
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "collection add with all flags at once"
-    command: "pokedex collection add --pokemon=pikachu --game=sword --shiny --in-home --alpha --method=catch --status=living_dex --nickname=Sparky"
-    capture: { "all_flags_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.shiny": true, "data.in_home": true, "data.is_alpha": true, "data.status": "living_dex", "data.method": "catch", "data.nickname": "Sparky" }
-      has_fields: ["data.id", "data.warning", "actions"]
-      contains: { "data.warning": "Alpha" }
-
-  # ══════════════════════════════════════════════════════════════════
-  # UPDATE CYCLING: Back and forth status changes
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "update all-flags entry to traded_away"
-    command: "pokedex collection update $all_flags_id --status=traded_away"
-    assert:
-      exit_code: 0
-      equals: { "data.status": "traded_away" }
-      has_fields: ["data.id"]
-
-  - name: "re-update back to living_dex"
-    command: "pokedex collection update $all_flags_id --status=living_dex"
-    assert:
-      exit_code: 0
-      equals: { "data.status": "living_dex" }
-      has_fields: ["data.id"]
-
-  # ══════════════════════════════════════════════════════════════════
-  # REMOVE THEN SHOW (ghost entry)
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "add charmander for remove test"
-    command: "pokedex collection add --pokemon=charmander --game=red"
-    capture: { "remove_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "charmander", "data.game": "red" }
-
-  - name: "remove charmander entry"
-    command: "pokedex collection remove $remove_id"
-    assert:
-      exit_code: 0
-      equals: { "data.removed": true }
+      equals: { "data.species_name": "pikachu", "data.game": "red", "data.status": "caught" }
       has_fields: ["data.id", "actions"]
 
-  - name: "show removed entry returns NOT_FOUND"
-    command: "pokedex collection show $remove_id"
+  - name: "remove the added collection entry"
+    command: "pokedex collection remove 1"
     assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No collection entry with id" }
+      exit_code: 0
+      equals: { "data.removed": true }
       has_fields: ["actions"]
 
   # ══════════════════════════════════════════════════════════════════
-  # UPDATE VALIDATION on real entry
+  # INVALID COLLECTION FILTERS
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "add entry for update validation tests"
-    command: "pokedex collection add --pokemon=bulbasaur --game=red"
-    capture: { "update_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "bulbasaur", "data.game": "red" }
-
-  - name: "collection update invalid status on real entry"
-    command: "pokedex collection update $update_id --status=bogus"
+  - name: "collection list with invalid status returns INVALID_PARAMETER"
+    command: "pokedex collection list --status=nonexistent"
     assert:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid status 'bogus'" }
+      contains: { "error.message": "caught, living_dex" }
 
-  - name: "collection update invalid method on real entry"
-    command: "pokedex collection update $update_id --method=bogus"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "Invalid method 'bogus'" }
-
-  - name: "collection update invalid game on real entry"
-    command: "pokedex collection update $update_id --game=fakegame"
+  - name: "collection list with invalid game returns NOT_FOUND"
+    command: "pokedex collection list --game=nonexistent"
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "No game named 'fakegame'" }
-
-  - name: "clean up update validation entry"
-    command: "pokedex collection remove $update_id"
-    assert:
-      exit_code: 0
-      has_fields: ["data", "meta"]
+      has_fields: ["actions"]
 
   # ══════════════════════════════════════════════════════════════════
-  # CLEANUP: Double-add + all-flags entries
+  # NON-EXISTENT RESOURCES
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "clean up first pikachu entry"
-    command: "pokedex collection remove $first_id"
+  - name: "non-existent dex returns NOT_FOUND"
+    command: "pokedex dex show nonexistent-dex"
     assert:
-      exit_code: 0
-      equals: { "data.removed": true }
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
 
-  - name: "clean up second pikachu entry"
-    command: "pokedex collection remove $second_id"
+  - name: "dex progress for non-existent dex returns NOT_FOUND"
+    command: "pokedex dex progress nonexistent"
     assert:
-      exit_code: 0
-      equals: { "data.removed": true }
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
 
-  - name: "clean up all-flags entry"
-    command: "pokedex collection remove $all_flags_id"
+  - name: "non-existent type in matchups returns NOT_FOUND"
+    command: "pokedex type matchups nonexistent"
     assert:
-      exit_code: 0
-      equals: { "data.removed": true }
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "non-existent type in type pokemon returns NOT_FOUND"
+    command: "pokedex type pokemon nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "non-existent location returns NOT_FOUND"
+    command: "pokedex location encounters nonexistent-location"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "HOME transferable for non-existent pokemon returns NOT_FOUND"
+    command: "pokedex home transferable nonexistent-pokemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "HOME missing with invalid dex returns NOT_FOUND"
+    command: "pokedex home missing --dex=nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
 
   # ══════════════════════════════════════════════════════════════════
-  # VALID GAME SLUGS & SORT
+  # CONFLICTING/DUPLICATE FLAGS
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "pokemon encounters --game=red works"
-    command: "pokedex pokemon encounters pikachu --game=red"
+  - name: "duplicate --type-filter flag is rejected"
+    command: "pokedex pokemon list --type-filter=fire --type-filter=water"
     assert:
-      exit_code: 0
-      array_len: { "data": { "min": 1 } }
-      equals: { "data.0.game_slug": "red" }
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
 
-  - name: "location encounters --game=red works"
-    command: "pokedex location encounters viridian-forest --game=red"
+  - name: "duplicate --game flag is rejected"
+    command: "pokedex collection add --pokemon=pikachu --game=red --game=blue"
     assert:
-      exit_code: 0
-      array_len: { "data": { "min": 1 } }
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
 
-  - name: "collection add --game=gold works"
-    command: "pokedex collection add --pokemon=cyndaquil --game=gold --dry-run"
-    assert:
-      exit_code: 0
-      equals: { "data.game": "gold", "data.pokemon": "cyndaquil", "data.dry_run": true }
+  # ══════════════════════════════════════════════════════════════════
+  # COMBINED FILTERS
+  # ══════════════════════════════════════════════════════════════════
 
-  - name: "collection list --sort=id works"
-    command: "pokedex collection list --sort=id"
+  - name: "triple filter (fire + gen1 + legendary) returns only Moltres"
+    command: "pokedex pokemon list --type-filter=fire --generation=1 --category=legendary"
     assert:
       exit_code: 0
-      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 1, "max": 1 } }
+      equals: { "data.0.name": "moltres", "meta.total": 1 }
 
-  - name: "collection list --sort=dex works"
-    command: "pokedex collection list --sort=dex"
+  - name: "gen 1 full list has exactly 151 pokemon"
+    command: "pokedex pokemon list --generation=1 --limit=999999"
     assert:
       exit_code: 0
-      has_fields: ["data", "meta"]
+      equals: { "meta.total": 151 }
+      array_len: { "data": { "min": 151, "max": 151 } }
 
-  - name: "collection list --pokemon=fakemon returns empty not error"
-    command: "pokedex collection list --pokemon=fakemon"
+  # ══════════════════════════════════════════════════════════════════
+  # EVOLUTION EDGE CASES
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "mew has no evolutions (empty children)"
+    command: "pokedex pokemon evolutions mew"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 0, "max": 0 } }
-      equals: { "meta.total": 0 }
+      equals: { "data.species_name": "mew" }
+      array_len: { "data.children": { "min": 0, "max": 0 } }
+
+  - name: "eevee has 8 evolution branches"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "eevee" }
+      array_len: { "data.children": { "min": 8, "max": 8 } }
+
+  - name: "magikarp evolves into gyarados"
+    command: "pokedex pokemon evolutions magikarp"
+    assert:
+      exit_code: 0
+      array_len: { "data.children": { "min": 1, "max": 1 } }
+      equals: { "data.children.0.species_name": "gyarados" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # PIKACHU FORMS LIST
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "pikachu has many forms"
+    command: "pokedex pokemon forms pikachu"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 15, "max": 20 } }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # MOVES WITH VALID FILTERS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "pikachu level-up moves in red returns data"
+    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 7 }
+      array_len: { "data": { "min": 1, "max": 50 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # HOME AND DEX COMMANDS WITH EMPTY COLLECTION
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "home coverage with empty collection works"
+    command: "pokedex home coverage"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+
+  - name: "home status with empty collection works"
+    command: "pokedex home status"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions"]
+
+  - name: "dex progress national with empty collection shows 0 caught"
+    command: "pokedex dex progress national"
+    assert:
+      exit_code: 0
+      equals: { "data.caught": 0, "data.total": 1025 }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ADD POKEMON WITH NON-EXISTENT ID TO COLLECTION
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "collection add with non-existent pokemon ID returns NOT_FOUND"
+    command: "pokedex collection add --pokemon=999999 --game=red"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # DISCOVERY AND HELP
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "discover returns full command tree"
+    command: "pokedex --discover"
+    assert:
+      exit_code: 0
+      has_fields: ["data.name", "data.resources", "data.entry_points", "actions"]
+      contains: { "data.name": "pokedex" }

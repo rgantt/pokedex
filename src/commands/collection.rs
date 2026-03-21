@@ -198,6 +198,7 @@ pub fn add(
             dry_run: true,
             warning: encounter_warning.clone(),
         };
+        let form_flag_str = effective_form.as_ref().map(|f| format!(" --form={f}")).unwrap_or_default();
         let status_flag = if status != "caught" { format!(" --status={status}") } else { String::new() };
         let method_flag = method.map(|m| format!(" --method={m}")).unwrap_or_default();
         let nickname_flag = nickname.map(|n| format!(" --nickname={n}")).unwrap_or_default();
@@ -206,7 +207,7 @@ pub fn add(
         let alpha_flag = if is_alpha { " --alpha" } else { "" };
         let actions = vec![
             Action::with_description("confirm", &format!(
-                "pokedex collection add --pokemon={species_name} --game={game_name}{shiny_flag}{home_flag}{alpha_flag}{status_flag}{method_flag}{nickname_flag}",
+                "pokedex collection add --pokemon={species_name} --game={game_name}{form_flag_str}{shiny_flag}{home_flag}{alpha_flag}{status_flag}{method_flag}{nickname_flag}",
             ), "Run without --dry-run to save"),
         ];
         let response = Response::new(preview, actions, Meta::simple("pokedex collection add --dry-run"));

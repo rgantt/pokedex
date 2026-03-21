@@ -10,14 +10,20 @@ fn main() -> Result<()> {
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(e) => {
-            // Convert clap errors to JSON for agent consumption
-            let message = e.to_string().lines().next().unwrap_or("Invalid command").to_string();
-            let _ = ErrorResponse::not_found(
-                &message,
-                vec![Action::new("discover", "pokedex --discover"),
-                     Action::new("help", "pokedex --help")],
-            ).print();
-            unreachable!() // print() calls process::exit(1)
+            // Let --help and --version print normally (not as JSON errors)
+            if e.use_stderr() {
+                // Actual errors (missing args, invalid flags) → JSON
+                let message = e.to_string().lines().next().unwrap_or("Invalid command").to_string();
+                let _ = ErrorResponse::invalid_parameter(
+                    &message,
+                    vec![Action::new("discover", "pokedex --discover"),
+                         Action::new("help", "pokedex --help")],
+                ).print();
+                unreachable!()
+            } else {
+                // Help/version output → print normally and exit 0
+                e.exit()
+            }
         }
     };
 

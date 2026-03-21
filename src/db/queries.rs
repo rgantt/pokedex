@@ -673,6 +673,74 @@ pub fn get_pokemon_stats(conn: &Connection, species_id: i64) -> Result<PokemonSt
     })
 }
 
+/// Get stats for a specific pokemon_id (not necessarily the default form).
+pub fn get_pokemon_stats_by_pokemon_id(conn: &Connection, pokemon_id: i64) -> Result<PokemonStats> {
+    // Get display name from the pokemon's species
+    let display_name: String = conn.query_row(
+        "SELECT COALESCE(sn.name, s.name) FROM pokemon p \
+         JOIN species s ON s.id = p.species_id \
+         LEFT JOIN species_names sn ON sn.species_id = s.id \
+         WHERE p.id = ?1",
+        params![pokemon_id],
+        |row| row.get(0),
+    )?;
+
+    let mut stmt = conn.prepare(
+        "SELECT s.name, ps.base_value FROM pokemon_stats ps \
+         JOIN stats s ON s.id = ps.stat_id \
+         WHERE ps.pokemon_id = ?1 ORDER BY ps.stat_id"
+    )?;
+    let stats: Vec<(String, i64)> = stmt
+        .query_map(params![pokemon_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let get = |name: &str| stats.iter().find(|(n, _)| n == name).map(|(_, v)| *v).unwrap_or(0);
+
+    let hp = get("hp");
+    let attack = get("attack");
+    let defense = get("defense");
+    let special_attack = get("special-attack");
+    let special_defense = get("special-defense");
+    let speed = get("speed");
+
+    Ok(PokemonStats {
+        pokemon_name: display_name,
+        hp,
+        attack,
+        defense,
+        special_attack,
+        special_defense,
+        speed,
+        total: hp + attack + defense + special_attack + special_defense + speed,
+    })
+}
+
+/// Get abilities for a specific pokemon_id (not necessarily the default form).
+pub fn get_pokemon_abilities_by_id(conn: &Connection, pokemon_id: i64) -> Result<Vec<AbilityInfo>> {
+    let mut stmt = conn.prepare(
+        "SELECT a.name, COALESCE(an.name, a.name), pa.is_hidden, \
+         (SELECT ap.short_effect FROM ability_prose ap WHERE ap.ability_id = a.id LIMIT 1) \
+         FROM pokemon_abilities pa \
+         JOIN abilities a ON a.id = pa.ability_id \
+         LEFT JOIN ability_names an ON an.ability_id = a.id \
+         WHERE pa.pokemon_id = ?1 \
+         ORDER BY pa.slot"
+    )?;
+    let abilities = stmt
+        .query_map(params![pokemon_id], |row| {
+            Ok(AbilityInfo {
+                name: row.get(0)?,
+                display_name: row.get(1)?,
+                is_hidden: row.get::<_, i64>(2)? != 0,
+                short_effect: row.get(3)?,
+            })
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(abilities)
+}
+
 pub fn get_encounters(
     conn: &Connection,
     species_id: i64,

@@ -94,14 +94,63 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
     let mut species = queries::get_species(conn, species_id)?;
 
     // If the user searched for a form name (e.g. "growlithe-hisui"), override
-    // the display_name and types with form-specific data.
+    // the display_name, types, stats, and abilities with form-specific data.
     if let Ok(Some(form_pokemon_id)) = queries::resolve_form_pokemon_id(conn, pokemon) {
+        // Get the default pokemon_id for comparison
+        let default_pokemon_id: Option<i64> = conn.query_row(
+            "SELECT id FROM pokemon WHERE species_id = ?1 AND is_default = 1",
+            rusqlite::params![species_id],
+            |row| row.get(0),
+        ).ok();
+
+        // Override types
         let form_types = queries::get_pokemon_types_by_pokemon_id(conn, form_pokemon_id)?;
         if !form_types.is_empty() {
             species.types = form_types;
         }
+
+        // Override display_name
         if let Ok(Some(form_display)) = queries::get_form_display_name(conn, form_pokemon_id) {
             species.display_name = form_display;
+        }
+
+        // Override stats
+        if let Ok(stats) = queries::get_pokemon_stats_by_pokemon_id(conn, form_pokemon_id) {
+            species.stats = Some(stats);
+        }
+
+        // Override abilities
+        if let Ok(abilities) = queries::get_pokemon_abilities_by_id(conn, form_pokemon_id) {
+            if !abilities.is_empty() {
+                species.abilities = abilities;
+            }
+        }
+
+        // For cosmetic forms (same pokemon_id as default), get display name from pokemon_forms
+        if default_pokemon_id == Some(form_pokemon_id) {
+            let cosmetic_display: Option<String> = conn.query_row(
+                "SELECT COALESCE(pfn.pokemon_name, pfn.name) FROM pokemon_forms pf \
+                 LEFT JOIN pokemon_form_names pfn ON pfn.pokemon_form_id = pf.id \
+                 WHERE LOWER(pf.name) = LOWER(?1)",
+                rusqlite::params![pokemon],
+                |row| row.get(0),
+            ).ok().flatten();
+            if let Some(display) = cosmetic_display {
+                species.display_name = display;
+            }
+        }
+    } else {
+        // resolve_form_pokemon_id returned None — could be a cosmetic form where
+        // the pokemon_id is the default (is_default=1). Check pokemon_forms directly.
+        let cosmetic_display: Option<String> = conn.query_row(
+            "SELECT COALESCE(pfn.pokemon_name, pfn.name) FROM pokemon_forms pf \
+             LEFT JOIN pokemon_form_names pfn ON pfn.pokemon_form_id = pf.id \
+             WHERE LOWER(pf.name) = LOWER(?1) AND pfn.pokemon_name IS NOT NULL",
+            rusqlite::params![pokemon],
+            |row| row.get(0),
+        ).ok().flatten();
+        if let Some(display) = cosmetic_display {
+            species.display_name = display;
         }
     }
 
@@ -322,9 +371,12 @@ pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Optio
         let mut stmt = conn.prepare("SELECT name FROM pokemon_move_methods")?;
         let methods: Vec<String> = stmt.query_map([], |row| row.get(0))?.filter_map(|r| r.ok()).collect();
         if !methods.iter().any(|v| v.eq_ignore_ascii_case(m)) {
+            let suggestions: Vec<Action> = methods.iter().map(|vm| {
+                Action::new("did_you_mean", &format!("pokedex pokemon moves {name} --method={vm}"))
+            }).collect();
             ErrorResponse::invalid_parameter(
                 &format!("Invalid method '{m}'. Valid values: {}", methods.join(", ")),
-                vec![Action::new("show", &format!("pokedex pokemon moves {name}"))],
+                suggestions,
             ).print()?;
             return Ok(());
         }

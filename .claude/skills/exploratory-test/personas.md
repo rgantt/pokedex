@@ -87,121 +87,120 @@ Chooses a few pokemon with form differences and then tries to get every variatio
 - This wiki provides a good list https://bulbapedia.bulbagarden.net/wiki/List_of_Pok%C3%A9mon_with_form_differences
 - Doesn't care too much about evolutions (unless there are evolutions that can have multiple outcomes, then pursue those)
 
+## J-V: Game-Specific Completionist Playthroughs
+
+**All game personas (J through V) follow this exact workflow at EACH location. Do not skip steps.**
+
+### The Loop (repeat for every location in route progression)
+
+1. **DISCOVER**: `pokedex location encounters <location-slug> --game=<game>` to see what's available. If the slug doesn't work, try variants (region prefix like `johto-route-29`, or partial match).
+2. **INSPECT**: For each species found, run `pokedex pokemon show <name>` to see types, egg groups, evolution chain info.
+3. **CATCH**: `pokedex collection add --pokemon=<name> --game=<game> --method=catch` for every species. Verify the add succeeds (exit code 0, entry returned with correct game and species). If the add fails, REPORT IT — this is a critical bug.
+4. **EVOLVE**: `pokedex pokemon evolutions <name>` for species with evolutions. Add the evolved form: `pokedex collection add --pokemon=<evolved> --game=<game> --status=living_dex`. Update the base: `pokedex collection update <id> --status=evolved`. Verify both operations succeed.
+5. **VERIFY**: Every 3-4 locations, run:
+   - `pokedex collection stats --game=<game>` — verify counts match what you added
+   - `pokedex collection list --game=<game> --sort=dex --limit=10` — verify entries are there
+   - `pokedex dex progress national --caught --limit=5` — verify dex progress reflects catches
+
+### What to report
+- Any `collection add` that fails for a valid game (CRITICAL)
+- Any `location encounters` that returns wrong data or errors unexpectedly
+- Any `collection stats` counts that don't match expectations
+- Any `dex progress` that doesn't reflect what you caught
+- Regional form annotations: verify Galarian/Hisuian/Paldean/Alolan names appear correctly on wild encounters
+- Data quality: levels reasonable, probabilities ≤100%, locations correct for the region
+
+---
+
 ## J: Red/Blue Kanto Completionist
 
-Play through Red as a completionist. For EACH location in progression order, use `pokedex pokemon list` and encounter searches to DISCOVER what's available — don't assume you know. Catch everything you find, evolve full chains (mark bases as evolved, add evolutions as living_dex).
+Game: `--game=red`. Route progression:
+Route 1 → Route 22 → Route 2 → Viridian Forest → Route 3 → Mt. Moon → Route 4 → Route 24-25 → Route 5-6 → Route 9-10 → Rock Tunnel → Pokemon Tower → Route 12-15 → Safari Zone → Seafoam Islands → Pokemon Mansion → Victory Road
 
-Route progression (visit in this order, search for all encounters at each):
-Route 1 → Route 22 → Route 2 → Viridian Forest → Route 3 → Mt. Moon → Route 4 → Route 24-25 → Route 5-6 → Route 11 → Route 9-10 → Rock Tunnel → Route 8 → Pokemon Tower → Route 7 → Route 16 → Route 12-15 → Safari Zone → Route 19-20 → Seafoam Islands → Cinnabar Island/Pokemon Mansion → Route 21 → Victory Road
-
-At each location: run `pokedex pokemon encounters <name> --game=red` for pokemon you discover, add ALL to collection, look up evolutions with `pokedex pokemon evolutions <name>` and evolve through full chains. Check `pokedex dex progress national --caught` periodically.
-
-Target: 50+ unique species, 80+ collection entries.
+Target: 40+ species caught and tracked in collection.
 
 ## K: Let's Go Pikachu Kanto Completionist
 
-Same route order as Red/Blue but using `--game=lets-go-pikachu`. DISCOVER what's available at each location by searching — don't assume it matches Red/Blue exactly. The route progression is the same Kanto map:
-
-Route 1 → Route 2 → Viridian Forest → Route 3 → Mt. Moon → Route 4 → Route 24-25 → Route 5-6 → Rock Tunnel → Pokemon Tower → Route 12 → Route 19 → Seafoam Islands → Pokemon Mansion → Victory Road
-
-At each stop, look up encounters for that location in LGPE. Compare what you find vs what Red (persona J) found at the same locations. Catch everything, evolve chains. Target: 40+ species.
+Game: `--game=lets-go-pikachu`. Same Kanto route order as J. Target: 30+ species.
 
 ## L: Gold/Silver Johto Completionist
 
-Play through Gold as a completionist. DISCOVER encounters at each location.
+Game: `--game=gold`. Route progression:
+Route 29 → Route 30-31 → Dark Cave → Sprout Tower → Route 32 → Union Cave → Ilex Forest → Route 34-35 → National Park → Route 36-37 → Route 38-39 → Lake of Rage → Ice Path → Route 45 → Victory Road
 
-Route progression:
-Route 29 → Route 46 → Route 30-31 → Dark Cave → Sprout Tower → Route 32 → Union Cave → Slowpoke Well → Ilex Forest → Route 34 → Route 35 → National Park → Route 36-37 → Burned Tower → Route 38-39 → Route 42 → Route 43 → Lake of Rage → Route 44 → Ice Path → Route 45 → Victory Road
-
-At each stop: search encounters with `--game=gold`, catch everything, look up and follow evolution chains. Check dex progress after each major area. Target: 60+ species, 100+ entries.
+Target: 40+ species caught and tracked in collection.
 
 ## M: Ruby/Sapphire Hoenn Completionist
 
-Play through Ruby as a completionist. DISCOVER encounters at each location.
+Game: `--game=ruby`. Route progression:
+Route 101 → Route 102-104 → Petalburg Woods → Route 116 → Granite Cave → Route 110 → Route 117 → Route 111 (desert) → Fiery Path → Route 113-114 → Route 118-121 → Mt. Pyre → Victory Road
 
-Route progression:
-Route 101 → Route 103 → Route 102 → Route 104 → Petalburg Woods → Route 116 → Rusturf Tunnel → Granite Cave → Route 110 → Route 117 → Route 111 (desert) → Fiery Path → Route 113 → Route 114 → Route 118-119 → Route 120-121 → Mt. Pyre → Route 124-127 → Seafloor Cavern → Victory Road
-
-At each stop: search encounters with `--game=ruby`, catch everything, evolve chains. Target: 60+ species, 100+ entries.
+Target: 40+ species.
 
 ## N: Diamond/Pearl Sinnoh Completionist
 
-Play through Diamond as a completionist. DISCOVER encounters at each location.
+Game: `--game=diamond`. Route progression:
+Route 201-203 → Oreburgh Mine → Route 204-205 → Eterna Forest → Route 206-208 → Route 209-210 → Route 214-215 → Iron Island → Route 216-217 → Victory Road
 
-Route progression:
-Route 201 → Route 202 → Route 203 → Oreburgh Gate → Oreburgh Mine → Route 204 → Valley Windworks → Route 205 → Eterna Forest → Route 206 → Route 207 → Mt. Coronet → Route 208 → Route 209 → Route 210 → Route 215 → Route 214 → Route 212 → Route 218 → Iron Island → Route 216-217 → Route 222 → Route 223 → Victory Road
-
-At each stop: search encounters with `--game=diamond`, catch everything, evolve chains. Target: 55+ species, 100+ entries.
+Target: 40+ species.
 
 ## O: Black/White Unova Completionist
 
-Play through Black as a completionist. DISCOVER encounters at each location. Gen 5 only has new pokemon until post-game — verify this.
+Game: `--game=black`. Route progression:
+Route 1-3 → Wellspring Cave → Pinwheel Forest → Route 4 → Desert Resort → Route 5-6 → Chargestone Cave → Celestial Tower → Twist Mountain → Route 8-10 → Victory Road
 
-Route progression:
-Route 1 → Route 2 → Dreamyard → Route 3 → Wellspring Cave → Pinwheel Forest → Route 4 → Desert Resort → Route 5 → Route 6 → Chargestone Cave → Route 7 → Celestial Tower → Twist Mountain → Route 8 → Route 9 → Route 10 → Victory Road
-
-At each stop: search encounters with `--game=black`, catch everything, evolve chains. Target: 55+ species, 100+ entries.
+Target: 40+ species. Verify all catches are Gen 5 species (no older pokemon until post-game).
 
 ## P: X/Y Kalos Completionist
 
-Play through X as a completionist. DISCOVER encounters at each location.
+Game: `--game=x`. Route progression:
+Route 2 → Santalune Forest → Route 3-5 → Route 7-8 → Glittering Cave → Route 10-12 → Route 14-15 → Frost Cavern → Route 18-20 → Victory Road
 
-Route progression:
-Route 2 → Santalune Forest → Route 3 → Route 4 → Route 5 → Route 7 → Connecting Cave → Route 8 → Glittering Cave → Route 10 → Route 11 → Reflection Cave → Route 12 → Route 14 → Route 15 → Frost Cavern → Route 18 → Route 19 → Route 20 → Victory Road
-
-At each stop: search encounters with `--game=x`, catch everything, evolve chains. Target: 65+ species, 110+ entries.
+Target: 40+ species.
 
 ## Q: Sun/Moon Alola Completionist
 
-Play through Sun as a completionist. DISCOVER encounters at each location. Follow island trial order.
+Game: `--game=sun`. Route progression:
+Route 1-3 → Verdant Cavern → Brooklet Hill → Wela Volcano → Lush Jungle → Route 10-11 → Haina Desert → Vast Poni Canyon → Mount Lanakila
 
-Melemele: Route 1 → Route 2 → Hau'oli City → Verdant Cavern → Route 3 → Melemele Meadow → Seaward Cave
-Akala: Route 4 → Route 5 → Brooklet Hill → Route 7 → Wela Volcano → Lush Jungle → Route 8
-Ula'ula: Route 10-11 → Haina Desert → Route 13-14 → Thrifty Megamart
-Poni: Vast Poni Canyon → Mount Lanakila
-
-At each stop: search encounters with `--game=sun`, catch everything, evolve chains. Target: 55+ species, 100+ entries.
+Target: 40+ species. Check for Alolan form annotations on encounters.
 
 ## R: Sword/Shield Galar Completionist
 
-Play through Sword as a completionist. DISCOVER encounters at each location including Wild Area weather variants.
+Game: `--game=sword`. Route progression:
+Route 1-2 → Wild Area south → Route 3 → Galar Mine → Route 4-5 → Galar Mine 2 → Route 6-10 → Wild Area expanded
 
-Route progression:
-Route 1 → Route 2 → Wild Area (south) → Route 3 → Galar Mine → Route 4 → Route 5 → Galar Mine 2 → Route 6 → Route 7 → Route 8 → Route 9 → Route 10 → Wild Area (expanded)
-
-At each stop: search encounters with `--game=sword`, catch everything including weather-specific encounters. Check encounter details for weather rates. Evolve chains. Target: 60+ species, 110+ entries.
+Target: 40+ species. Check weather rates in encounter details. Verify Galarian form annotations.
 
 ## S: Brilliant Diamond Sinnoh Completionist
 
-Same route progression as Diamond (persona N) but using `--game=brilliant-diamond`. DISCOVER what's available — don't assume it matches Diamond exactly.
+Game: `--game=brilliant-diamond`. Same route order as N. Also check Grand Underground areas. Compare encounter data between `--game=diamond` and `--game=brilliant-diamond` for 5 pokemon.
 
-Same route order as N, plus Grand Underground areas: Grassland Cave, Fountainspring Cave, Spacious Cave, Dazzling Cave, Volcanic Cave.
-
-For 10 pokemon you find in both games, compare encounters between `--game=diamond` and `--game=brilliant-diamond`: same locations? same levels? different detail fields? Target: 55+ species, 100+ entries.
+Target: 40+ species.
 
 ## T: Legends Arceus Hisui Completionist
 
-Play through Legends Arceus as a completionist. DISCOVER encounters in each area. Use `--alpha` for alpha catches.
+Game: `--game=legends-arceus`. Area progression:
+Obsidian Fieldlands → Crimson Mirelands → Cobalt Coastlands → Coronet Highlands → Alabaster Icelands
 
-Area progression:
-Obsidian Fieldlands (all sub-areas) → Crimson Mirelands (all sub-areas) → Cobalt Coastlands (all sub-areas) → Coronet Highlands (all sub-areas) → Alabaster Icelands (all sub-areas)
+Use `--alpha` for alpha catches. Verify alpha_levels in details. Check Hisuian form annotations ("Hisuian Growlithe" not "Growlithe"). Verify `pokemon show growlithe-hisui` shows Fire/Rock types.
 
-At each area: search encounters with `--game=legends-arceus`, catch everything (regular + alpha variants). Look up Hisuian forms and verify is_default=false. Evolve chains. Check alpha_levels in encounter details. Target: 80+ species, 140+ entries.
+Target: 40+ species.
 
 ## U: Scarlet/Violet Paldea Completionist
 
-Play through Scarlet as a completionist. DISCOVER encounters in each province area.
+Game: `--game=scarlet`. Area progression:
+South Province Areas 1-5 → West Province Areas 1-3 → East Province Areas 1-3 → Glaseado Mountain → North Province Areas 1-3 → Casseroya Lake
 
-Area progression:
-South Province Areas 1-5 → West Province Areas 1-3 → East Province Areas 1-3 → Glaseado Mountain → North Province Areas 1-3 → Casseroya Lake → Area Zero
+Verify probability_overall ≤100%. Check Paldean form annotations ("Paldean Wooper"). Check Paldea dex progress.
 
-At each area: search encounters with `--game=scarlet`, catch everything. Verify probability_overall values are percentages (≤100%). Evolve chains. Check Paldea dex progress. Target: 80+ species, 140+ entries.
+Target: 40+ species.
 
 ## V: Legends Z-A Lumiose Completionist
 
-Play through Legends Z-A as a completionist. DISCOVER encounters in each Wild Zone — don't assume you know what's there.
+Game: `--game=legends-za`. Zone progression:
+Wild Zones 1-4 → 5-6 → 7-10 → 11-13 → 14-20
 
-Zone progression (by unlock order):
-Wild Zones 1-4 (Mission 3) → Wild Zones 5-6 (Mission 5-10) → Wild Zones 7-10 (Mission 10-15) → Wild Zones 11-13 (Mission 15-25) → Wild Zones 14-20 (Mission 25-39)
+Use `--alpha` for alpha catches. Verify Wild Zone locations correct. Check alpha data in details.
 
-At each zone: search encounters with `--game=legends-za`, catch everything. Verify Wild Zone locations show correctly (not "Lumiose City"). Check alpha data in encounter details. Use `--alpha` for alpha catches. Evolve chains. Target: 70+ species, 120+ entries across all 20 zones.
+Target: 40+ species across all 20 zones.

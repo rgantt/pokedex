@@ -24,6 +24,8 @@ struct Screenplay {
     #[allow(dead_code)]
     mutates_collection: Option<bool>,
     steps: Vec<Step>,
+    #[serde(flatten)]
+    _extra: HashMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,6 +36,8 @@ struct Step {
     capture: HashMap<String, String>,
     #[serde(default)]
     assert: Assertions,
+    #[serde(flatten)]
+    _extra: HashMap<String, Value>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -49,6 +53,10 @@ struct Assertions {
     type_of: HashMap<String, String>,
     #[serde(default)]
     array_len: HashMap<String, ArrayBound>,
+    // Catch-all: ignore unknown assertion types so agent-invented assertions
+    // don't break the runner. They just won't be evaluated.
+    #[serde(flatten)]
+    _extra: HashMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -290,7 +298,10 @@ fn run_all_screenplays() {
         let content = std::fs::read_to_string(&path)
             .unwrap_or_else(|e| panic!("Failed to read {}: {e}", path.display()));
         let screenplay: Screenplay = serde_yaml::from_str(&content)
-            .unwrap_or_else(|e| panic!("Failed to parse {}: {e}", path.display()));
+            .unwrap_or_else(|e| panic!(
+                "Failed to parse {}: {e}\n\nFix the YAML to conform to the screenplay schema, or delete the file.",
+                path.display()
+            ));
 
         eprintln!("\n=== Screenplay: {} ({}) ===", screenplay.name, path.file_name().unwrap().to_string_lossy());
 

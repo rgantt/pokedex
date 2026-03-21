@@ -1,0 +1,266 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Data Quality - Encounters, Stats, Evolutions, Forms"
+persona: data-quality
+description: "Verify encounter data across eras, base stats, evolution triggers, and regional form annotations"
+needs_seed: true
+mutates_collection: false
+
+steps:
+  # ── Viridian Forest (Gen 1 / Red) ──────────────────────────────────────
+  - name: "viridian-forest encounters in red"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 5 } }
+  - name: "viridian-forest has pikachu in red"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Pikachu" }
+  - name: "viridian-forest rarity values are integers"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      all_elements: 
+      path: "data"
+      type_of: { "rarity": "number" }
+  - name: "viridian-forest method is walk"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      all_elements: 
+      path: "data"
+      contains: { "method": "Walking" }
+  - name: "viridian-forest pikachu rarity is low"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Pikachu", "rarity": 4 }
+  - name: "viridian-forest has weedle in red"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Weedle" }
+  - name: "eterna-forest encounters in diamond"
+    command: "pokedex location encounters eterna-forest --game=diamond"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 10 } }
+  - name: "eterna-forest has conditions"
+    command: "pokedex location encounters eterna-forest --game=diamond"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      has_fields: ["conditions"]
+  - name: "eterna-forest has time-of-day conditions"
+    command: "pokedex location encounters eterna-forest --game=diamond"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Murkrow" }
+      has_fields: ["conditions"]
+  - name: "eterna-forest has slot-2 conditions"
+    command: "pokedex location encounters eterna-forest --game=diamond"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Kakuna" }
+  - name: "eterna-forest has pokeradar conditions"
+    command: "pokedex location encounters eterna-forest --game=diamond"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Nincada" }
+  - name: "galar-route-01 encounters in sword"
+    command: "pokedex location encounters galar-route-01 --game=sword"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 5 } }
+  - name: "galar-route-01 has details field"
+    command: "pokedex location encounters galar-route-01 --game=sword"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      has_fields: ["details"]
+  - name: "galar-route-01 has rate_overall in details"
+    command: "pokedex location encounters galar-route-01 --game=sword"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Skwovet" }
+      has_fields: ["details"]
+  - name: "galar-route-01 has visible overworld pokemon"
+    command: "pokedex location encounters galar-route-01 --game=sword"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Rookidee" }
+  - name: "galar-route-01 rookidee rarity is 30"
+    command: "pokedex location encounters galar-route-01 --game=sword"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Rookidee", "rarity": 30 }
+  - name: "wild-zone-3 encounters in legends-za"
+    command: "pokedex location encounters wild-zone-3 --game=legends-za"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 3 } }
+  - name: "wild-zone-3 has alpha data"
+    command: "pokedex location encounters wild-zone-3 --game=legends-za"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      has_fields: ["details"]
+  - name: "wild-zone-3 method is symbol encounter"
+    command: "pokedex location encounters wild-zone-3 --game=legends-za"
+    assert:
+      exit_code: 0
+      all_elements: 
+      path: "data"
+      equals: { "method": "Symbol Encounter" }
+  - name: "wild-zone-3 has pikachu with alpha levels"
+    command: "pokedex location encounters wild-zone-3 --game=legends-za"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Pikachu" }
+  - name: "wild-zone-3 rarity is null for all entries"
+    command: "pokedex location encounters wild-zone-3 --game=legends-za"
+    assert:
+      exit_code: 0
+      all_elements: 
+      path: "data"
+      equals: { "rarity": null }
+  - name: "rolling-fields has weather-specific rates"
+    command: "pokedex location encounters rolling-fields --game=sword"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "pokemon_name": "Bunnelby" }
+      has_fields: ["details"]
+  - name: "garchomp show has stats and abilities"
+    command: "pokedex pokemon show garchomp"
+    assert:
+      exit_code: 0
+      has_fields: ["data.stats", "data.abilities", "data.types"]
+      equals: { "data.name": "garchomp", "data.generation": 4 }
+  - name: "garchomp BST is 600"
+    command: "pokedex pokemon show garchomp"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 600 }
+  - name: "garchomp types are dragon and ground"
+    command: "pokedex pokemon show garchomp"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Dragon", "Ground"] }
+  - name: "garchomp has sand veil and rough skin"
+    command: "pokedex pokemon show garchomp"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 2 } }
+  - name: "garchomp evolves from gabite"
+    command: "pokedex pokemon show garchomp"
+    assert:
+      exit_code: 0
+      equals: { "data.evolves_from": "Gabite" }
+  - name: "gengar evolves by trade"
+    command: "pokedex pokemon evolutions gengar"
+    assert:
+      exit_code: 0
+      has_fields: ["data.children"]
+  - name: "gengar chain starts at gastly"
+    command: "pokedex pokemon evolutions gengar"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gastly" }
+  - name: "leafeon has two evolution methods"
+    command: "pokedex pokemon evolutions leafeon"
+    assert:
+      exit_code: 0
+      has_fields: ["data.children"]
+  - name: "leafeon chain starts at eevee"
+    command: "pokedex pokemon evolutions leafeon"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "eevee" }
+  - name: "tyrogue has three evolution branches"
+    command: "pokedex pokemon evolutions tyrogue"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tyrogue" }
+      array_len: { "data.children": { "min": 3 } }
+  - name: "meowth has regional forms"
+    command: "pokedex pokemon forms meowth"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 3 } }
+  - name: "meowth has alolan form"
+    command: "pokedex pokemon forms meowth"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      contains: { "display_name": "Alolan" }
+  - name: "meowth has galarian form"
+    command: "pokedex pokemon forms meowth"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      contains: { "display_name": "Galarian" }
+  - name: "meowth alolan form is dark type"
+    command: "pokedex pokemon forms meowth"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "name": "meowth-alola", "types": ["Dark"] }
+  - name: "meowth galarian form is steel type"
+    command: "pokedex pokemon forms meowth"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "name": "meowth-galar", "types": ["Steel"] }
+  - name: "vulpix has alolan form"
+    command: "pokedex pokemon forms vulpix"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "data"
+      equals: { "name": "vulpix-alola", "types": ["Ice"] }
+  - name: "pokemon show links to forms action"
+    command: "pokedex pokemon show meowth"
+    assert:
+      exit_code: 0
+      any_element: 
+      path: "actions"
+      equals: { "rel": "forms" }

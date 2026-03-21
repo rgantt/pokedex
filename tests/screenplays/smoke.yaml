@@ -16,7 +16,6 @@ steps:
       has_fields: ["data.resources", "data.entry_points", "actions", "meta.command"]
       type_of: { "data.resources": "array", "data.entry_points": "array" }
       array_len: { "data.entry_points": { "min": 5 } }
-
   - name: "show pikachu"
     command: "pokedex pokemon show pikachu"
     assert:
@@ -26,28 +25,24 @@ steps:
       has_fields: ["data.types", "data.stats", "data.abilities", "data.egg_groups", "actions"]
       type_of: { "data.types": "array", "data.id": "number" }
       array_len: { "data.types": { "min": 1 } }
-
   - name: "show form-specific data"
     command: "pokedex pokemon show growlithe-hisui"
     assert:
       exit_code: 0
       contains: { "data.display_name": "Hisuian" }
       equals: { "data.types": ["Fire", "Rock"] }
-
   - name: "type matchups"
     command: "pokedex type matchups dragon"
     assert:
       exit_code: 0
       has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
       array_len: { "data.attacking.no_effect": { "min": 1 } }
-
   - name: "fuzzy search"
     command: "pokedex pokemon search bulbsaur"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 1 } }
       equals: { "data.0.species.name": "bulbasaur" }
-
   - name: "typo recovery"
     command: "pokedex pokemon show pikachuu"
     assert:
@@ -55,52 +50,44 @@ steps:
       equals: { "error.code": "NOT_FOUND" }
       contains: { "error.message": "pikachuu" }
       array_len: { "actions": { "min": 1 } }
-
   - name: "location encounters"
     command: "pokedex location encounters viridian-forest --game=red --limit=5"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 1, "max": 5 } }
       has_fields: ["meta.total", "meta.limit"]
-
   - name: "collection add"
     command: "pokedex collection add --pokemon=pikachu --game=sword --method=catch"
     capture: { "entry_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "pikachu", "data.game": "sword", "data.status": "caught" }
-
   - name: "collection show"
     command: "pokedex collection show $entry_id"
     assert:
       exit_code: 0
       equals: { "data.species_name": "pikachu" }
-
   - name: "collection update"
     command: "pokedex collection update $entry_id --status=living_dex"
     assert:
       exit_code: 0
       equals: { "data.status": "living_dex" }
-
   - name: "collection remove"
     command: "pokedex collection remove $entry_id"
     assert:
       exit_code: 0
-
   - name: "invalid status rejected"
     command: "pokedex collection add --pokemon=pikachu --game=sword --status=bogus"
     assert:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
       array_len: { "actions": { "min": 1 } }
-
   - name: "evolution chain has methods"
     command: "pokedex pokemon evolutions eevee"
     assert:
       exit_code: 0
       has_fields: ["data.children"]
       array_len: { "data.children": { "min": 8 } }
-
   - name: "dex progress"
     command: "pokedex dex progress national --limit=5"
     assert:

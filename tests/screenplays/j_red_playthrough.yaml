@@ -1,0 +1,596 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Red Playthrough - Viridian Forest to Victory Road"
+persona: red_playthrough
+description: >
+  End-to-end Red playthrough testing the discover-inspect-catch-evolve-verify
+  loop across viridian-forest, mt-moon, rock-tunnel, pokemon-tower,
+  kanto-safari-zone, seafoam-islands, and kanto-victory-road-2. Validates
+  Gen 1 encounter data, evolution chains, collection add/update/stats workflow,
+  and HATEOAS action navigability. Targets 20+ unique species across 7
+  locations including 2 legendaries (Articuno, Moltres).
+needs_seed: true
+mutates_collection: true
+
+issues_found:
+  - severity: MEDIUM
+    summary: >
+      Location slug "safari-zone" returns NOT_FOUND with suggestion to try
+      region prefixes (e.g. "kanto-safari-zone"), but the error message
+      contains duplicate "try_without_game" actions in the actions array.
+      The same duplicate actions bug appears for other NOT_FOUND location
+      errors as well.
+  - severity: MEDIUM
+    summary: >
+      Location slug "victory-road" exists in the database (158 encounters
+      in other games) but has no Red data. The correct slug for Gen 1 is
+      "kanto-victory-road-2". The error message does not suggest related
+      slugs or sub-areas, making discoverability poor for agents.
+  - severity: LOW
+    summary: >
+      Evolved Pokemon added via --method=evolve that have no wild encounter
+      data in the target game (e.g. Butterfree, Beedrill in Red) produce a
+      warning field in the response: "No encounter data found for X in red.
+      The Pokemon may not be obtainable in this game." This is technically
+      correct but misleading for evolution-only Pokemon. The warning should
+      be suppressed when --method=evolve is used.
+  - severity: INFO
+    summary: >
+      The "location search" subcommand does not exist. When a location slug
+      is unknown, the only discovery path is trial-and-error with prefixes.
+      A fuzzy location search (analogous to "pokemon search") would improve
+      agent navigability.
+
+steps:
+  # ============================================================
+  # LOCATION 1: viridian-forest
+  # ============================================================
+  - name: "Viridian Forest -- discover encounters"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 10 }
+      array_len: { "data": { "min": 5 } }
+  - name: "Viridian Forest -- verify species present"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      json_path_any: { "data[*].pokemon_name": ["Caterpie", "Kakuna", "Metapod", "Pikachu", "Weedle"] }
+  - name: "Viridian Forest -- inspect Caterpie"
+    command: "pokedex pokemon show caterpie"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "caterpie", "data.generation": 1 }
+      has_fields: ["data.types", "data.stats", "data.abilities"]
+      contains: { "data.types.0": "Bug" }
+  - name: "Viridian Forest -- inspect Pikachu"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "pikachu", "data.generation": 1 }
+      contains: { "data.types.0": "Electric" }
+  - name: "Viridian Forest -- catch Caterpie"
+    command: "pokedex collection add --pokemon=caterpie --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "caterpie", "data.status": "caught", "data.method": "catch" }
+      has_fields: ["data.id", "data.created_at"]
+  - name: "Viridian Forest -- catch Pikachu"
+    command: "pokedex collection add --pokemon=pikachu --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.status": "caught", "data.method": "catch" }
+  - name: "Viridian Forest -- catch Weedle"
+    command: "pokedex collection add --pokemon=weedle --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "weedle", "data.status": "caught" }
+  - name: "Viridian Forest -- check Caterpie evolution chain"
+    command: "pokedex pokemon evolutions caterpie"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "caterpie" }
+      has_fields: ["data.children"]
+      contains: { "data.children.0.species_name": "metapod" }
+  - name: "Viridian Forest -- evolve Caterpie to Metapod"
+    command: "pokedex collection add --pokemon=metapod --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "metapod", "data.method": "evolve" }
+  - name: "Viridian Forest -- update Caterpie status to evolved"
+    command: "pokedex collection update 1 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "caterpie" }
+  - name: "Viridian Forest -- evolve Metapod to Butterfree"
+    command: "pokedex collection add --pokemon=butterfree --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "butterfree", "data.method": "evolve" }
+  - name: "Viridian Forest -- update Metapod status to evolved"
+    command: "pokedex collection update 4 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "metapod" }
+  - name: "Viridian Forest -- check Weedle evolution chain"
+    command: "pokedex pokemon evolutions weedle"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "kakuna" }
+  - name: "Viridian Forest -- evolve Weedle to Kakuna"
+    command: "pokedex collection add --pokemon=kakuna --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kakuna", "data.method": "evolve" }
+  - name: "Viridian Forest -- update Weedle status to evolved"
+    command: "pokedex collection update 3 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "weedle" }
+  - name: "Viridian Forest -- evolve Kakuna to Beedrill"
+    command: "pokedex collection add --pokemon=beedrill --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "beedrill", "data.method": "evolve" }
+  - name: "Viridian Forest -- update Kakuna status to evolved"
+    command: "pokedex collection update 6 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "kakuna" }
+  - name: "Viridian Forest -- check Pikachu evolution chain"
+    command: "pokedex pokemon evolutions pikachu"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.children.0.species_name": "raichu" }
+  - name: "Viridian Forest -- evolve Pikachu to Raichu"
+    command: "pokedex collection add --pokemon=raichu --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "raichu", "data.method": "evolve" }
+  - name: "Viridian Forest -- update Pikachu status to evolved"
+    command: "pokedex collection update 2 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "pikachu" }
+  - name: "Viridian Forest -- verify stats"
+    command: "pokedex collection stats --game=red"
+    assert:
+      exit_code: 0
+      equals: { "data.unique_species": 8 }
+      has_fields: ["data.total_entries", "data.by_status"]
+  - name: "Mt. Moon -- discover encounters"
+    command: "pokedex location encounters mt-moon --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 30 }
+      array_len: { "data": { "min": 10 } }
+  - name: "Mt. Moon -- verify species present"
+    command: "pokedex location encounters mt-moon --game=red"
+    assert:
+      exit_code: 0
+      json_path_any: { "data[*].pokemon_name": ["Zubat", "Geodude", "Paras", "Clefairy"] }
+  - name: "Mt. Moon -- inspect Zubat"
+    command: "pokedex pokemon show zubat"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "zubat", "data.generation": 1 }
+      json_path_any: { "data.types": ["Poison", "Flying"] }
+  - name: "Mt. Moon -- inspect Clefairy"
+    command: "pokedex pokemon show clefairy"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "clefairy", "data.generation": 1 }
+      contains: { "data.types.0": "Fairy" }
+  - name: "Mt. Moon -- catch Zubat"
+    command: "pokedex collection add --pokemon=zubat --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zubat", "data.status": "caught", "data.method": "catch" }
+  - name: "Mt. Moon -- catch Clefairy"
+    command: "pokedex collection add --pokemon=clefairy --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "clefairy", "data.status": "caught" }
+  - name: "Mt. Moon -- catch Geodude"
+    command: "pokedex collection add --pokemon=geodude --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "geodude", "data.status": "caught" }
+  - name: "Mt. Moon -- catch Paras"
+    command: "pokedex collection add --pokemon=paras --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "paras", "data.status": "caught" }
+  - name: "Mt. Moon -- check Zubat evolution chain"
+    command: "pokedex pokemon evolutions zubat"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "golbat" }
+  - name: "Mt. Moon -- evolve Zubat to Golbat"
+    command: "pokedex collection add --pokemon=golbat --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "golbat", "data.method": "evolve" }
+  - name: "Mt. Moon -- update Zubat status to evolved"
+    command: "pokedex collection update 9 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "zubat" }
+  - name: "Mt. Moon -- evolve Paras to Parasect"
+    command: "pokedex collection add --pokemon=parasect --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "parasect", "data.method": "evolve" }
+  - name: "Mt. Moon -- update Paras status to evolved"
+    command: "pokedex collection update 12 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "paras" }
+  - name: "Mt. Moon -- evolve Geodude to Graveler"
+    command: "pokedex collection add --pokemon=graveler --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "graveler", "data.method": "evolve" }
+  - name: "Mt. Moon -- update Geodude status to evolved"
+    command: "pokedex collection update 11 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "geodude" }
+  - name: "Mt. Moon -- verify stats"
+    command: "pokedex collection stats --game=red"
+    assert:
+      exit_code: 0
+      equals: { "data.unique_species": 15 }
+      has_fields: ["data.total_entries", "data.by_status"]
+  - name: "Rock Tunnel -- discover encounters"
+    command: "pokedex location encounters rock-tunnel --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 20 }
+      array_len: { "data": { "min": 5 } }
+  - name: "Rock Tunnel -- verify species present"
+    command: "pokedex location encounters rock-tunnel --game=red"
+    assert:
+      exit_code: 0
+      json_path_any: { "data[*].pokemon_name": ["Machop", "Onix", "Zubat", "Geodude"] }
+  - name: "Rock Tunnel -- inspect Machop"
+    command: "pokedex pokemon show machop"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "machop", "data.generation": 1 }
+      contains: { "data.types.0": "Fighting" }
+  - name: "Rock Tunnel -- inspect Onix"
+    command: "pokedex pokemon show onix"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "onix", "data.generation": 1 }
+      json_path_any: { "data.types": ["Rock", "Ground"] }
+  - name: "Rock Tunnel -- catch Machop"
+    command: "pokedex collection add --pokemon=machop --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "machop", "data.status": "caught", "data.method": "catch" }
+  - name: "Rock Tunnel -- catch Onix"
+    command: "pokedex collection add --pokemon=onix --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "onix", "data.status": "caught" }
+  - name: "Rock Tunnel -- check Machop evolution chain"
+    command: "pokedex pokemon evolutions machop"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "machoke" }
+  - name: "Rock Tunnel -- evolve Machop to Machoke"
+    command: "pokedex collection add --pokemon=machoke --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "machoke", "data.method": "evolve" }
+  - name: "Rock Tunnel -- update Machop status to evolved"
+    command: "pokedex collection update 16 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "machop" }
+  - name: "Rock Tunnel -- verify stats"
+    command: "pokedex collection stats --game=red"
+    assert:
+      exit_code: 0
+      equals: { "data.unique_species": 18 }
+      has_fields: ["data.total_entries", "data.by_status"]
+  - name: "Pokemon Tower -- discover encounters"
+    command: "pokedex location encounters pokemon-tower --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 50 }
+      array_len: { "data": { "min": 10 } }
+  - name: "Pokemon Tower -- verify species present"
+    command: "pokedex location encounters pokemon-tower --game=red"
+    assert:
+      exit_code: 0
+      json_path_any: { "data[*].pokemon_name": ["Gastly", "Haunter", "Cubone"] }
+  - name: "Pokemon Tower -- inspect Gastly"
+    command: "pokedex pokemon show gastly"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "gastly", "data.generation": 1 }
+      json_path_any: { "data.types": ["Ghost", "Poison"] }
+  - name: "Pokemon Tower -- inspect Cubone"
+    command: "pokedex pokemon show cubone"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "cubone", "data.generation": 1 }
+      contains: { "data.types.0": "Ground" }
+  - name: "Pokemon Tower -- catch Gastly"
+    command: "pokedex collection add --pokemon=gastly --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gastly", "data.status": "caught", "data.method": "catch" }
+  - name: "Pokemon Tower -- catch Cubone"
+    command: "pokedex collection add --pokemon=cubone --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cubone", "data.status": "caught" }
+  - name: "Pokemon Tower -- check Gastly evolution chain"
+    command: "pokedex pokemon evolutions gastly"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "haunter" }
+  - name: "Pokemon Tower -- evolve Gastly to Haunter"
+    command: "pokedex collection add --pokemon=haunter --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "haunter", "data.method": "evolve" }
+  - name: "Pokemon Tower -- update Gastly status to evolved"
+    command: "pokedex collection update 19 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "gastly" }
+  - name: "Pokemon Tower -- check Cubone evolution chain"
+    command: "pokedex pokemon evolutions cubone"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "marowak" }
+  - name: "Pokemon Tower -- evolve Cubone to Marowak"
+    command: "pokedex collection add --pokemon=marowak --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "marowak", "data.method": "evolve" }
+  - name: "Pokemon Tower -- update Cubone status to evolved"
+    command: "pokedex collection update 20 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "cubone" }
+  - name: "Pokemon Tower -- verify stats"
+    command: "pokedex collection stats --game=red"
+    assert:
+      exit_code: 0
+      equals: { "data.unique_species": 22 }
+      has_fields: ["data.total_entries", "data.by_status"]
+  - name: "Safari Zone -- bare slug fails with helpful error"
+    command: "pokedex location encounters safari-zone --game=red"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "safari-zone" }
+  - name: "Safari Zone -- discover encounters with kanto prefix"
+    command: "pokedex location encounters kanto-safari-zone --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 76 }
+      array_len: { "data": { "min": 20 } }
+  - name: "Safari Zone -- verify species present"
+    command: "pokedex location encounters kanto-safari-zone --game=red"
+    assert:
+      exit_code: 0
+      json_path_any: { "data[*].pokemon_name": ["Dratini", "Kangaskhan", "Chansey", "Exeggcute", "Nidoran\u2640"] }
+  - name: "Safari Zone -- inspect Dratini"
+    command: "pokedex pokemon show dratini"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "dratini", "data.generation": 1 }
+      contains: { "data.types.0": "Dragon" }
+  - name: "Safari Zone -- inspect Kangaskhan"
+    command: "pokedex pokemon show kangaskhan"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "kangaskhan", "data.generation": 1 }
+      contains: { "data.types.0": "Normal" }
+  - name: "Safari Zone -- catch Dratini"
+    command: "pokedex collection add --pokemon=dratini --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dratini", "data.status": "caught", "data.method": "catch" }
+  - name: "Safari Zone -- catch Kangaskhan"
+    command: "pokedex collection add --pokemon=kangaskhan --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kangaskhan", "data.status": "caught" }
+  - name: "Safari Zone -- catch Chansey"
+    command: "pokedex collection add --pokemon=chansey --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "chansey", "data.status": "caught" }
+  - name: "Safari Zone -- catch Exeggcute"
+    command: "pokedex collection add --pokemon=exeggcute --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "exeggcute", "data.status": "caught" }
+  - name: "Safari Zone -- catch Nidoran-F"
+    command: "pokedex collection add --pokemon=nidoran-f --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "caught", "data.method": "catch" }
+      has_fields: ["data.id", "data.species_id"]
+  - name: "Safari Zone -- check Dratini evolution chain"
+    command: "pokedex pokemon evolutions dratini"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "dragonair" }
+  - name: "Safari Zone -- evolve Dratini to Dragonair"
+    command: "pokedex collection add --pokemon=dragonair --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dragonair", "data.method": "evolve" }
+  - name: "Safari Zone -- update Dratini status to evolved"
+    command: "pokedex collection update 23 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "dratini" }
+  - name: "Safari Zone -- check Exeggcute evolution chain"
+    command: "pokedex pokemon evolutions exeggcute"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "exeggutor" }
+  - name: "Safari Zone -- evolve Exeggcute to Exeggutor"
+    command: "pokedex collection add --pokemon=exeggutor --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "exeggutor", "data.method": "evolve" }
+  - name: "Safari Zone -- update Exeggcute status to evolved"
+    command: "pokedex collection update 26 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "exeggcute" }
+  - name: "Safari Zone -- verify stats"
+    command: "pokedex collection stats --game=red"
+    assert:
+      exit_code: 0
+      equals: { "data.unique_species": 29 }
+      has_fields: ["data.total_entries", "data.by_status"]
+  - name: "Seafoam Islands -- discover encounters"
+    command: "pokedex location encounters seafoam-islands --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 69 }
+      array_len: { "data": { "min": 20 } }
+  - name: "Seafoam Islands -- verify species present"
+    command: "pokedex location encounters seafoam-islands --game=red"
+    assert:
+      exit_code: 0
+      json_path_any: { "data[*].pokemon_name": ["Seel", "Shellder", "Articuno", "Psyduck", "Horsea"] }
+  - name: "Seafoam Islands -- inspect Articuno (legendary)"
+    command: "pokedex pokemon show articuno"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "articuno", "data.is_legendary": true, "data.generation": 1 }
+      json_path_any: { "data.types": ["Ice", "Flying"] }
+  - name: "Seafoam Islands -- inspect Seel"
+    command: "pokedex pokemon show seel"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "seel", "data.generation": 1 }
+      contains: { "data.types.0": "Water" }
+  - name: "Seafoam Islands -- catch Seel"
+    command: "pokedex collection add --pokemon=seel --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "seel", "data.status": "caught", "data.method": "catch" }
+  - name: "Seafoam Islands -- catch Shellder"
+    command: "pokedex collection add --pokemon=shellder --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "shellder", "data.status": "caught" }
+  - name: "Seafoam Islands -- catch Psyduck"
+    command: "pokedex collection add --pokemon=psyduck --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "psyduck", "data.status": "caught" }
+  - name: "Seafoam Islands -- catch Horsea"
+    command: "pokedex collection add --pokemon=horsea --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "horsea", "data.status": "caught" }
+  - name: "Seafoam Islands -- catch Articuno"
+    command: "pokedex collection add --pokemon=articuno --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "articuno", "data.status": "caught" }
+  - name: "Seafoam Islands -- check Seel evolution chain"
+    command: "pokedex pokemon evolutions seel"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "dewgong" }
+  - name: "Seafoam Islands -- evolve Seel to Dewgong"
+    command: "pokedex collection add --pokemon=dewgong --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dewgong", "data.method": "evolve" }
+  - name: "Seafoam Islands -- update Seel status to evolved"
+    command: "pokedex collection update 30 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "seel" }
+  - name: "Seafoam Islands -- check Shellder evolution chain"
+    command: "pokedex pokemon evolutions shellder"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "cloyster" }
+  - name: "Seafoam Islands -- evolve Shellder to Cloyster"
+    command: "pokedex collection add --pokemon=cloyster --game=red --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cloyster", "data.method": "evolve" }
+  - name: "Seafoam Islands -- update Shellder status to evolved"
+    command: "pokedex collection update 31 --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "shellder" }
+  - name: "Seafoam Islands -- verify stats"
+    command: "pokedex collection stats --game=red"
+    assert:
+      exit_code: 0
+      equals: { "data.unique_species": 36 }
+      has_fields: ["data.total_entries", "data.by_status"]
+  - name: "Victory Road -- bare slug has no Red data"
+    command: "pokedex location encounters victory-road --game=red"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "victory-road" }
+  - name: "Victory Road -- discover encounters with correct slug"
+    command: "pokedex location encounters kanto-victory-road-2 --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 31 }
+      array_len: { "data": { "min": 10 } }
+  - name: "Victory Road -- verify species present"
+    command: "pokedex location encounters kanto-victory-road-2 --game=red"
+    assert:
+      exit_code: 0
+      json_path_any: { "data[*].pokemon_name": ["Moltres", "Venomoth", "Machoke", "Geodude", "Onix"] }
+  - name: "Victory Road -- inspect Moltres (legendary)"
+    command: "pokedex pokemon show moltres"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "moltres", "data.is_legendary": true, "data.generation": 1 }
+      json_path_any: { "data.types": ["Fire", "Flying"] }
+  - name: "Victory Road -- inspect Venomoth"
+    command: "pokedex pokemon show venomoth"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "venomoth", "data.generation": 1 }
+      json_path_any: { "data.types": ["Bug", "Poison"] }
+  - name: "Victory Road -- catch Moltres"
+    command: "pokedex collection add --pokemon=moltres --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "moltres", "data.status": "caught", "data.method": "catch" }
+  - name: "Victory Road -- catch Venomoth"
+    command: "pokedex collection add --pokemon=venomoth --game=red --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "venomoth", "data.status": "caught" }
+  - name: "Victory Road -- final stats"
+    command: "pokedex collection stats --game=red"
+    assert:
+      exit_code: 0
+      equals: { "data.unique_species": 38 }
+      has_fields: ["data.total_entries", "data.by_status", "data.shiny_count"]

@@ -1,0 +1,330 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Edge Cases & Validation"
+persona: edge-tester
+description: "Validate error handling for invalid flags, boundary values, empty inputs, form resolution, and SQL injection"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ── Invalid --type-filter ──────────────────────────────────────────────
+  - name: "invalid type-filter returns JSON error"
+    command: "pokedex pokemon list --type-filter=bogus"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "No type named 'bogus'" }
+      has_fields: ["actions"]
+  - name: "generation 0 rejected"
+    command: "pokedex pokemon list --generation=0"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid generation '0'" }
+  - name: "generation 99 rejected"
+    command: "pokedex pokemon list --generation=99"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid generation '99'" }
+  - name: "generation 10 rejected"
+    command: "pokedex pokemon list --generation=10"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid generation '10'" }
+  - name: "negative generation rejected"
+    command: "pokedex pokemon list --generation=-1"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "-1" }
+  - name: "invalid category rejected"
+    command: "pokedex pokemon list --category=fakecategory"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid category 'fakecategory'" }
+  - name: "limit 0 returns JSON error"
+    command: "pokedex pokemon list --limit=0"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "limit" }
+  - name: "limit -1 returns JSON error"
+    command: "pokedex pokemon list --limit=-1"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "-1" }
+  - name: "limit 1 works and returns exactly 1 result"
+    command: "pokedex pokemon list --limit=1"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1, "max": 1 } }
+      has_fields: ["meta.total", "meta.limit"]
+      equals: { "meta.limit": 1 }
+  - name: "collection list limit 0 rejected"
+    command: "pokedex collection list --limit=0"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+  - name: "huge offset returns empty data array"
+    command: "pokedex pokemon list --offset=99999"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      has_fields: ["meta.total"]
+  - name: "invalid status on collection list"
+    command: "pokedex collection list --status=bogus"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid status 'bogus'" }
+      array_len: { "actions": { "min": 5 } }
+  - name: "invalid status on collection add"
+    command: "pokedex collection add --pokemon=pikachu --game=red --status=bogus --dry-run"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid status 'bogus'" }
+      array_len: { "actions": { "min": 5 } }
+  - name: "invalid status on dex progress"
+    command: "pokedex dex progress national --status=bogus"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid status 'bogus'" }
+  - name: "invalid method on pokemon moves"
+    command: "pokedex pokemon moves pikachu --method=bogus"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid method 'bogus'" }
+      array_len: { "actions": { "min": 4 } }
+  - name: "invalid method on collection add"
+    command: "pokedex collection add --pokemon=pikachu --game=red --method=bogus --dry-run"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid method 'bogus'" }
+  - name: "invalid sort on collection list"
+    command: "pokedex collection list --sort=bogus"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid sort 'bogus'" }
+  - name: "invalid form on collection add"
+    command: "pokedex collection add --pokemon=pikachu --game=red --form=megaevolution --dry-run"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No form 'megaevolution' for pikachu" }
+  - name: "pokemon show nonexistent returns NOT_FOUND with suggestions"
+    command: "pokedex pokemon show nonexistent123"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "nonexistent123" }
+      array_len: { "actions": { "min": 1 } }
+  - name: "pokemon show id 0 returns NOT_FOUND"
+    command: "pokedex pokemon show 0"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "pokemon show very large id returns NOT_FOUND"
+    command: "pokedex pokemon show 999999"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "pokemon forms nonexistent returns NOT_FOUND with suggestions"
+    command: "pokedex pokemon forms fakemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      array_len: { "actions": { "min": 1 } }
+  - name: "pokemon evolutions nonexistent returns NOT_FOUND"
+    command: "pokedex pokemon evolutions fakemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "pokemon stats nonexistent returns NOT_FOUND"
+    command: "pokedex pokemon stats fakemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "pokemon encounters with invalid game"
+    command: "pokedex pokemon encounters pikachu --game=fakegame"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No game named 'fakegame'" }
+  - name: "pokemon moves with invalid game"
+    command: "pokedex pokemon moves pikachu --game=fakegame"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No game named 'fakegame'" }
+  - name: "collection add invalid game"
+    command: "pokedex collection add --pokemon=pikachu --game=fakegame --dry-run"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No game named 'fakegame'" }
+  - name: "collection list invalid game"
+    command: "pokedex collection list --game=fakegame"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "game show invalid"
+    command: "pokedex game show fakegame"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No game named 'fakegame'" }
+  - name: "home missing --dex=fakemon returns NOT_FOUND"
+    command: "pokedex home missing --dex=fakemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No pokédex named 'fakemon'" }
+  - name: "dex show invalid dex"
+    command: "pokedex dex show fakemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "dex progress invalid dex"
+    command: "pokedex dex progress fakemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "type matchups invalid type"
+    command: "pokedex type matchups bogustype"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      array_len: { "actions": { "min": 1 } }
+  - name: "type pokemon invalid type"
+    command: "pokedex type pokemon bogustype"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "collection show nonexistent id"
+    command: "pokedex collection show 99999"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No collection entry with id 99999" }
+  - name: "collection remove nonexistent id"
+    command: "pokedex collection remove 99999 --dry-run"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "collection update nonexistent id"
+    command: "pokedex collection update 99999 --status=caught"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "collection show id 0"
+    command: "pokedex collection show 0"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "collection add nonexistent pokemon"
+    command: "pokedex collection add --pokemon=fakemon --game=red --dry-run"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      array_len: { "actions": { "min": 1 } }
+  - name: "collection add missing --pokemon flag"
+    command: "pokedex collection add --game=red"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required arguments" }
+  - name: "collection add missing --game flag"
+    command: "pokedex collection add --pokemon=pikachu"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required arguments" }
+  - name: "location encounters nonexistent location"
+    command: "pokedex location encounters planet-mars"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "planet-mars" }
+  - name: "home transferable nonexistent pokemon"
+    command: "pokedex home transferable fakemon"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+  - name: "pokemon encounters --game=red works"
+    command: "pokedex pokemon encounters pikachu --game=red"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+      equals: { "data.0.game_slug": "red" }
+  - name: "location encounters --game=red works"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+  - name: "collection add --game=gold works"
+    command: "pokedex collection add --pokemon=cyndaquil --game=gold --dry-run"
+    assert:
+      exit_code: 0
+      equals: { "data.game": "gold", "data.pokemon": "cyndaquil", "data.dry_run": true }
+  - name: "vivillon-polar resolves to Polar Vivillon"
+    command: "pokedex pokemon show vivillon-polar"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 666, "data.name": "vivillon" }
+      contains: { "data.display_name": "Polar" }
+      has_fields: ["data.types", "data.stats"]
+  - name: "add entry for update validation tests"
+    command: "pokedex collection add --pokemon=bulbasaur --game=red"
+    capture: { "update_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bulbasaur", "data.game": "red" }
+  - name: "collection update invalid status on real entry"
+    command: "pokedex collection update $update_id --status=bogus"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid status 'bogus'" }
+  - name: "collection update invalid method on real entry"
+    command: "pokedex collection update $update_id --method=bogus"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "Invalid method 'bogus'" }
+  - name: "collection update invalid game on real entry"
+    command: "pokedex collection update $update_id --game=fakegame"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No game named 'fakegame'" }
+  - name: "clean up update validation entry"
+    command: "pokedex collection remove $update_id"
+    assert:
+      exit_code: 0
+  - name: "collection list --sort=id works"
+    command: "pokedex collection list --sort=id"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+  - name: "collection list --sort=dex works"
+    command: "pokedex collection list --sort=dex"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+  - name: "collection list --pokemon=fakemon returns empty not error"
+    command: "pokedex collection list --pokemon=fakemon"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      equals: { "meta.total": 0 }

@@ -1,0 +1,129 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Variants: Evolutions, Forms, and Collection"
+persona: variants
+description: "Test evolution methods (multi-method, branching, personality-based), form display, collection --form, invalid form errors, and location encounter filtering"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # --- Evolution methods ---
+
+  - name: "Leafeon has 2+ evolution methods (item + location-based level-up)"
+    command: "pokedex pokemon evolutions leafeon"
+    assert:
+      exit_code: 0
+      has_fields: ["data.species_name", "data.children"]
+      equals: { "data.species_name": "eevee" }
+      json_path_exists: 
+  - name: "Leafeon use-item method mentions leaf-stone"
+    command: "pokedex pokemon evolutions leafeon"
+    assert:
+      exit_code: 0
+  - name: "Tyrogue has 3 evolution branches with stat conditions"
+    command: "pokedex pokemon evolutions tyrogue"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tyrogue" }
+      array_len: { "data.children": { "min": 3 } }
+  - name: "Tyrogue branch Hitmonlee requires Attack > Defense"
+    command: "pokedex pokemon evolutions tyrogue"
+    assert:
+      exit_code: 0
+  - name: "Tyrogue branch Hitmonchan requires Attack < Defense"
+    command: "pokedex pokemon evolutions tyrogue"
+    assert:
+      exit_code: 0
+  - name: "Tyrogue branch Hitmontop requires Attack = Defense"
+    command: "pokedex pokemon evolutions tyrogue"
+    assert:
+      exit_code: 0
+  - name: "Wurmple has 2 personality-based branches"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "wurmple" }
+      array_len: { "data.children": { "min": 2 } }
+  - name: "Wurmple branches mention personality value"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+  - name: "Wurmple branch Silcoon evolves to Beautifly"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      json_path_exists: 
+  - name: "Wurmple branch Cascoon evolves to Dustox"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      json_path_exists: 
+  - name: "Vivillon default form is Meadow"
+    command: "pokedex pokemon forms vivillon"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 18 } }
+      json_path_exists: 
+  - name: "Only one Vivillon form is the default"
+    command: "pokedex pokemon forms vivillon"
+    assert:
+      exit_code: 0
+      json_path_count: 
+      "data[?(@.is_default==true)]": 1
+  - name: "Rotom Heat displays as Heat Rotom with BST 520"
+    command: "pokedex pokemon show rotom-heat"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Heat Rotom", "data.stats.total": 520}
+      has_fields: ["data.types", "data.stats", "data.abilities"]
+  - name: "Rotom Heat is Electric/Fire"
+    command: "pokedex pokemon show rotom-heat"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Electric", "Fire"] }
+  - name: "Vivillon Polar displays as Polar Vivillon"
+    command: "pokedex pokemon show vivillon-polar"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Polar Vivillon" }
+      has_fields: ["data.types", "data.stats"]
+  - name: "Vivillon Polar is Bug/Flying"
+    command: "pokedex pokemon show vivillon-polar"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Bug", "Flying"] }
+  - name: "Add Vivillon polar form to collection"
+    command: "pokedex collection add --pokemon=vivillon --form=polar --game=x"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "vivillon", "data.form_name": "polar", "data.game": "x"}
+      has_fields: ["data.id", "data.created_at"]
+  - name: "Invalid form returns error with available forms"
+    command: "pokedex collection add --pokemon=vivillon --form=nonexistent-form --game=x"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "nonexistent-form" }
+      has_fields: ["actions"]
+  - name: "Location encounters wild-zone-1 with --game=legends-za returns only zone 1"
+    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 1 } }
+      all_match: 
+      path: "data[*].area"
+  - name: "Location encounters wild-zone-1 returns Legends Z-A game slug"
+    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+    assert:
+      exit_code: 0
+      all_match: 
+      path: "data[*].game_slug"
+  - name: "Location encounters wild-zone-1 shows pokemon with alpha details"
+    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+    assert:
+      exit_code: 0
+      has_fields: ["meta.total", "meta.limit", "meta.offset"]

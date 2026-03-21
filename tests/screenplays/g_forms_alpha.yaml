@@ -1,0 +1,118 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Forms & Alpha Collection"
+persona: g_forms_alpha
+description: "Test alternate forms (Rotom, Vivillon, Mega), regional variants (Hisui, Galar, Paldea), encounter annotations, and PLA alpha collection"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ── Rotom forms ──────────────────────────────────────────────────────
+
+  - name: "base Rotom is Electric/Ghost with BST 440"
+    command: "pokedex pokemon show rotom"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Rotom", "data.types": ["Electric", "Ghost"], "data.stats.total": 440}
+  - name: "Heat Rotom is Electric/Fire with BST 520"
+    command: "pokedex pokemon show rotom-heat"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Heat Rotom", "data.types": ["Electric", "Fire"], "data.stats.total": 520, "data.stats.hp": 50, "data.stats.attack": 65, "data.stats.defense": 107, "data.stats.special_attack": 105, "data.stats.special_defense": 107, "data.stats.speed": 86}
+  - name: "Rotom forms list includes all 6 forms"
+    command: "pokedex pokemon forms rotom"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 6 } }
+      has_fields: ["data.0.types", "data.0.is_default"]
+  - name: "base Vivillon display_name is just Vivillon"
+    command: "pokedex pokemon show vivillon"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Vivillon", "data.types": ["Bug", "Flying"]}
+  - name: "vivillon-meadow shows Meadow Vivillon"
+    command: "pokedex pokemon show vivillon-meadow"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Meadow Vivillon", "data.types": ["Bug", "Flying"]}
+  - name: "Polar Vivillon via vivillon-polar"
+    command: "pokedex pokemon show vivillon-polar"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Polar Vivillon", "data.types": ["Bug", "Flying"]}
+  - name: "Vivillon forms list marks meadow as default"
+    command: "pokedex pokemon forms vivillon"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 18 } }
+  - name: "Mega Charizard X is Fire/Dragon with BST 634"
+    command: "pokedex pokemon show charizard-mega-x"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Mega Charizard X", "data.types": ["Fire", "Dragon"], "data.stats.total": 634, "data.stats.attack": 130}
+      has_fields: ["data.abilities"]
+  - name: "growlithe-hisui shows Hisuian Growlithe Fire/Rock BST 350"
+    command: "pokedex pokemon show growlithe-hisui"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Hisuian Growlithe", "data.types": ["Fire", "Rock"], "data.stats.total": 350, "data.stats.hp": 60, "data.stats.attack": 75, "data.stats.defense": 45, "data.stats.special_attack": 65, "data.stats.special_defense": 50, "data.stats.speed": 55}
+  - name: "Galarian Darumaka is Ice type"
+    command: "pokedex pokemon show darumaka-galar"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Galarian Darumaka", "data.types": ["Ice"]}
+  - name: "Paldean Wooper is Poison/Ground"
+    command: "pokedex pokemon show wooper-paldea"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Paldean Wooper", "data.types": ["Poison", "Ground"]}
+  - name: "darumaka encounters in Sword include Galarian Darumaka"
+    command: "pokedex pokemon encounters darumaka --game=sword"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 5 } }
+      contains: { "data.4.pokemon_name": "Galarian Darumaka" }
+  - name: "wooper encounters in Scarlet show Paldean Wooper"
+    command: "pokedex pokemon encounters wooper --game=scarlet"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 5 } }
+      contains: { "data.0.pokemon_name": "Paldean Wooper" }
+  - name: "stats subcommand for growlithe-hisui (known bug: returns base stats)"
+    command: "pokedex pokemon stats growlithe-hisui"
+    assert:
+      exit_code: 0
+      equals: {"data.hp": 55, "data.attack": 70, "data.special_attack": 70, "data.speed": 60, "data.total": 350}
+  - name: "add alpha Kleavor to PLA"
+    command: "pokedex collection add --pokemon=kleavor --game=legends-arceus --alpha --notes='Alpha catch'"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "kleavor", "data.game": "legends-arceus", "data.is_alpha": true, "data.status": "caught"}
+      has_fields: ["data.id", "data.created_at"]
+  - name: "add alpha Snorlax to PLA"
+    command: "pokedex collection add --pokemon=snorlax --game=legends-arceus --alpha --notes='Alpha catch'"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "snorlax", "data.is_alpha": true}
+  - name: "add alpha Walrein to PLA"
+    command: "pokedex collection add --pokemon=walrein --game=legends-arceus --alpha --notes='Alpha catch'"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "walrein", "data.is_alpha": true}
+  - name: "add alpha Garchomp to PLA"
+    command: "pokedex collection add --pokemon=garchomp --game=legends-arceus --alpha --notes='Alpha catch'"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "garchomp", "data.is_alpha": true}
+  - name: "add alpha Hisuian Zoroark to PLA"
+    command: "pokedex collection add --pokemon=zoroark-hisui --game=legends-arceus --alpha --notes='Alpha catch'"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "zoroark", "data.form_name": "hisui", "data.is_alpha": true}
+  - name: "PLA collection has 5 alphas"
+    command: "pokedex collection list --game=legends-arceus"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 5 } }

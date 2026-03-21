@@ -89,393 +89,119 @@ Chooses a few pokemon with form differences and then tries to get every variatio
 
 ## J: Red/Blue Kanto Completionist
 
-Play through Red, catching EVERY available pokemon at each location. Goal: near-complete Kanto dex. For each location, run `pokedex pokemon encounters <name> --game=red` for every pokemon listed, add each to collection, evolve every base form through its full chain (mark bases as evolved, add evolutions as living_dex). Check `pokedex dex progress national --caught` after each area.
+Play through Red as a completionist. For EACH location in progression order, use `pokedex pokemon list` and encounter searches to DISCOVER what's available — don't assume you know. Catch everything you find, evolve full chains (mark bases as evolved, add evolutions as living_dex).
 
-Progress route by route, catching all wild pokemon at each stop:
-1. Pallet Town: charmander (starter gift)
-2. Route 1: pidgey, rattata
-3. Route 22: nidoran-f, nidoran-m, spearow, mankey
-4. Route 2: pidgey, rattata, caterpie, weedle
-5. Viridian Forest: pikachu, caterpie, metapod, weedle, kakuna
-6. Route 3: spearow, jigglypuff, nidoran-m, nidoran-f
-7. Mt. Moon: zubat, geodude, paras, clefairy
-8. Route 4: rattata, spearow, ekans, sandshrew
-9. Route 24-25: oddish, bellsprout, abra, pidgey
-10. Route 5-6: pidgey, meowth, oddish, bellsprout
-11. Route 11: drowzee, ekans, sandshrew, spearow
-12. Route 9-10: voltorb, magnemite, spearow
-13. Rock Tunnel: zubat, geodude, machop, onix
-14. Route 8: pidgey, meowth, vulpix, growlithe
-15. Pokemon Tower: gastly, haunter, cubone
-16. Celadon City: eevee (gift)
-17. Route 16: snorlax, doduo
-18. Route 12-15: oddish, gloom, bellsprout, ditto, pidgey
-19. Safari Zone: kangaskhan, tauros, chansey, scyther, pinsir, exeggcute, rhyhorn, nidorino, nidorina
-20. Route 19-20: tentacool, horsea, shellder, krabby, staryu
-21. Seafoam Islands: seel, shellder, psyduck, slowpoke, articuno
-22. Cinnabar/Pokemon Mansion: grimer, muk, koffing, weezing, growlithe, vulpix, magmar
-23. Route 21: tangela
-24. Victory Road: machoke, geodude, golbat, onix, marowak
+Route progression (visit in this order, search for all encounters at each):
+Route 1 → Route 22 → Route 2 → Viridian Forest → Route 3 → Mt. Moon → Route 4 → Route 24-25 → Route 5-6 → Route 11 → Route 9-10 → Rock Tunnel → Route 8 → Pokemon Tower → Route 7 → Route 16 → Route 12-15 → Safari Zone → Route 19-20 → Seafoam Islands → Cinnabar Island/Pokemon Mansion → Route 21 → Victory Road
 
-Evolve chains: charmander→charmeleon→charizard, pidgey→pidgeotto→pidgeot, rattata→raticate, caterpie→metapod→butterfree, weedle→kakuna→beedrill, nidoran-f→nidorina→nidoqueen, nidoran-m→nidorino→nidoking, zubat→golbat, geodude→graveler→golem, abra→kadabra→alakazam, machop→machoke→machamp, gastly→haunter→gengar, eevee→(pick one: vaporeon/jolteon/flareon)
+At each location: run `pokedex pokemon encounters <name> --game=red` for pokemon you discover, add ALL to collection, look up evolutions with `pokedex pokemon evolutions <name>` and evolve through full chains. Check `pokedex dex progress national --caught` periodically.
 
-Target: 50+ unique species caught, 80+ collection entries including evolutions.
+Target: 50+ unique species, 80+ collection entries.
 
 ## K: Let's Go Pikachu Kanto Completionist
 
-Same route order as Red/Blue but with `--game=lets-go-pikachu`. Catch everything at every location. This game has the same Kanto map but different encounter methods.
+Same route order as Red/Blue but using `--game=lets-go-pikachu`. DISCOVER what's available at each location by searching — don't assume it matches Red/Blue exactly. The route progression is the same Kanto map:
 
-Progress through ALL locations (same as J) but:
-1. Route 1-2: pidgey, rattata, oddish, bellsprout, caterpie
-2. Viridian Forest: pikachu, caterpie, metapod, weedle, kakuna, bulbasaur (rare)
-3. Route 3: spearow, jigglypuff, nidoran-m, nidoran-f, mankey
-4. Mt. Moon: zubat, geodude, paras, clefairy
-5. Route 24: oddish, bellsprout, abra, charmander (gift)
-6. Route 5-6: pidgey, oddish, bellsprout, psyduck, jigglypuff, meowth
-7. Rock Tunnel: zubat, geodude, machop, onix
-8. Pokemon Tower: gastly, haunter, cubone
-9. Route 12: snorlax, oddish, bellsprout, pidgey
-10. Route 19: tentacool, horsea, shellder, magikarp, staryu
-11. Seafoam Islands: seel, psyduck, slowpoke, shellder, articuno
-12. Pokemon Mansion: grimer, koffing, growlithe, vulpix, magmar
-13. Victory Road: machoke, geodude, golbat, onix, chansey
+Route 1 → Route 2 → Viridian Forest → Route 3 → Mt. Moon → Route 4 → Route 24-25 → Route 5-6 → Rock Tunnel → Pokemon Tower → Route 12 → Route 19 → Seafoam Islands → Pokemon Mansion → Victory Road
 
-Compare encounter data with Red (persona J) — same locations should have mostly same pokemon. Catch 40+ species.
+At each stop, look up encounters for that location in LGPE. Compare what you find vs what Red (persona J) found at the same locations. Catch everything, evolve chains. Target: 40+ species.
 
 ## L: Gold/Silver Johto Completionist
 
-Play through Gold catching everything. Goal: complete Johto dex.
+Play through Gold as a completionist. DISCOVER encounters at each location.
 
-1. Route 29: pidgey, sentret, hoothoot, rattata
-2. Route 46: geodude, spearow, rattata
-3. Route 30-31: pidgey, caterpie, weedle, poliwag, metapod, bellsprout
-4. Dark Cave: zubat, geodude, teddiursa
-5. Sprout Tower: rattata, gastly, bellsprout
-6. Route 32: ekans, bellsprout, mareep, wooper, hoppip
-7. Union Cave: zubat, geodude, onix, sandshrew
-8. Slowpoke Well: slowpoke, zubat
-9. Ilex Forest: oddish, paras, caterpie, metapod, zubat
-10. Route 34: drowzee, abra, ditto, jigglypuff
-11. Route 35: nidoran-f, nidoran-m, drowzee, ditto, yanma
-12. National Park: caterpie, weedle, scyther, pinsir (bug contest)
-13. Route 36-37: nidoran-f, nidoran-m, growlithe, stantler, vulpix, pidgey
-14. Burned Tower: rattata, koffing, zubat
-15. Route 38-39: rattata, tauros, miltank, snubbull, meowth, magnemite
-16. Route 42: mareep, spearow, mankey, zubat
-17. Route 43: pidgeotto, flaaffy, girafarig, venonat
-18. Lake of Rage: magikarp, gyarados (red gyarados)
-19. Route 44: poliwag, tangela, lickitung, bellsprout, weepinbell
-20. Ice Path: zubat, golbat, swinub, jynx, delibird
-21. Route 45: geodude, graveler, gligar, phanpy, donphan
-22. Victory Road: golbat, graveler, onix, rhyhorn, ursaring
+Route progression:
+Route 29 → Route 46 → Route 30-31 → Dark Cave → Sprout Tower → Route 32 → Union Cave → Slowpoke Well → Ilex Forest → Route 34 → Route 35 → National Park → Route 36-37 → Burned Tower → Route 38-39 → Route 42 → Route 43 → Lake of Rage → Route 44 → Ice Path → Route 45 → Victory Road
 
-Evolve chains: cyndaquil→quilava→typhlosion, sentret→furret, hoothoot→noctowl, mareep→flaaffy→ampharos, wooper→quagsire, bellsprout→weepinbell→victreebel, geodude→graveler→golem, gastly→haunter→gengar, abra→kadabra→alakazam, poliwag→poliwhirl→poliwrath, swinub→piloswine
-
-Target: 60+ species, 100+ collection entries.
+At each stop: search encounters with `--game=gold`, catch everything, look up and follow evolution chains. Check dex progress after each major area. Target: 60+ species, 100+ entries.
 
 ## M: Ruby/Sapphire Hoenn Completionist
 
-Play through Ruby catching everything at each location.
+Play through Ruby as a completionist. DISCOVER encounters at each location.
 
-1. Route 101: zigzagoon, wurmple, poochyena
-2. Route 103: zigzagoon, wingull, poochyena
-3. Route 102: zigzagoon, wurmple, lotad, ralts, poochyena
-4. Route 104: zigzagoon, wurmple, marill, wingull, taillow
-5. Petalburg Woods: shroomish, wurmple, silcoon, slakoth, vigoroth
-6. Route 116: nincada, whismur, taillow, skitty, abra
-7. Rusturf Tunnel: whismur, zubat
-8. Granite Cave: zubat, makuhita, geodude, aron, sableye
-9. Route 110: gulpin, oddish, electrike, minun, plusle
-10. Route 117: oddish, marill, roselia, illumise, volbeat
-11. Route 111: sandshrew, trapinch, cacnea, baltoy
-12. Fiery Path: numel, koffing, grimer, torkoal, slugma
-13. Route 113: spinda, skarmory, sandshrew
-14. Route 114: swablu, zangoose, lotad, lombre
-15. Route 118-119: electrike, zigzagoon, wingull, kecleon, oddish, tropius
-16. Route 120-121: absol, oddish, marill, kecleon, shuppet
-17. Mt. Pyre: shuppet, duskull, vulpix, chimecho, meditite
-18. Route 124-127: tentacool, wingull (surf/dive)
-19. Seafloor Cavern: zubat, golbat
-20. Victory Road: golbat, lairon, loudred, hariyama, medicham
+Route progression:
+Route 101 → Route 103 → Route 102 → Route 104 → Petalburg Woods → Route 116 → Rusturf Tunnel → Granite Cave → Route 110 → Route 117 → Route 111 (desert) → Fiery Path → Route 113 → Route 114 → Route 118-119 → Route 120-121 → Mt. Pyre → Route 124-127 → Seafloor Cavern → Victory Road
 
-Evolve chains: mudkip→marshtomp→swampert, zigzagoon→linoone, wurmple→silcoon→beautifly/cascoon→dustox, ralts→kirlia→gardevoir, taillow→swellow, shroomish→breloom, whismur→loudred→exploud, makuhita→hariyama, aron→lairon→aggron, electrike→manectric, numel→camerupt, trapinch→vibrava→flygon, swablu→altaria, shuppet→banette, duskull→dusclops
-
-Target: 60+ species, 100+ entries.
+At each stop: search encounters with `--game=ruby`, catch everything, evolve chains. Target: 60+ species, 100+ entries.
 
 ## N: Diamond/Pearl Sinnoh Completionist
 
-Play through Diamond catching everything.
+Play through Diamond as a completionist. DISCOVER encounters at each location.
 
-1. Route 201: starly, bidoof
-2. Route 202: starly, bidoof, shinx, kricketot
-3. Route 203: starly, bidoof, shinx, abra, zubat
-4. Oreburgh Gate: zubat, geodude, psyduck
-5. Oreburgh Mine: geodude, onix, zubat
-6. Route 204: budew, zubat, shinx, starly
-7. Route 204 north: budew, pachirisu, shellos
-8. Valley Windworks: buizel, shellos, pachirisu, drifloon
-9. Route 205: buizel, shellos, pachirisu, bidoof
-10. Eterna Forest: buneary, wurmple, beautifly, dustox, gastly, budew
-11. Route 206: stunky, kricketot, ponyta
-12. Route 207: machop, geodude, ponyta
-13. Mt. Coronet: zubat, geodude, machop, chingling
-14. Route 208: bidoof, psyduck, machop, ralts
-15. Route 209: starly, bibarel, mime-jr, chansey
-16. Route 210: ponyta, staravia, geodude, kricketune
-17. Route 215: kadabra, ponyta, geodude
-18. Route 214: ponyta, geodude, graveler, girafarig, houndour
-19. Route 212: roselia, budew, ralts, croagunk, shellos
-20. Route 218: shellos, gastrodon, floatzel, mr-mime
-21. Iron Island: onix, steelix, golbat, graveler
-22. Route 216-217: snover, sneasel, zubat, machoke, medicham
-23. Route 222: electabuzz, magnemite, chatot, luxio
-24. Route 223: tentacruel, pelipper, mantyke
-25. Victory Road: golbat, graveler, onix, steelix, medicham
+Route progression:
+Route 201 → Route 202 → Route 203 → Oreburgh Gate → Oreburgh Mine → Route 204 → Valley Windworks → Route 205 → Eterna Forest → Route 206 → Route 207 → Mt. Coronet → Route 208 → Route 209 → Route 210 → Route 215 → Route 214 → Route 212 → Route 218 → Iron Island → Route 216-217 → Route 222 → Route 223 → Victory Road
 
-Evolve chains: chimchar→monferno→infernape, starly→staravia→staraptor, bidoof→bibarel, shinx→luxio→luxray, geodude→graveler→golem, zubat→golbat→crobat, buizel→floatzel, buneary→lopunny, budew→roselia→roserade, machop→machoke→machamp, ponyta→rapidash, ralts→kirlia→gardevoir, snover→abomasnow, sneasel→weavile
-
-Target: 55+ species, 100+ entries.
+At each stop: search encounters with `--game=diamond`, catch everything, evolve chains. Target: 55+ species, 100+ entries.
 
 ## O: Black/White Unova Completionist
 
-Play through Black catching everything. All Gen 5 species.
+Play through Black as a completionist. DISCOVER encounters at each location. Gen 5 only has new pokemon until post-game — verify this.
 
-1. Route 1: patrat, lillipup
-2. Route 2: patrat, lillipup, purrloin
-3. Dreamyard: munna, patrat, purrloin, audino
-4. Route 3: pidove, blitzle, lillipup
-5. Wellspring Cave: woobat, roggenrola, drilbur
-6. Pinwheel Forest: sewaddle, venipede, cottonee, tympole, throh
-7. Route 4: sandile, darumaka, scraggy, trubbish
-8. Desert Resort: sandile, sigilyph, maractus, yamask
-9. Route 5: minccino, liepard, gothita, trubbish
-10. Route 6: deerling, karrablast, shelmet, tranquill
-11. Chargestone Cave: joltik, klink, ferroseed, tynamo, boldore
-12. Route 7: deerling, tranquill, zebstrika, watchog
-13. Celestial Tower: litwick, elgyem, golbat
-14. Twist Mountain: boldore, cubchoo, cryogonal, gurdurr
-15. Route 8: palpitoad, stunfisk, shelmet, karrablast
-16. Route 9: pawniard, garbodor, liepard
-17. Route 10: bouffalant, herdier, throh, rufflet
-18. Victory Road: boldore, mienfoo, heatmor, durant, deino
+Route progression:
+Route 1 → Route 2 → Dreamyard → Route 3 → Wellspring Cave → Pinwheel Forest → Route 4 → Desert Resort → Route 5 → Route 6 → Chargestone Cave → Route 7 → Celestial Tower → Twist Mountain → Route 8 → Route 9 → Route 10 → Victory Road
 
-Evolve chains: tepig→pignite→emboar, patrat→watchog, lillipup→herdier→stoutland, pidove→tranquill→unfezant, blitzle→zebstrika, sewaddle→swadloon→leavanny, venipede→whirlipede→scolipede, sandile→krokorok→krookodile, darumaka→darmanitan, roggenrola→boldore→gigalith, joltik→galvantula, litwick→lampent→chandelure, deino→zweilous→hydreigon, cubchoo→beartic
-
-Target: 55+ species, 100+ entries.
+At each stop: search encounters with `--game=black`, catch everything, evolve chains. Target: 55+ species, 100+ entries.
 
 ## P: X/Y Kalos Completionist
 
-Play through X catching everything.
+Play through X as a completionist. DISCOVER encounters at each location.
 
-1. Route 2: caterpie, weedle, pidgey, zigzagoon, fletchling
-2. Santalune Forest: pikachu, caterpie, weedle, pansage, pansear, panpour, scatterbug
-3. Route 3: pidgey, fletchling, bunnelby, azurill, dunsparce
-4. Route 4: flabebe, ledyba, ralts, combee, skitty
-5. Route 5: pancham, furfrou, gulpin, abra, doduo
-6. Route 7: smeargle, hoppip, roselia, flabebe, ducklett
-7. Connecting Cave: zubat, whismur, axew, meditite
-8. Route 8: absol, mienfoo, spoink, zangoose, inkay
-9. Glittering Cave: machop, onix, kangaskhan, mawile, cubone
-10. Route 10: eevee, emolga, golett, hawlucha, snubbull
-11. Route 11: nidoran-f, nidoran-m, hariyama, chingling, stunky
-12. Reflection Cave: mr-mime, sableye, roggenrola, carbink, wobbuffet
-13. Route 12: tauros, miltank, pachirisu, chatot, heracross
-14. Route 14: haunter, quagsire, goomy, stunfisk, skorupi
-15. Route 15: klefki, foongus, pawniard, murkrow
-16. Frost Cavern: jynx, piloswine, beartic, sneasel, cryogonal
-17. Route 18: torkoal, heatmor, durant, lairon, pupitar
-18. Route 19: sliggoo, gurdurr, drapion, weepinbell
-19. Route 20: trevenant, amoonguss, zoroark, noctowl
-20. Victory Road: lickitung, gurdurr, zweilous, noibat
+Route progression:
+Route 2 → Santalune Forest → Route 3 → Route 4 → Route 5 → Route 7 → Connecting Cave → Route 8 → Glittering Cave → Route 10 → Route 11 → Reflection Cave → Route 12 → Route 14 → Route 15 → Frost Cavern → Route 18 → Route 19 → Route 20 → Victory Road
 
-Evolve chains: froakie→frogadier→greninja, fletchling→fletchinder→talonflame, bunnelby→diggersby, ralts→kirlia→gardevoir, pancham→pangoro, axew→fraxure→hatchet, goomy→sliggoo→goodra, inkay→malamar, noibat→noivern, honedge→doublade→aegislash
-
-Target: 65+ species, 110+ entries.
+At each stop: search encounters with `--game=x`, catch everything, evolve chains. Target: 65+ species, 110+ entries.
 
 ## Q: Sun/Moon Alola Completionist
 
-Play through Sun catching everything at each trial location.
+Play through Sun as a completionist. DISCOVER encounters at each location. Follow island trial order.
 
-Melemele Island:
-1. Route 1: pikipek, yungoos, ledyba, caterpie, grubbin
-2. Route 2: drowzee, smeargle, growlithe, spearow, makuhita
-3. Hau'oli City: wingull, magnemite, grimer-alola, meowth-alola
-4. Verdant Cavern: yungoos, diglett, zubat
-5. Route 3: rufflet, spearow, mankey, delibird, hawlucha
-6. Melemele Meadow: oricorio, caterpie, butterfree, cottonee, petilil
-7. Seaward Cave: zubat, psyduck, seel, delibird
+Melemele: Route 1 → Route 2 → Hau'oli City → Verdant Cavern → Route 3 → Melemele Meadow → Seaward Cave
+Akala: Route 4 → Route 5 → Brooklet Hill → Route 7 → Wela Volcano → Lush Jungle → Route 8
+Ula'ula: Route 10-11 → Haina Desert → Route 13-14 → Thrifty Megamart
+Poni: Vast Poni Canyon → Mount Lanakila
 
-Akala Island:
-8. Route 4: lillipup, yungoos, eevee, mudbray, grubbin
-9. Route 5: fomantis, trumbeak, dewpider, salandit
-10. Brooklet Hill: dewpider, surskit, poliwag, wishiwashi
-11. Route 7: tentacool, wingull, staryu, magikarp
-12. Wela Volcano: cubone, fletchling, salandit, kangaskhan
-13. Lush Jungle: fomantis, morelull, paras, bounsweet
-14. Route 8: stufful, fletchinder, trumbeak
-
-Ula'ula Island:
-15. Route 10-11: pancham, skarmory, komala
-16. Haina Desert: sandile, dugtrio-alola, trapinch, gabite
-17. Route 13-14: gumshoos, raticate-alola, gastly, haunter
-18. Thrifty Megamart: gastly, haunter, mimikyu
-
-Poni Island:
-19. Vast Poni Canyon: jangmo-o, machoke, boldore, carbink
-20. Mount Lanakila: snorunt, absol, vulpix-alola, vanillite, sneasel
-
-Evolve chains: rowlet→dartrix→decidueye, pikipek→trumbeak→toucannon, yungoos→gumshoos, grubbin→charjabug→vikavolt, dewpider→araquanid, fomantis→lurantis, salandit→salazzle, bounsweet→steenee→tsareena, jangmo-o→hakamo-o→kommo-o, mudbray→mudsdale, stufful→bewear, rockruff→lycanroc
-
-Target: 55+ species, 100+ entries.
+At each stop: search encounters with `--game=sun`, catch everything, evolve chains. Target: 55+ species, 100+ entries.
 
 ## R: Sword/Shield Galar Completionist
 
-Play through Sword catching everything. Include Wild Area weather encounters.
+Play through Sword as a completionist. DISCOVER encounters at each location including Wild Area weather variants.
 
-1. Route 1: skwovet, wooloo, rookidee, blipbug, nickit
-2. Route 2: chewtle, yamper, rookidee, blipbug, lotad
-3. Wild Area south: machop, onix, snover, stufful, pikachu, tyrogue, ralts, vulpix, swinub, mudbray, growlithe, gastly
-4. Route 3: gossifleur, rookidee, sizzlipede, vulpix, mudbray
-5. Galar Mine: rolycoly, roggenrola, woobat, diglett, timburr
-6. Route 4: wooloo, yamper, meowth-galar, milcery, pikachu
-7. Route 5: farfetchd-galar, applin, eldegoss, swoobat, drifloon
-8. Galar Mine 2: binacle, noibat, shuckle, stunfisk-galar, carkol
-9. Route 6: silicobra, torkoal, helioptile, axew, galvantula
-10. Route 7: thievul, corviknight, perrserker, inkay, galvantula
-11. Route 8: snom, falinks, duraludon, togedemaru, grapploct
-12. Route 9: clobbopus, octillery, pelipper, gastrodon, pyukumuku
-13. Route 10: snom, sneasel, abomasnow, beartic, duraludon
-14. Wild Area (expanded): duskull, sneasel, dreepy, larvitar, deino, goomy, jangmo-o
+Route progression:
+Route 1 → Route 2 → Wild Area (south) → Route 3 → Galar Mine → Route 4 → Route 5 → Galar Mine 2 → Route 6 → Route 7 → Route 8 → Route 9 → Route 10 → Wild Area (expanded)
 
-Evolve chains: grookey→thwackey→rillaboom, rookidee→corvisquire→corviknight, wooloo→dubwool, chewtle→drednaw, yamper→boltund, applin→flapple/appletun, snom→frosmoth, dreepy→drakloak→dragapult, larvitar→pupitar→tyranitar, deino→zweilous→hydreigon, rolycoly→carkol→coalossal, sizzlipede→centiskorch
-
-Target: 60+ species, 110+ entries.
+At each stop: search encounters with `--game=sword`, catch everything including weather-specific encounters. Check encounter details for weather rates. Evolve chains. Target: 60+ species, 110+ entries.
 
 ## S: Brilliant Diamond Sinnoh Completionist
 
-Same routes as Diamond (persona N) but using `--game=brilliant-diamond`. Catch everything including Grand Underground pokemon:
+Same route progression as Diamond (persona N) but using `--game=brilliant-diamond`. DISCOVER what's available — don't assume it matches Diamond exactly.
 
-Same route progression as N, plus Grand Underground areas:
-1. Grassland Cave: ralts, eevee, houndour, absol
-2. Fountainspring Cave: psyduck, golduck, barboach, wooper
-3. Spacious Cave: geodude, onix, zubat, golbat
-4. Dazzling Cave: bronzor, chingling, clefairy
-5. Volcanic Cave: slugma, magby, houndour, numel
+Same route order as N, plus Grand Underground areas: Grassland Cave, Fountainspring Cave, Spacious Cave, Dazzling Cave, Volcanic Cave.
 
-For 10 key pokemon (starly, shinx, geodude, zubat, machop, ponyta, buizel, gastly, budew, snover), look up encounters in BOTH `--game=diamond` and `--game=brilliant-diamond` and compare: same locations? same levels? different details fields (BDSP has time-of-day)?
-
-Target: 55+ species, 100+ entries. Focus on verifying BDSP data vs original D/P data.
+For 10 pokemon you find in both games, compare encounters between `--game=diamond` and `--game=brilliant-diamond`: same locations? same levels? different detail fields? Target: 55+ species, 100+ entries.
 
 ## T: Legends Arceus Hisui Completionist
 
-Catch everything in each area. Use `--alpha` for alpha pokemon. Goal: complete Hisui pokedex.
+Play through Legends Arceus as a completionist. DISCOVER encounters in each area. Use `--alpha` for alpha catches.
 
-Obsidian Fieldlands (catch all):
-1. starly, staravia, bidoof, bibarel, shinx, luxio, ponyta, rapidash
-2. eevee, buizel, floatzel, wurmple, silcoon, beautifly, cascoon, dustox
-3. machop, machoke, geodude, graveler, psyduck, golduck
-4. zubat, golbat, pichu, pikachu, magikarp, gyarados
-5. Alpha catches: rapidash, snorlax, alakazam, infernape
+Area progression:
+Obsidian Fieldlands (all sub-areas) → Crimson Mirelands (all sub-areas) → Cobalt Coastlands (all sub-areas) → Coronet Highlands (all sub-areas) → Alabaster Icelands (all sub-areas)
 
-Crimson Mirelands (catch all):
-6. croagunk, toxicroak, hippopotas, hippowdon, tangela, tangrowth
-7. yanma, yanmega, teddiursa, ursaring, rhyhorn, rhydon
-8. combee, vespiquen, roselia, roserade, petilil, lilligant-hisui
-9. Alpha catches: torterra, pachirisu, hippowdon
-
-Cobalt Coastlands (catch all):
-10. tentacool, tentacruel, octillery, aipom, ambipom
-11. shellos, gastrodon, qwilfish-hisui, magby, magmar
-12. mantyke, mantine, drifblim, chatot, remoraid
-13. Alpha catches: walrein, gyarados, empoleon
-
-Coronet Highlands (catch all):
-14. clefairy, clefable, gible, gabite, garchomp
-15. misdreavus, mismagius, bronzor, bronzong, unown
-16. golem, luxray, mothim, chimecho
-17. Alpha catches: electivire, crobat, mothim
-
-Alabaster Icelands (catch all):
-18. snorunt, glalie, froslass, swinub, piloswine, mamoswine
-19. sneasel-hisui, snover, abomasnow, bergmite, avalugg-hisui
-20. Alpha catches: garchomp, lucario, mamoswine, gallade
-
-Verify: alpha_levels in encounter details, Hisuian forms (growlithe-hisui, zorua-hisui, voltorb-hisui) have is_default=false, correct Hisui area names.
-
-Target: 80+ species, 140+ entries including alphas and evolutions.
+At each area: search encounters with `--game=legends-arceus`, catch everything (regular + alpha variants). Look up Hisuian forms and verify is_default=false. Evolve chains. Check alpha_levels in encounter details. Target: 80+ species, 140+ entries.
 
 ## U: Scarlet/Violet Paldea Completionist
 
-Catch everything in each province. Open world — thorough sweep.
+Play through Scarlet as a completionist. DISCOVER encounters in each province area.
 
-South Province:
-1. Area 1: lechonk, tarountula, fletchling, hoppip, psyduck, buizel, paldean-wooper, pawmi
-2. Area 2: ralts, kirlia, shinx, luxio, marill, makuhita, rockruff, yungoos
-3. Area 3: drifloon, murkrow, starly, rockruff, flittle
-4. Area 4: venonat, girafarig, flittle, grimer, bonsly
-5. Area 5: girafarig, venonat, bonsly, flittle, hippopotas, larvitar
+Area progression:
+South Province Areas 1-5 → West Province Areas 1-3 → East Province Areas 1-3 → Glaseado Mountain → North Province Areas 1-3 → Casseroya Lake → Area Zero
 
-West Province:
-6. Area 1: shinx, flabebe, maschiff, shroodle, sunkern
-7. Area 2: deerling, rockruff, litleo, mudbray, psyduck
-8. Area 3: braviary, skiddo, tauros-paldea, mudsdale, skiddo
-
-East Province:
-9. Area 1: phanpy, mareep, girafarig, houndour, stantler
-10. Area 2: deino, dreepy, tatsugiri, veluza, dondozo
-11. Area 3: dondozo, flamingo, tropius, dunsparce
-
-Glaseado Mountain:
-12. snover, abomasnow, bergmite, cryogonal, cetoddle, frigibax, beartic
-
-North Province:
-13. Area 1: palossand, grimer, drifblim, farigiraf
-14. Area 2: zweilous, hydreigon, dragapult, garchomp, lucario
-15. Area 3: dragonite, tyranitar, salamence, goodra
-
-Casseroya Lake: dondozo, gyarados, dragonair, dratini, magikarp
-
-Area Zero: great-tusk, iron-treads, brute-bonnet, iron-hands, flutter-mane, iron-jugulis
-
-Evolve chains: sprigatito→floragato→meowscarada, lechonk→oinkologne, tarountula→spidops, pawmi→pawmo→pawmot, fletchling→fletchinder→talonflame, ralts→kirlia→gardevoir/gallade, shinx→luxio→luxray, larvitar→pupitar→tyranitar, deino→zweilous→hydreigon, dreepy→drakloak→dragapult, dratini→dragonair→dragonite, frigibax→arctibax→baxcalibur, cetoddle→cetitan
-
-Target: 80+ species, 140+ entries. Verify all probability_overall ≤100%.
+At each area: search encounters with `--game=scarlet`, catch everything. Verify probability_overall values are percentages (≤100%). Evolve chains. Check Paldea dex progress. Target: 80+ species, 140+ entries.
 
 ## V: Legends Z-A Lumiose Completionist
 
-Catch everything in every Wild Zone. Progress in unlock order, sweep each zone completely.
+Play through Legends Z-A as a completionist. DISCOVER encounters in each Wild Zone — don't assume you know what's there.
 
-Wild Zones 1-2 (Mission 3):
-1. Zone 1: bunnelby, fletchling, mareep, pichu, weedle, scatterbug, pidgey (all with alpha variants)
-2. Zone 2: litleo, skiddo, oddish, bellsprout, budew, roselia
+Zone progression (by unlock order):
+Wild Zones 1-4 (Mission 3) → Wild Zones 5-6 (Mission 5-10) → Wild Zones 7-10 (Mission 10-15) → Wild Zones 11-13 (Mission 15-25) → Wild Zones 14-20 (Mission 25-39)
 
-Wild Zones 3-4 (Mission 3):
-3. Zone 3: flabebe, espurr, ralts, kirlia, honedge, litwick
-4. Zone 4: gastly, haunter, phantump, pumpkaboo, golett
-
-Wild Zones 5-6 (Mission 5-10):
-5. Zone 5: pidgey, pidgeotto, electrike, patrat, venipede, whirlipede
-6. Zone 6: magnemite, voltorb, klink, klefki, mawile
-
-Wild Zones 7-8 (Mission 10):
-7. Zone 7: froakie, poliwag, psyduck, shellos, goomy
-8. Zone 8: snover, bergmite, swinub, sneasel, amaura
-
-Wild Zones 9-10 (Mission 15):
-9. Zone 9: noibat, hawlucha, fletchinder, sigilyph, emolga
-10. Zone 10: honedge, doublade, phantump, litwick, lampent, spiritomb
-
-Wild Zones 11-14 (Mission 20-30):
-11. Zone 11: ralts, kirlia, gardevoir, florges, sylveon
-12. Zone 12: sableye, duskull, misdreavus, banette, chandelure
-13. Zone 13: tyrantrum, aurorus, goodra, dragalge, clawitzer
-14. Zone 14: lucario, aegislash, talonflame, greninja, delphox
-
-Wild Zones 15-20 (Mission 30-39):
-15-20. Endgame pokemon at higher levels, guaranteed alpha spawns
-
-For each pokemon: `pokedex pokemon encounters <name> --game=legends-za`, verify Wild Zone N location (not "Lumiose City"), check alpha data in details, add with `--alpha` for alpha catches.
-
-Evolve chains: bunnelby→diggersby, fletchling→fletchinder→talonflame, mareep→flaaffy→ampharos, pichu→pikachu→raichu, weedle→kakuna→beedrill, scatterbug→spewpa→vivillon, litleo→pyroar, espurr→meowstic, honedge→doublade→aegislash, gastly→haunter→gengar, noibat→noivern, goomy→sliggoo→goodra, froakie→frogadier→greninja
-
-Target: 70+ species, 120+ entries. Check all 20 zones covered.
+At each zone: search encounters with `--game=legends-za`, catch everything. Verify Wild Zone locations show correctly (not "Lumiose City"). Check alpha data in encounter details. Use `--alpha` for alpha catches. Evolve chains. Target: 70+ species, 120+ entries across all 20 zones.

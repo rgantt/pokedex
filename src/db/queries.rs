@@ -595,6 +595,131 @@ pub fn get_encounters(
     Ok(rows)
 }
 
+pub fn get_location_encounters(
+    conn: &Connection,
+    location: &str,
+    game_filter: Option<&str>,
+    limit: u64,
+    offset: u64,
+) -> Result<(Vec<Encounter>, u64)> {
+    let location_lower = location.to_lowercase();
+
+    let mut base_sql = String::from(
+        "FROM encounters e \
+         JOIN encounter_slots es ON es.id = e.encounter_slot_id \
+         JOIN encounter_methods em ON em.id = es.encounter_method_id \
+         LEFT JOIN (SELECT encounter_method_id, name FROM encounter_method_names GROUP BY encounter_method_id) emn ON emn.encounter_method_id = em.id \
+         JOIN location_areas la ON la.id = e.location_area_id \
+         JOIN locations l ON l.id = la.location_id \
+         LEFT JOIN (SELECT location_id, name FROM location_names GROUP BY location_id) ln ON ln.location_id = l.id \
+         JOIN versions v ON v.id = e.version_id \
+         LEFT JOIN (SELECT version_id, name FROM version_names GROUP BY version_id) vn ON vn.version_id = v.id \
+         JOIN pokemon p ON p.id = e.pokemon_id \
+         JOIN species s ON s.id = p.species_id \
+         LEFT JOIN species_names sn ON sn.species_id = s.id \
+         WHERE (LOWER(la.name) = LOWER(?1) OR LOWER(l.name) = LOWER(?1) OR LOWER(COALESCE(ln.name, '')) = LOWER(?1) \
+                OR LOWER(la.name) LIKE '%' || LOWER(?1) || '%' OR LOWER(COALESCE(ln.name, '')) LIKE '%' || LOWER(?1) || '%')"
+    );
+
+    let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(location_lower)];
+
+    if let Some(game) = game_filter {
+        base_sql.push_str(" AND (LOWER(v.name) = LOWER(?2) OR (vn.name IS NOT NULL AND LOWER(vn.name) = LOWER(?2) AND NOT EXISTS (SELECT 1 FROM versions v2 WHERE LOWER(v2.name) = LOWER(?2))))");
+        bind_values.push(Box::new(game.to_string()));
+    }
+
+    // Count query
+    let count_sql = format!("SELECT COUNT(DISTINCT e.id) {base_sql}");
+    let total: u64 = {
+        let mut stmt = conn.prepare(&count_sql)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> = bind_values.iter().map(|b| b.as_ref()).collect();
+        stmt.query_row(params.as_slice(), |row| row.get(0))?
+    };
+
+    // Data query
+    let select_sql = format!(
+        "SELECT DISTINCT \
+         COALESCE(sn.name, s.name) as pokemon_name, \
+         COALESCE(ln.name, l.name) as loc_name, \
+         COALESCE(la.name, '') as area_name, \
+         COALESCE(vn.name, v.name) as game_name, \
+         COALESCE(emn.name, em.name) as method_name, \
+         e.min_level, e.max_level, es.rarity, e.id, \
+         v.name as game_slug \
+         {base_sql} \
+         ORDER BY pokemon_name, method_name \
+         LIMIT ?{limit_idx} OFFSET ?{offset_idx}",
+        limit_idx = bind_values.len() + 1,
+        offset_idx = bind_values.len() + 2,
+    );
+    bind_values.push(Box::new(limit as i64));
+    bind_values.push(Box::new(offset as i64));
+
+    let mut stmt = conn.prepare(&select_sql)?;
+    let params: Vec<&dyn rusqlite::types::ToSql> = bind_values.iter().map(|b| b.as_ref()).collect();
+
+    let rows: Vec<Encounter> = stmt
+        .query_map(params.as_slice(), |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, Option<i64>>(7)?,
+                row.get::<_, i64>(8)?,
+                row.get::<_, String>(9)?,
+            ))
+        })?
+        .filter_map(|r| r.ok())
+        .map(|(pokemon_name, location_name, area, game, method, min_level, max_level, rarity, encounter_id, game_slug)| {
+            let conditions = get_encounter_conditions(conn, encounter_id);
+            let details = get_encounter_details(conn, encounter_id);
+            let has_uncatchable_note = details.as_ref()
+                .and_then(|d| d.note.as_ref())
+                .map_or(false, |n| n.contains("Can not be caught"));
+            let is_bogus_level = min_level == 1 && max_level == 1
+                && (method == "Static Encounter" || method == "Fixed Encounter" || method == "Max Raid Battle"
+                    || method == "Special Encounter"
+                    || method == "static-encounter" || method == "fixed-encounter" || method == "max-raid-battle"
+                    || method == "special-encounter"
+                    || has_uncatchable_note);
+            let (final_min, final_max) = if is_bogus_level {
+                (None, None)
+            } else {
+                (Some(min_level), Some(max_level))
+            };
+            Encounter {
+                pokemon_name,
+                location: location_name,
+                area,
+                game,
+                game_slug,
+                method,
+                min_level: final_min,
+                max_level: final_max,
+                rarity,
+                conditions,
+                details,
+            }
+        })
+        .filter(|enc| {
+            if let Some(ref det) = enc.details {
+                if let Some(ref note) = det.note {
+                    if note.contains("Can not be caught") {
+                        return false;
+                    }
+                }
+            }
+            true
+        })
+        .collect();
+
+    Ok((rows, total))
+}
+
 fn get_encounter_details(conn: &Connection, encounter_id: i64) -> Option<EncounterDetails> {
     conn.query_row(
         "SELECT rate_overall, rate_morning, rate_day, rate_night, \

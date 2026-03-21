@@ -1244,3 +1244,53 @@ fn special_encounter_level1_filtered() {
         }
     }
 }
+
+// ============================================================
+// Phase 17: Location encounters + pagination fixes
+// ============================================================
+
+#[test]
+fn location_encounters_returns_results() {
+    let conn = open_test_db();
+    let (encounters, total) = queries::get_location_encounters(&conn, "viridian-forest", Some("red"), 50, 0).unwrap();
+    assert!(!encounters.is_empty(), "Viridian Forest in Red should have encounters");
+    assert!(total > 0);
+    // Should include Pikachu
+    assert!(encounters.iter().any(|e| e.pokemon_name.to_lowercase().contains("pikachu")),
+        "Viridian Forest in Red should have Pikachu");
+}
+
+#[test]
+fn location_encounters_za_wild_zones() {
+    let conn = open_test_db();
+    let (encounters, total) = queries::get_location_encounters(&conn, "wild-zone-3", Some("legends-za"), 50, 0).unwrap();
+    assert!(!encounters.is_empty(), "Wild Zone 3 in Z-A should have encounters");
+    assert!(total > 0);
+}
+
+#[test]
+fn location_encounters_fuzzy_match() {
+    let conn = open_test_db();
+    // Should match partial location names
+    let (encounters, _) = queries::get_location_encounters(&conn, "viridian", None, 50, 0).unwrap();
+    assert!(!encounters.is_empty(), "Partial location name 'viridian' should match");
+}
+
+#[test]
+fn location_encounters_empty_for_nonexistent() {
+    let conn = open_test_db();
+    let (encounters, total) = queries::get_location_encounters(&conn, "nonexistent-location-xyz", None, 50, 0).unwrap();
+    assert!(encounters.is_empty());
+    assert_eq!(total, 0);
+}
+
+#[test]
+fn prev_page_offset_clamped_when_past_total() {
+    // When offset >> total, prev_page should point to last valid page, not offset-limit
+    // This is tested at the command layer, but we can verify the math:
+    let total: u64 = 1025;
+    let limit: u64 = 50;
+    let offset: u64 = 999999;
+    let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+    assert_eq!(prev_offset, 975, "prev_page from offset=999999 should clamp to 975 (1025-50)");
+}

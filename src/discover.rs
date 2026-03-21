@@ -253,6 +253,22 @@ pub fn print_discovery() -> anyhow::Result<()> {
                 ],
             },
             Resource {
+                name: "location".to_string(),
+                description: "Query location encounter data".to_string(),
+                commands: vec![
+                    CommandInfo {
+                        name: "encounters".to_string(),
+                        usage: "pokedex location encounters <location> [--game=<game>] [--limit=N] [--offset=N]".to_string(),
+                        description: "Show what Pokémon can be found at a location".to_string(),
+                        flags: vec![
+                            FlagInfo { flag: "--game".to_string(), description: "Filter by game".to_string(), default: None },
+                            FlagInfo { flag: "--limit".to_string(), description: "Results per page".to_string(), default: Some("50".to_string()) },
+                            FlagInfo { flag: "--offset".to_string(), description: "Skip N results".to_string(), default: Some("0".to_string()) },
+                        ],
+                    },
+                ],
+            },
+            Resource {
                 name: "db".to_string(),
                 description: "Database management".to_string(),
                 commands: vec![
@@ -278,6 +294,7 @@ pub fn print_discovery() -> anyhow::Result<()> {
             "pokedex type list".to_string(),
             "pokedex game list".to_string(),
             "pokedex home status".to_string(),
+            "pokedex location encounters <location>".to_string(),
         ],
     };
 

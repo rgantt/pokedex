@@ -43,7 +43,8 @@ pub fn show(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &Outp
         actions.push(Action::new("next_page", &format!("pokedex dex show {dex_name} --limit={limit} --offset={}", offset + limit)));
     }
     if offset > 0 {
-        actions.push(Action::new("prev_page", &format!("pokedex dex show {dex_name} --limit={limit} --offset={}", offset.saturating_sub(limit))));
+        let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+        actions.push(Action::new("prev_page", &format!("pokedex dex show {dex_name} --limit={limit} --offset={prev_offset}")));
     }
 
     let response = Response::new(
@@ -122,7 +123,8 @@ pub fn progress(
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
     }
     if offset > 0 {
-        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={}", offset.saturating_sub(limit))));
+        let prev_offset = if offset > filtered_count { filtered_count.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={prev_offset}")));
     }
 
     let response = Response::new(progress, actions, Meta::paginated(&cmd, filtered_count, limit, offset));

@@ -57,7 +57,8 @@ pub fn list(
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
     }
     if offset > 0 {
-        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={}", offset.saturating_sub(limit))));
+        let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={prev_offset}")));
     }
 
     let response = Response::new(
@@ -330,7 +331,8 @@ pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Optio
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
     }
     if offset > 0 {
-        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={}", offset.saturating_sub(limit))));
+        let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={prev_offset}")));
     }
 
     let response = Response::new(moves, actions, Meta::paginated(&cmd, total, limit, offset));

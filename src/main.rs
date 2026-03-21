@@ -146,6 +146,17 @@ fn main() -> Result<()> {
                 }
             }
         }
+        Commands::Location { command: loc_cmd } => {
+            if !db::is_seeded(&conn)? {
+                eprintln!("Database not seeded. Run: pokedex db seed");
+                std::process::exit(1);
+            }
+            match loc_cmd {
+                LocationCommands::Encounters { location, game, limit, offset } => {
+                    commands::location::encounters(&conn, &location, game.as_deref(), limit, offset, &format)?;
+                }
+            }
+        }
         Commands::Home { command: home_cmd } => {
             match home_cmd {
                 HomeCommands::Status => {

@@ -47,10 +47,32 @@ pub enum Commands {
         #[command(subcommand)]
         command: HomeCommands,
     },
+    /// Query location encounter data
+    Location {
+        #[command(subcommand)]
+        command: LocationCommands,
+    },
     /// Database management
     Db {
         #[command(subcommand)]
         command: DbCommands,
+    },
+}
+
+// -- Location subcommands --
+
+#[derive(Subcommand)]
+pub enum LocationCommands {
+    /// Show what Pokémon can be found at a location
+    Encounters {
+        /// Location name or area slug (e.g. "viridian-forest", "wild-area-station")
+        location: String,
+        #[arg(long)]
+        game: Option<String>,
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        #[arg(long, default_value = "0")]
+        offset: u64,
     },
 }
 

@@ -467,7 +467,8 @@ pub fn list_entries(
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
     }
     if offset > 0 {
-        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={}", offset.saturating_sub(limit))));
+        let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={prev_offset}")));
     }
     actions.push(Action::new("stats", "pokedex collection stats"));
     actions.push(Action::new("add", "pokedex collection add --pokemon=<name> --game=<game>"));

@@ -74,7 +74,8 @@ pub fn pokemon_of_type(conn: &Connection, type_name: &str, limit: u64, offset: u
         actions.push(Action::new("next_page", &format!("pokedex type pokemon {type_name} --limit={limit} --offset={}", offset + limit)));
     }
     if offset > 0 {
-        actions.push(Action::new("prev_page", &format!("pokedex type pokemon {type_name} --limit={limit} --offset={}", offset.saturating_sub(limit))));
+        let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+        actions.push(Action::new("prev_page", &format!("pokedex type pokemon {type_name} --limit={limit} --offset={prev_offset}")));
     }
     actions.push(Action::new("matchups", &format!("pokedex type matchups {type_name}")));
 

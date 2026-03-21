@@ -154,12 +154,20 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
         }
     }
 
+    // For form-specific commands (stats, encounters, moves), preserve the form name in actions
+    // so agents stay in form context. Species-level commands use the base species name.
+    let form_action_name = if pokemon.to_lowercase() != species.name {
+        pokemon.to_lowercase()
+    } else {
+        species.name.clone()
+    };
+
     let mut actions = vec![
         Action::new("evolutions", &format!("pokedex pokemon evolutions {}", species.name)),
         Action::new("forms", &format!("pokedex pokemon forms {}", species.name)),
-        Action::new("stats", &format!("pokedex pokemon stats {}", species.name)),
-        Action::new("moves", &format!("pokedex pokemon moves {}", species.name)),
-        Action::new("encounters", &format!("pokedex pokemon encounters {}", species.name)),
+        Action::new("stats", &format!("pokedex pokemon stats {form_action_name}")),
+        Action::new("moves", &format!("pokedex pokemon moves {form_action_name}")),
+        Action::new("encounters", &format!("pokedex pokemon encounters {form_action_name}")),
         Action::new("add_to_collection", &format!("pokedex collection add --pokemon={} --game=<game>", species.name)),
     ];
     for type_name in &species.types {
@@ -451,11 +459,18 @@ pub fn stats(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<
         ).unwrap_or(species_id)
     };
 
-    let stats = if pokemon.to_lowercase() != name {
+    let mut stats = if pokemon.to_lowercase() != name {
         queries::get_pokemon_stats_by_pokemon_id(conn, form_pokemon_id)?
     } else {
         queries::get_pokemon_stats(conn, species_id)?
     };
+
+    // Override pokemon_name with form-specific display name when querying a form
+    if pokemon.to_lowercase() != name {
+        if let Ok(Some(form_display)) = queries::get_form_display_name(conn, form_pokemon_id) {
+            stats.pokemon_name = form_display;
+        }
+    }
 
     let actions = vec![
         Action::new("show", &format!("pokedex pokemon show {name}")),

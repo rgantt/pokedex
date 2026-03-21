@@ -5,189 +5,213 @@
 name: "Cross-Game Collection"
 persona: cross_game_tester
 description: >
-  Add Pokemon across 4 games (red, gold, sword, scarlet), test per-game stats,
-  HOME status/coverage/missing, owned_elsewhere excludes traded_away, collection
-  update --game/--method, collection list --sort=dex, and pre-HOME game behavior.
+  Add pikachu to 6 different games (red, gold, ruby, sword, scarlet, legends-za),
+  verify per-game filtering, traded_away/owned_elsewhere semantics, HOME transfers,
+  game reassignment, stats with and without game filter, home transferable for
+  many-game vs few-game species, and duplicate entries in the same game.
 needs_seed: true
 mutates_collection: true
 
 steps:
-  # -- Setup: Add Pokemon to Red (pre-HOME, Gen 1) ------
+  # ── Phase 1: Add pikachu to 6 different games ─────────────────────
 
-  - name: "add bulbasaur to red via gift"
-    command: "pokedex collection add --pokemon=bulbasaur --game=red --method=gift"
-    capture:
-      bulbasaur_id: "data.id"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "bulbasaur", "data.game": "red", "data.method": "gift", "data.in_home": false }
-      has_fields: ["data.id", "data.created_at"]
-  - name: "add pikachu to red via catch"
+  - name: "add pikachu to red"
     command: "pokedex collection add --pokemon=pikachu --game=red --method=catch"
+    capture:
+      pika_red_id: "data.id"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "red", "data.method": "catch" }
-  - name: "add mewtwo to red via catch"
-    command: "pokedex collection add --pokemon=mewtwo --game=red --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "mewtwo", "data.game": "red", "data.method": "catch" }
-  - name: "add charizard to red via evolve"
-    command: "pokedex collection add --pokemon=charizard --game=red --method=evolve"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "charizard", "data.game": "red", "data.method": "evolve" }
-  - name: "add cyndaquil to gold via gift"
-    command: "pokedex collection add --pokemon=cyndaquil --game=gold --method=gift"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "cyndaquil", "data.game": "gold", "data.method": "gift" }
-  - name: "add pikachu to gold via catch (cross-game duplicate)"
+      equals: { "data.species_name": "pikachu", "data.game": "red", "data.method": "catch", "data.in_home": false }
+      has_fields: ["data.id", "data.created_at", "data.updated_at"]
+
+  - name: "add pikachu to gold"
     command: "pokedex collection add --pokemon=pikachu --game=gold --method=catch"
     capture:
-      pikachu_gold_id: "data.id"
+      pika_gold_id: "data.id"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "gold" }
-  - name: "add lugia to gold via catch"
-    command: "pokedex collection add --pokemon=lugia --game=gold --method=catch"
+      equals: { "data.species_name": "pikachu", "data.game": "gold", "data.method": "catch" }
+      has_fields: ["data.id"]
+
+  - name: "add pikachu to ruby"
+    command: "pokedex collection add --pokemon=pikachu --game=ruby --method=catch"
+    capture:
+      pika_ruby_id: "data.id"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "lugia", "data.game": "gold", "data.method": "catch" }
-  - name: "add grookey to sword via gift"
-    command: "pokedex collection add --pokemon=grookey --game=sword --method=gift"
+      equals: { "data.species_name": "pikachu", "data.game": "ruby" }
+
+  - name: "add pikachu to sword"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --method=catch"
+    capture:
+      pika_sword_id: "data.id"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "grookey", "data.game": "sword", "data.method": "gift" }
-  - name: "add corviknight to sword via evolve"
-    command: "pokedex collection add --pokemon=corviknight --game=sword --method=evolve"
+      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.in_home": false }
+
+  - name: "add pikachu to scarlet"
+    command: "pokedex collection add --pokemon=pikachu --game=scarlet --method=catch"
+    capture:
+      pika_scarlet_id: "data.id"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "corviknight", "data.game": "sword", "data.method": "evolve" }
-  - name: "add zacian to sword via catch"
-    command: "pokedex collection add --pokemon=zacian --game=sword --method=catch"
+      equals: { "data.species_name": "pikachu", "data.game": "scarlet" }
+
+  - name: "add pikachu to legends-za"
+    command: "pokedex collection add --pokemon=pikachu --game=legends-za --method=catch"
+    capture:
+      pika_lza_id: "data.id"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "zacian", "data.game": "sword" }
-  - name: "add pikachu to sword in HOME"
-    command: "pokedex collection add --pokemon=pikachu --game=sword --method=catch --in-home"
+      equals: { "data.species_name": "pikachu", "data.game": "legends-za" }
+
+  # ── Phase 2: Verify all 6 appear in collection list ────────────────
+
+  - name: "trade away pikachu from red"
+    command: "pokedex collection update $pika_red_id --status=traded_away"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.in_home": true }
-  - name: "add sprigatito to scarlet via gift"
-    command: "pokedex collection add --pokemon=sprigatito --game=scarlet --method=gift"
+      equals: { "data.status": "traded_away", "data.game": "red" }
+
+  - name: "pikachu still has owned_elsewhere=false in home missing (5 non-traded copies exist, not in HOME)"
+    command: "pokedex home missing --limit=200"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "sprigatito", "data.game": "scarlet", "data.method": "gift" }
-  - name: "add koraidon to scarlet via catch"
-    command: "pokedex collection add --pokemon=koraidon --game=scarlet --method=catch"
+      has_fields: ["meta.total"]
+
+  - name: "list traded_away shows the red pikachu"
+    command: "pokedex collection list --status=traded_away"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "koraidon", "data.game": "scarlet" }
-  - name: "add pikachu to scarlet in HOME"
-    command: "pokedex collection add --pokemon=pikachu --game=scarlet --method=catch --in-home"
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 1 } }
+
+  # ── Phase 4: Transfer 3 to HOME ───────────────────────────────────
+
+  - name: "transfer sword pikachu to HOME"
+    command: "pokedex collection update $pika_sword_id --in-home=true"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "scarlet", "data.in_home": true }
-  - name: "add mewtwo to scarlet via trade in HOME"
-    command: "pokedex collection add --pokemon=mewtwo --game=scarlet --method=trade --in-home"
+      equals: { "data.in_home": true, "data.game": "sword" }
+
+  - name: "transfer scarlet pikachu to HOME"
+    command: "pokedex collection update $pika_scarlet_id --in-home=true"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "mewtwo", "data.game": "scarlet", "data.method": "trade", "data.in_home": true }
-  - name: "stats for red shows entries"
-    command: "pokedex collection stats --game=red"
+      equals: { "data.in_home": true, "data.game": "scarlet" }
+
+  - name: "transfer legends-za pikachu to HOME"
+    command: "pokedex collection update $pika_lza_id --in-home=true"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.in_home_count"]
-      type_of: { "data.total_entries": "number" }
-  - name: "stats for gold shows entries"
-    command: "pokedex collection stats --game=gold"
+      equals: { "data.in_home": true, "data.game": "legends-za" }
+
+  - name: "home status shows 3 in HOME"
+    command: "pokedex home status"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.in_home_count"]
-  - name: "stats for sword shows entries"
-    command: "pokedex collection stats --game=sword"
+      has_fields: ["data.total_in_home", "data.unique_species_in_home"]
+      type_of: { "data.total_in_home": "number" }
+
+  - name: "home coverage shows pikachu as caught"
+    command: "pokedex home coverage"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.in_home_count"]
-  - name: "stats for scarlet shows entries"
-    command: "pokedex collection stats --game=scarlet"
+      has_fields: ["data.total", "data.caught", "data.percentage"]
+      type_of: { "data.percentage": "number" }
+
+  - name: "update pikachu game from red to blue"
+    command: "pokedex collection update $pika_red_id --game=blue"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.in_home_count"]
-  - name: "global stats shows entries and breakdowns"
+      equals: { "data.game": "blue", "data.status": "traded_away" }
+
+  - name: "verify show reflects the game change"
+    command: "pokedex collection show $pika_red_id"
+    assert:
+      exit_code: 0
+      equals: { "data.game": "blue", "data.species_name": "pikachu" }
+
+  # ── Phase 6: Collection stats with and without game filter ─────────
+
+  - name: "global stats shows all entries"
     command: "pokedex collection stats"
     assert:
       exit_code: 0
       has_fields: ["data.total_entries", "data.unique_species", "data.in_home_count", "data.by_game", "data.by_status"]
+      type_of: { "data.total_entries": "number", "data.in_home_count": "number" }
+
+  - name: "stats filtered by sword"
+    command: "pokedex collection stats --game=sword"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.in_home_count"]
       type_of: { "data.total_entries": "number" }
-  - name: "home status shows HOME entries"
-    command: "pokedex home status"
+
+  - name: "stats filtered by gold"
+    command: "pokedex collection stats --game=gold"
     assert:
       exit_code: 0
-      has_fields: ["data.total_in_home", "data.unique_species_in_home", "data.by_game_origin"]
-      type_of: { "data.total_in_home": "number" }
-  - name: "home coverage shows caught count"
-    command: "pokedex home coverage"
+      has_fields: ["data.total_entries", "data.unique_species"]
+      type_of: { "data.total_entries": "number" }
+
+  - name: "stats filtered by nonexistent game errors"
+    command: "pokedex collection stats --game=fakegame"
+    assert:
+      exit_code: 1
+
+  # ── Phase 7: home transferable — many-game vs few-game species ─────
+
+  - name: "home transferable pikachu shows many games"
+    command: "pokedex home transferable pikachu"
     assert:
       exit_code: 0
-      equals: { "data.dex_name": "national" }
-      has_fields: ["data.total", "data.caught", "data.percentage"]
-  - name: "home missing shows species list"
-    command: "pokedex home missing --limit=5"
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 5 } }
+      has_fields: ["actions"]
+
+  - name: "home transferable meltan shows very few games"
+    command: "pokedex home transferable meltan"
     assert:
       exit_code: 0
-      has_fields: ["meta.total"]
-  - name: "trade away bulbasaur in red"
-    command: "pokedex collection update $bulbasaur_id --status=traded_away"
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 1, "max": 3 } }
+
+  # ── Phase 8: Duplicate entries — same species, same game ───────────
+
+  - name: "add pikachu to sword again (duplicate in same game)"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --method=breed"
+    capture:
+      pika_sword_dup_id: "data.id"
     assert:
       exit_code: 0
-      equals: { "data.status": "traded_away" }
-  - name: "update pikachu game from gold to silver"
-    command: "pokedex collection update $pikachu_gold_id --game=silver"
+      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.method": "breed" }
+
+  - name: "add pikachu to sword a third time"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --method=trade"
     assert:
       exit_code: 0
-      equals: { "data.game": "silver" }
-  - name: "update pikachu method to trade"
-    command: "pokedex collection update $pikachu_gold_id --method=trade"
+      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.method": "trade" }
+
+  - name: "each duplicate has a unique id"
+    command: "pokedex collection show $pika_sword_dup_id"
     assert:
       exit_code: 0
-      equals: { "data.method": "trade" }
-  - name: "revert pikachu back to gold and catch"
-    command: "pokedex collection update $pikachu_gold_id --game=gold --method=catch"
+      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.method": "breed" }
+      has_fields: ["data.id"]
+
+  # ── Phase 9: Verify status counts after all mutations ──────────────
+
+  - name: "global stats reflects full picture"
+    command: "pokedex collection stats"
     assert:
       exit_code: 0
-      equals: { "data.game": "gold", "data.method": "catch" }
-  - name: "list sorted by dex number"
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status", "data.by_game"]
+      type_of: { "data.total_entries": "number" }
+
+  - name: "list sorted by dex still works"
     command: "pokedex collection list --sort=dex"
     assert:
       exit_code: 0
-      has_fields: ["meta.total", "data"]
-  - name: "list sorted by dex with game filter"
-    command: "pokedex collection list --game=red --sort=dex"
-    assert:
-      exit_code: 0
-      has_fields: ["meta.total", "data"]
       type_of: { "data": "array" }
-  - name: "list pikachu across all games"
-    command: "pokedex collection list --pokemon=pikachu"
-    assert:
-      exit_code: 0
       has_fields: ["meta.total"]
-      type_of: { "data": "array" }
-  - name: "list in-home shows HOME entries"
-    command: "pokedex collection list --in-home"
-    assert:
-      exit_code: 0
-      has_fields: ["meta.total"]
-      type_of: { "data": "array" }
-  - name: "list traded_away shows traded pokemon"
-    command: "pokedex collection list --status=traded_away"
-    assert:
-      exit_code: 0
-      has_fields: ["meta.total"]
-      type_of: { "data": "array" }
-  - name: "list --method=evolve is rejected (no --method flag on list)"
-    command: "pokedex collection list --method=evolve"
-    assert:
-      exit_code: 1

@@ -413,38 +413,6 @@ pub fn update(
         None
     };
 
-    // Validate status with full command context
-    if let Some(s) = status {
-        if !VALID_STATUSES.contains(&s) {
-            let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|vs| {
-                Action::new("did_you_mean", &format!(
-                    "pokedex collection update {id} --status={vs}"
-                ))
-            }).collect();
-            ErrorResponse::not_found(
-                &format!("Invalid status '{s}'. Valid values: {}", VALID_STATUSES.join(", ")),
-                suggestions,
-            ).print()?;
-            return Ok(());
-        }
-    }
-
-    // Validate method with full command context
-    if let Some(m) = method {
-        if !VALID_METHODS.contains(&m) {
-            let suggestions: Vec<Action> = VALID_METHODS.iter().map(|vm| {
-                Action::new("did_you_mean", &format!(
-                    "pokedex collection update {id} --method={vm}"
-                ))
-            }).collect();
-            ErrorResponse::invalid_parameter(
-                &format!("Invalid method '{m}'. Valid values: {}", VALID_METHODS.join(", ")),
-                suggestions,
-            ).print()?;
-            return Ok(());
-        }
-    }
-
     queries::update_collection_entry(conn, id, status, in_home, shiny, nickname, notes, game_id, method)?;
 
     let entry = queries::get_collection_entry(conn, id)?.unwrap();

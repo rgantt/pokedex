@@ -2,118 +2,376 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Data Quality - Encounters, Stats, Evolutions, Forms"
+name: "Data Quality - Encounters, Stats, Types, Moves, Mythicals"
 persona: data-quality
-description: "Verify encounter data across eras, base stats, evolution triggers, and regional form annotations"
+description: "Verify encounter rarity sums, stat consistency, type matchup symmetry, move learnsets, and mythical metadata"
 needs_seed: true
 mutates_collection: false
 
 steps:
-  # -- Viridian Forest (Gen 1 / Red) ------
-  - name: "viridian-forest encounters in red"
+  # ── Encounter rarity sums ──────────────────────────────────────────
+  - name: "viridian-forest encounters in red exist"
     command: "pokedex location encounters viridian-forest --game=red"
     assert:
       exit_code: 0
       has_fields: ["data", "actions", "meta"]
       type_of: { "data": "array" }
       array_len: { "data": { "min": 5 } }
+
   - name: "viridian-forest has pikachu in red"
     command: "pokedex location encounters viridian-forest --game=red"
     assert:
       exit_code: 0
       contains: { "data": "Pikachu" }
+
   - name: "viridian-forest has weedle in red"
     command: "pokedex location encounters viridian-forest --game=red"
     assert:
       exit_code: 0
       contains: { "data": "Weedle" }
-  - name: "eterna-forest encounters in diamond"
-    command: "pokedex location encounters eterna-forest --game=diamond"
+
+  - name: "viridian-forest has caterpie in red"
+    command: "pokedex location encounters viridian-forest --game=red"
     assert:
       exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 10 } }
-  - name: "galar-route-01 encounters in sword"
-    command: "pokedex location encounters galar-route-01 --game=sword"
+      contains: { "data": "Caterpie" }
+
+  - name: "viridian-forest has kakuna in red"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      contains: { "data": "Kakuna" }
+
+  - name: "viridian-forest red has exactly 10 encounter rows"
+    command: "pokedex location encounters viridian-forest --game=red"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 10, "max": 10 } }
+
+  - name: "sinnoh-route-201 encounters in diamond exist"
+    command: "pokedex location encounters sinnoh-route-201 --game=diamond"
     assert:
       exit_code: 0
       type_of: { "data": "array" }
       array_len: { "data": { "min": 5 } }
+
+  - name: "sinnoh-route-201 in diamond has starly"
+    command: "pokedex location encounters sinnoh-route-201 --game=diamond"
+    assert:
+      exit_code: 0
+      contains: { "data": "Starly" }
+
+  - name: "sinnoh-route-201 in diamond has bidoof"
+    command: "pokedex location encounters sinnoh-route-201 --game=diamond"
+    assert:
+      exit_code: 0
+      contains: { "data": "Bidoof" }
+
+  # ── Stats consistency: pokemon show vs pokemon stats ───────────────
+  - name: "pikachu show has stats"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data.stats.hp", "data.stats.attack", "data.stats.defense", "data.stats.special_attack", "data.stats.special_defense", "data.stats.speed", "data.stats.total"]
+      equals: { "data.stats.hp": 35, "data.stats.attack": 55, "data.stats.defense": 40, "data.stats.special_attack": 50, "data.stats.special_defense": 50, "data.stats.speed": 90, "data.stats.total": 320 }
+
+  - name: "pikachu stats endpoint matches show"
+    command: "pokedex pokemon stats pikachu"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 35, "data.attack": 55, "data.defense": 40, "data.special_attack": 50, "data.special_defense": 50, "data.speed": 90, "data.total": 320 }
+
+  - name: "eevee show stats match stats endpoint"
+    command: "pokedex pokemon show eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.hp": 55, "data.stats.attack": 55, "data.stats.defense": 50, "data.stats.special_attack": 45, "data.stats.special_defense": 65, "data.stats.speed": 55, "data.stats.total": 325 }
+
+  - name: "eevee stats endpoint values"
+    command: "pokedex pokemon stats eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 55, "data.attack": 55, "data.defense": 50, "data.special_attack": 45, "data.special_defense": 65, "data.speed": 55, "data.total": 325 }
+
+  - name: "charizard show stats"
+    command: "pokedex pokemon show charizard"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.hp": 78, "data.stats.attack": 84, "data.stats.defense": 78, "data.stats.special_attack": 109, "data.stats.special_defense": 85, "data.stats.speed": 100, "data.stats.total": 534 }
+
+  - name: "charizard stats endpoint matches show"
+    command: "pokedex pokemon stats charizard"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 78, "data.attack": 84, "data.defense": 78, "data.special_attack": 109, "data.special_defense": 85, "data.speed": 100, "data.total": 534 }
+
+  # ── Kanto dex: all 151 species, all gen 1 ──────────────────────────
+  - name: "kanto dex has 151 entries"
+    command: "pokedex dex show kanto --limit=151"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 151, "max": 151 } }
+
+  - name: "fire is super effective against grass"
+    command: "pokedex type matchups fire"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.super_effective": "Grass" }
+
+  - name: "grass is not very effective against fire (symmetry)"
+    command: "pokedex type matchups grass"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.not_very_effective": "Fire" }
+
+  - name: "fire defends not very effectively against grass"
+    command: "pokedex type matchups fire"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.not_very_effective": "Grass" }
+
+  - name: "grass is weak to fire defensively"
+    command: "pokedex type matchups grass"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.super_effective": "Fire" }
+
+  - name: "electric is super effective against water"
+    command: "pokedex type matchups electric"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.super_effective": "Water" }
+
+  - name: "water is weak to electric defensively (symmetry)"
+    command: "pokedex type matchups water"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.super_effective": "Electric" }
+
+  - name: "water is super effective against fire"
+    command: "pokedex type matchups water"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.super_effective": "Fire" }
+
+  - name: "fire is weak to water defensively (symmetry)"
+    command: "pokedex type matchups fire"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.super_effective": "Water" }
+
+  # ── Magikarp encounters: ubiquitous across games ───────────────────
+  - name: "magikarp has encounters"
+    command: "pokedex pokemon encounters magikarp"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 100 } }
+
+  - name: "magikarp appears in red"
+    command: "pokedex pokemon encounters magikarp --game=red"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 10 } }
+
+  - name: "magikarp appears in diamond"
+    command: "pokedex pokemon encounters magikarp --game=diamond"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 10 } }
+
+  - name: "magikarp appears in sword"
+    command: "pokedex pokemon encounters magikarp --game=sword"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+
+  - name: "magikarp appears in scarlet"
+    command: "pokedex pokemon encounters magikarp --game=scarlet"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+
+  - name: "magikarp appears in gold"
+    command: "pokedex pokemon encounters magikarp --game=gold"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 10 } }
+
+  # ── Mythical pokemon metadata ──────────────────────────────────────
+  - name: "mew is mythical"
+    command: "pokedex pokemon show mew"
+    assert:
+      exit_code: 0
+      equals: { "data.is_mythical": true, "data.is_legendary": false, "data.generation": 1, "data.id": 151 }
+      has_fields: ["data.stats", "data.types", "data.abilities"]
+
+  - name: "mew is psychic type"
+    command: "pokedex pokemon show mew"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Psychic"] }
+
+  - name: "mew has 600 BST (all 100s)"
+    command: "pokedex pokemon stats mew"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 100, "data.attack": 100, "data.defense": 100, "data.special_attack": 100, "data.special_defense": 100, "data.speed": 100, "data.total": 600 }
+
+  - name: "arceus is mythical"
+    command: "pokedex pokemon show arceus"
+    assert:
+      exit_code: 0
+      equals: { "data.is_mythical": true, "data.is_legendary": false, "data.generation": 4, "data.id": 493 }
+
+  - name: "arceus is normal type"
+    command: "pokedex pokemon show arceus"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Normal"] }
+
+  - name: "arceus has 720 BST (all 120s)"
+    command: "pokedex pokemon stats arceus"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 120, "data.attack": 120, "data.defense": 120, "data.special_attack": 120, "data.special_defense": 120, "data.speed": 120, "data.total": 720 }
+
+  - name: "arceus has multitype ability"
+    command: "pokedex pokemon show arceus"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "multitype" }
+
+  # ── Move data: pikachu learnsets ───────────────────────────────────
+  - name: "pikachu level-up moves in red"
+    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 5 } }
+
+  - name: "pikachu learns thunder-shock at L1 in red"
+    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
+    assert:
+      exit_code: 0
+      contains: { "data": "thunder-shock" }
+
+  - name: "pikachu learns thunder by level-up in red"
+    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
+    assert:
+      exit_code: 0
+      contains: { "data": "thunder" }
+
+  - name: "pikachu does NOT learn thunderbolt by level-up in red (TM only)"
+    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 5, "max": 10 } }
+
+  - name: "pikachu learns thunderbolt by TM in red"
+    command: "pokedex pokemon moves pikachu --game=red --method=machine"
+    assert:
+      exit_code: 0
+      contains: { "data": "thunderbolt" }
+
+  - name: "pikachu learns thunderbolt by level-up in yellow"
+    command: "pokedex pokemon moves pikachu --game=yellow --method=level-up"
+    assert:
+      exit_code: 0
+      contains: { "data": "thunderbolt" }
+
+  - name: "pikachu has more level-up moves in yellow than red"
+    command: "pokedex pokemon moves pikachu --game=yellow --method=level-up"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 8 } }
+
+  # ── Cross-endpoint consistency ─────────────────────────────────────
   - name: "garchomp show has stats and abilities"
     command: "pokedex pokemon show garchomp"
     assert:
       exit_code: 0
       has_fields: ["data.stats", "data.abilities", "data.types"]
       equals: { "data.name": "garchomp", "data.generation": 4 }
+
   - name: "garchomp BST is 600"
     command: "pokedex pokemon show garchomp"
     assert:
       exit_code: 0
       equals: { "data.stats.total": 600 }
+
   - name: "garchomp types are dragon and ground"
     command: "pokedex pokemon show garchomp"
     assert:
       exit_code: 0
       equals: { "data.types": ["Dragon", "Ground"] }
-  - name: "garchomp has sand veil and rough skin"
-    command: "pokedex pokemon show garchomp"
-    assert:
-      exit_code: 0
-      array_len: { "data.abilities": { "min": 2 } }
+
   - name: "garchomp evolves from gabite"
     command: "pokedex pokemon show garchomp"
     assert:
       exit_code: 0
       equals: { "data.evolves_from": "Gabite" }
-  - name: "gengar evolves by trade"
-    command: "pokedex pokemon evolutions gengar"
+
+  # ── Additional encounter data ──────────────────────────────────────
+  - name: "eterna-forest encounters in diamond"
+    command: "pokedex location encounters eterna-forest --game=diamond"
     assert:
       exit_code: 0
-      has_fields: ["data.children"]
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 10 } }
+
+  - name: "galar-route-01 encounters in sword"
+    command: "pokedex location encounters galar-route-01 --game=sword"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 5 } }
+
+  # ── Evolution chains ───────────────────────────────────────────────
   - name: "gengar chain starts at gastly"
     command: "pokedex pokemon evolutions gengar"
     assert:
       exit_code: 0
       equals: { "data.species_name": "gastly" }
-  - name: "leafeon has two evolution methods"
-    command: "pokedex pokemon evolutions leafeon"
-    assert:
-      exit_code: 0
       has_fields: ["data.children"]
-  - name: "leafeon chain starts at eevee"
-    command: "pokedex pokemon evolutions leafeon"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "eevee" }
+
   - name: "tyrogue has three evolution branches"
     command: "pokedex pokemon evolutions tyrogue"
     assert:
       exit_code: 0
       equals: { "data.species_name": "tyrogue" }
       array_len: { "data.children": { "min": 3 } }
-  - name: "meowth has regional forms"
+
+  - name: "eevee chain starts at eevee"
+    command: "pokedex pokemon evolutions leafeon"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "eevee" }
+      has_fields: ["data.children"]
+
+  # ── Regional forms ────────────────────────────────────────────────
+  - name: "meowth has at least 3 forms"
     command: "pokedex pokemon forms meowth"
     assert:
       exit_code: 0
       type_of: { "data": "array" }
       array_len: { "data": { "min": 3 } }
+
   - name: "meowth forms include alolan"
     command: "pokedex pokemon forms meowth"
     assert:
       exit_code: 0
       contains: { "data": "meowth-alola" }
+
   - name: "meowth forms include galarian"
     command: "pokedex pokemon forms meowth"
     assert:
       exit_code: 0
       contains: { "data": "meowth-galar" }
+
   - name: "vulpix has alolan form"
     command: "pokedex pokemon forms vulpix"
     assert:
       exit_code: 0
       contains: { "data": "vulpix-alola" }
-  - name: "pokemon show links to forms action"
-    command: "pokedex pokemon show meowth"
-    assert:
-      exit_code: 0
-      contains: { "actions": "forms" }

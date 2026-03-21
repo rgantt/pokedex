@@ -2,117 +2,469 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Variants: Evolutions, Forms, and Collection"
+name: "Variants: Branching Evolutions, Forms, and Trigger Details"
 persona: variants
-description: "Test evolution methods (multi-method, branching, personality-based), form display, collection --form, invalid form errors, and location encounter filtering"
+description: "Test branching evolutions (Eevee 8-way, Slowpoke 2-way, Tyrogue 3-way, Wurmple 2-way, Applin 3-way, Cosmog chain), form counts and metadata (Pikachu cosmetics, Shellos regional, Lycanroc 3 forms with is_default)"
 needs_seed: true
-mutates_collection: true
+mutates_collection: false
 
 steps:
-  # --- Evolution methods ---
+  # --- Eevee: 8 evolution branches ---
 
-  - name: "Leafeon has 2+ evolution methods (item + location-based level-up)"
-    command: "pokedex pokemon evolutions leafeon"
+  - name: "Eevee has exactly 8 evolution branches"
+    command: "pokedex pokemon evolutions eevee"
     assert:
       exit_code: 0
-      has_fields: ["data.species_name", "data.children"]
       equals: { "data.species_name": "eevee" }
-  - name: "Leafeon use-item method mentions leaf-stone"
-    command: "pokedex pokemon evolutions leafeon"
+      array_len: { "data.children": { "min": 8, "max": 8 } }
+
+  - name: "Eevee children include Vaporeon with use-item trigger"
+    command: "pokedex pokemon evolutions eevee"
     assert:
       exit_code: 0
-  - name: "Tyrogue has 3 evolution branches with stat conditions"
+      contains: { "data": "vaporeon" }
+
+  - name: "Eevee children include Jolteon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "jolteon" }
+
+  - name: "Eevee children include Flareon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "flareon" }
+
+  - name: "Eevee children include Espeon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "espeon" }
+
+  - name: "Eevee children include Umbreon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "umbreon" }
+
+  - name: "Eevee children include Leafeon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "leafeon" }
+
+  - name: "Eevee children include Glaceon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "glaceon" }
+
+  - name: "Eevee children include Sylveon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "sylveon" }
+
+  - name: "Eevee Vaporeon method has water-stone item"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "water-stone" }
+
+  - name: "Eevee Espeon method mentions day"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "day" }
+
+  - name: "Eevee Umbreon method mentions night"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "night" }
+
+  - name: "Eevee Sylveon method mentions Fairy"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: { "data": "Fairy" }
+
+  - name: "Eevee evolution tree has HATEOAS actions"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      has_fields: ["actions", "meta.command"]
+
+  - name: "All Eevee children have populated methods arrays"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      has_fields:
+        - "data.children.0.methods"
+        - "data.children.1.methods"
+        - "data.children.2.methods"
+        - "data.children.3.methods"
+        - "data.children.4.methods"
+        - "data.children.5.methods"
+        - "data.children.6.methods"
+        - "data.children.7.methods"
+
+  # --- Slowpoke: 2 evolution branches ---
+
+  - name: "Slowpoke has exactly 2 evolution branches"
+    command: "pokedex pokemon evolutions slowpoke"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "slowpoke" }
+      array_len: { "data.children": { "min": 2, "max": 2 } }
+
+  - name: "Slowpoke evolves into Slowbro"
+    command: "pokedex pokemon evolutions slowpoke"
+    assert:
+      exit_code: 0
+      contains: { "data": "slowbro" }
+
+  - name: "Slowpoke evolves into Slowking"
+    command: "pokedex pokemon evolutions slowpoke"
+    assert:
+      exit_code: 0
+      contains: { "data": "slowking" }
+
+  - name: "Slowking evolution mentions trade trigger"
+    command: "pokedex pokemon evolutions slowpoke"
+    assert:
+      exit_code: 0
+      contains: { "data": "trade" }
+
+  - name: "Slowking evolution mentions kings-rock"
+    command: "pokedex pokemon evolutions slowpoke"
+    assert:
+      exit_code: 0
+      contains: { "data": "kings-rock" }
+
+  - name: "Slowbro evolution mentions level 37"
+    command: "pokedex pokemon evolutions slowpoke"
+    assert:
+      exit_code: 0
+      contains: { "data": "37" }
+
+  # --- Tyrogue: 3 stat-based branches ---
+
+  - name: "Tyrogue has exactly 3 evolution branches"
     command: "pokedex pokemon evolutions tyrogue"
     assert:
       exit_code: 0
       equals: { "data.species_name": "tyrogue" }
-      array_len: { "data.children": { "min": 3 } }
-  - name: "Tyrogue branch Hitmonlee requires Attack > Defense"
+      array_len: { "data.children": { "min": 3, "max": 3 } }
+
+  - name: "Tyrogue Hitmonlee requires Attack > Defense"
     command: "pokedex pokemon evolutions tyrogue"
     assert:
       exit_code: 0
-  - name: "Tyrogue branch Hitmonchan requires Attack < Defense"
+      contains: { "data": "Attack > Defense" }
+
+  - name: "Tyrogue Hitmonchan requires Attack < Defense"
     command: "pokedex pokemon evolutions tyrogue"
     assert:
       exit_code: 0
-  - name: "Tyrogue branch Hitmontop requires Attack = Defense"
+      contains: { "data": "Attack < Defense" }
+
+  - name: "Tyrogue Hitmontop requires Attack = Defense"
     command: "pokedex pokemon evolutions tyrogue"
     assert:
       exit_code: 0
-  - name: "Wurmple has 2 personality-based branches"
+      contains: { "data": "Attack = Defense" }
+
+  - name: "All Tyrogue children evolve at level 20"
+    command: "pokedex pokemon evolutions tyrogue"
+    assert:
+      exit_code: 0
+      contains: { "data": "Level 20" }
+
+  - name: "Tyrogue children have trigger details populated"
+    command: "pokedex pokemon evolutions tyrogue"
+    assert:
+      exit_code: 0
+      has_fields:
+        - "data.children.0.methods.0.trigger_detail"
+        - "data.children.1.methods.0.trigger_detail"
+        - "data.children.2.methods.0.trigger_detail"
+
+  # --- Wurmple: 2 personality-based branches ---
+
+  - name: "Wurmple has exactly 2 evolution branches"
     command: "pokedex pokemon evolutions wurmple"
     assert:
       exit_code: 0
       equals: { "data.species_name": "wurmple" }
-      array_len: { "data.children": { "min": 2 } }
-  - name: "Wurmple branches mention personality value"
-    command: "pokedex pokemon evolutions wurmple"
-    assert:
-      exit_code: 0
+      array_len: { "data.children": { "min": 2, "max": 2 } }
+
   - name: "Wurmple has Silcoon branch"
     command: "pokedex pokemon evolutions wurmple"
     assert:
       exit_code: 0
       contains: { "data": "silcoon" }
+
   - name: "Wurmple has Cascoon branch"
     command: "pokedex pokemon evolutions wurmple"
     assert:
       exit_code: 0
       contains: { "data": "cascoon" }
-  - name: "Vivillon has 18+ forms"
-    command: "pokedex pokemon forms vivillon"
+
+  - name: "Wurmple branches mention personality value"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      contains: { "data": "personality" }
+
+  - name: "Silcoon evolves into Beautifly"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      contains: { "data": "beautifly" }
+
+  - name: "Cascoon evolves into Dustox"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      contains: { "data": "dustox" }
+
+  - name: "Wurmple children have nested children (2-stage branching)"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      array_len:
+        "data.children.0.children": { "min": 1, "max": 1 }
+        "data.children.1.children": { "min": 1, "max": 1 }
+
+  # --- Applin: 3 evolution branches ---
+
+  - name: "Applin has exactly 3 evolution branches"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "applin" }
+      array_len: { "data.children": { "min": 3, "max": 3 } }
+
+  - name: "Applin evolves into Flapple"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      contains: { "data": "flapple" }
+
+  - name: "Applin evolves into Appletun"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      contains: { "data": "appletun" }
+
+  - name: "Applin evolves into Dipplin"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      contains: { "data": "dipplin" }
+
+  - name: "Flapple uses tart-apple item"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      contains: { "data": "tart-apple" }
+
+  - name: "Appletun uses sweet-apple item"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      contains: { "data": "sweet-apple" }
+
+  - name: "Dipplin further evolves into Hydrapple"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      contains: { "data": "hydrapple" }
+
+  # --- Cosmog: linear then branching chain ---
+
+  - name: "Cosmog evolution chain starts at cosmog"
+    command: "pokedex pokemon evolutions cosmog"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cosmog" }
+
+  - name: "Cosmog has 1 child (Cosmoem)"
+    command: "pokedex pokemon evolutions cosmog"
+    assert:
+      exit_code: 0
+      array_len: { "data.children": { "min": 1, "max": 1 } }
+      contains: { "data": "cosmoem" }
+
+  - name: "Cosmoem evolves at level 43"
+    command: "pokedex pokemon evolutions cosmog"
+    assert:
+      exit_code: 0
+      contains: { "data": "Level 43" }
+
+  - name: "Cosmoem branches into Solgaleo and Lunala"
+    command: "pokedex pokemon evolutions cosmog"
+    assert:
+      exit_code: 0
+      array_len: { "data.children.0.children": { "min": 2, "max": 2 } }
+
+  - name: "Cosmoem branch includes Solgaleo"
+    command: "pokedex pokemon evolutions cosmog"
+    assert:
+      exit_code: 0
+      contains: { "data": "solgaleo" }
+
+  - name: "Cosmoem branch includes Lunala"
+    command: "pokedex pokemon evolutions cosmog"
+    assert:
+      exit_code: 0
+      contains: { "data": "lunala" }
+
+  - name: "Solgaleo and Lunala evolve at level 53"
+    command: "pokedex pokemon evolutions cosmog"
+    assert:
+      exit_code: 0
+      contains: { "data": "Level 53" }
+
+  # --- Pikachu forms: many cosmetic forms ---
+
+  - name: "Pikachu has many cosmetic forms"
+    command: "pokedex pokemon forms pikachu"
     assert:
       exit_code: 0
       type_of: { "data": "array" }
-      array_len: { "data": { "min": 18 } }
-  - name: "Vivillon forms include meadow"
-    command: "pokedex pokemon forms vivillon"
+      array_len: { "data": { "min": 13 } }
+
+  - name: "Pikachu forms include cosplay"
+    command: "pokedex pokemon forms pikachu"
     assert:
       exit_code: 0
-      contains: { "data": "meadow" }
-  - name: "Rotom Heat displays as Heat Rotom with BST 520"
-    command: "pokedex pokemon show rotom-heat"
+      contains: { "data": "pikachu-cosplay" }
+
+  - name: "Pikachu forms include rock-star"
+    command: "pokedex pokemon forms pikachu"
     assert:
       exit_code: 0
-      equals: {"data.display_name": "Heat Rotom", "data.stats.total": 520}
-      has_fields: ["data.types", "data.stats", "data.abilities"]
-  - name: "Rotom Heat is Electric/Fire"
-    command: "pokedex pokemon show rotom-heat"
+      contains: { "data": "pikachu-rock-star" }
+
+  - name: "Pikachu forms include original-cap"
+    command: "pokedex pokemon forms pikachu"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Electric", "Fire"] }
-  - name: "Vivillon Polar displays as Polar Vivillon"
-    command: "pokedex pokemon show vivillon-polar"
+      contains: { "data": "pikachu-original-cap" }
+
+  - name: "Pikachu forms include gmax"
+    command: "pokedex pokemon forms pikachu"
     assert:
       exit_code: 0
-      equals: { "data.display_name": "Polar Vivillon" }
-      has_fields: ["data.types", "data.stats"]
-  - name: "Vivillon Polar is Bug/Flying"
-    command: "pokedex pokemon show vivillon-polar"
+      contains: { "data": "pikachu-gmax" }
+
+  - name: "Pikachu default form has is_default true"
+    command: "pokedex pokemon forms pikachu"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Bug", "Flying"] }
-  - name: "Add Vivillon polar form to collection"
-    command: "pokedex collection add --pokemon=vivillon --form=polar --game=x"
+      equals: { "data.0.is_default": true }
+
+  - name: "Pikachu forms have type data"
+    command: "pokedex pokemon forms pikachu"
     assert:
       exit_code: 0
-      equals: {"data.species_name": "vivillon", "data.form_name": "polar", "data.game": "x"}
-      has_fields: ["data.id", "data.created_at"]
-  - name: "Invalid form returns error with available forms"
-    command: "pokedex collection add --pokemon=vivillon --form=nonexistent-form --game=x"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      contains: { "error.message": "nonexistent-form" }
-      has_fields: ["actions"]
-  - name: "Location encounters wild-zone-1 with --game=legends-za returns data"
-    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+      has_fields: ["data.0.types", "data.1.types"]
+
+  # --- Shellos forms: east/west sea ---
+
+  - name: "Shellos has exactly 2 forms"
+    command: "pokedex pokemon forms shellos"
     assert:
       exit_code: 0
       type_of: { "data": "array" }
-      array_len: { "data": { "min": 1 } }
-  - name: "Location encounters wild-zone-1 has meta fields"
-    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+      array_len: { "data": { "min": 2, "max": 2 } }
+
+  - name: "Shellos has west sea form"
+    command: "pokedex pokemon forms shellos"
     assert:
       exit_code: 0
-      has_fields: ["meta.total", "meta.limit", "meta.offset"]
+      contains: { "data": "west" }
+
+  - name: "Shellos has east sea form"
+    command: "pokedex pokemon forms shellos"
+    assert:
+      exit_code: 0
+      contains: { "data": "east" }
+
+  - name: "Shellos west is default form"
+    command: "pokedex pokemon forms shellos"
+    assert:
+      exit_code: 0
+      equals: { "data.0.is_default": true, "data.0.form_name": "west" }
+
+  - name: "Shellos east is not default"
+    command: "pokedex pokemon forms shellos"
+    assert:
+      exit_code: 0
+      equals: { "data.1.is_default": false, "data.1.form_name": "east" }
+
+  - name: "Both Shellos forms are Water type"
+    command: "pokedex pokemon forms shellos"
+    assert:
+      exit_code: 0
+      equals: { "data.0.types": ["Water"], "data.1.types": ["Water"] }
+
+  # --- Lycanroc forms: 3 forms with is_default ---
+
+  - name: "Lycanroc has exactly 3 forms"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 3, "max": 3 } }
+
+  - name: "Lycanroc midday form is default"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      equals: { "data.0.form_name": "midday", "data.0.is_default": true }
+
+  - name: "Lycanroc midnight form is not default"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      equals: { "data.1.form_name": "midnight", "data.1.is_default": false }
+
+  - name: "Lycanroc dusk form is not default"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      equals: { "data.2.form_name": "dusk", "data.2.is_default": false }
+
+  - name: "All Lycanroc forms are Rock type"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      equals:
+        "data.0.types": ["Rock"]
+        "data.1.types": ["Rock"]
+        "data.2.types": ["Rock"]
+
+  - name: "Lycanroc forms are not mega or battle-only"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      equals:
+        "data.0.is_mega": false
+        "data.0.is_battle_only": false
+        "data.1.is_mega": false
+        "data.1.is_battle_only": false
+        "data.2.is_mega": false
+        "data.2.is_battle_only": false
+
+  - name: "Lycanroc forms have display names"
+    command: "pokedex pokemon forms lycanroc"
+    assert:
+      exit_code: 0
+      equals:
+        "data.0.display_name": "Midday Lycanroc"
+        "data.1.display_name": "Midnight Lycanroc"
+        "data.2.display_name": "Dusk Lycanroc"

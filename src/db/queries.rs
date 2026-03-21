@@ -1619,7 +1619,14 @@ pub fn update_collection_entry(
 
 pub fn get_collection_entry(conn: &Connection, id: i64) -> Result<Option<CollectionEntry>> {
     let result = conn.query_row(
-        "SELECT c.id, c.species_id, s.name, COALESCE(sn.name, s.name), \
+        "SELECT c.id, c.species_id, s.name, \
+         COALESCE( \
+             CASE WHEN c.form_id IS NOT NULL THEN \
+                 (SELECT COALESCE(pfn.pokemon_name, pfn.name) \
+                  FROM pokemon_form_names pfn WHERE pfn.pokemon_form_id = c.form_id) \
+             END, \
+             COALESCE(sn.name, s.name) \
+         ), \
          pf.form_name, g.name, c.shiny, c.in_home, c.is_alpha, c.status, \
          c.method, c.nickname, c.notes, c.created_at, c.updated_at \
          FROM collection c \
@@ -1722,7 +1729,14 @@ pub fn list_collection(
     };
 
     let query = format!(
-        "SELECT c.id, c.species_id, s.name, COALESCE(sn.name, s.name), \
+        "SELECT c.id, c.species_id, s.name, \
+         COALESCE( \
+             CASE WHEN c.form_id IS NOT NULL THEN \
+                 (SELECT COALESCE(pfn.pokemon_name, pfn.name) \
+                  FROM pokemon_form_names pfn WHERE pfn.pokemon_form_id = c.form_id) \
+             END, \
+             COALESCE(sn.name, s.name) \
+         ), \
          pf.form_name, g.name, c.shiny, c.in_home, c.is_alpha, c.status, \
          c.method, c.nickname, c.notes, c.created_at, c.updated_at \
          FROM collection c \

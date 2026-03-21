@@ -4,7 +4,7 @@
 # implementation. Don't contort the CLI to make a stale screenplay pass.
 name: "Edge Cases & Validation"
 persona: edge-tester
-description: "Validate error handling for invalid flags, boundary values, empty inputs, form resolution, encounter warnings, and HOME compatibility"
+description: "Validate error handling for invalid flags, boundary values, empty inputs, form resolution, encounter warnings, HOME compatibility, double-add, update cycling, remove-then-show, all-flags-at-once, unusual names, non-standard types, dex progress, and huge offsets"
 needs_seed: true
 mutates_collection: true
 
@@ -338,6 +338,173 @@ steps:
       contains: { "data.warning": "does not connect to Pokémon HOME" }
       has_fields: ["actions"]
 
+  # ── Unusual pokemon names ──────────────────────────────────────────
+  - name: "mr-mime resolves correctly (hyphenated name)"
+    command: "pokedex pokemon show mr-mime"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 122, "data.name": "mr-mime", "data.generation": 1 }
+      contains: { "data.display_name": "Mr. Mime" }
+      has_fields: ["data.types", "data.stats", "data.abilities"]
+      array_len: { "data.types": { "min": 2, "max": 2 } }
+      type_of: { "data.id": "number" }
+
+  - name: "farfetchd resolves correctly (apostrophe dropped)"
+    command: "pokedex pokemon show farfetchd"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 83, "data.name": "farfetchd", "data.generation": 1, "data.types": ["Normal", "Flying"] }
+      contains: { "data.display_name": "Farfetch" }
+      has_fields: ["data.stats", "data.abilities"]
+
+  # ── Last pokemon in the dex ────────────────────────────────────────
+  - name: "pokemon show 1025 returns pecharunt (last pokemon)"
+    command: "pokedex pokemon show 1025"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 1025, "data.name": "pecharunt", "data.generation": 9, "data.is_mythical": true, "data.types": ["Poison", "Ghost"] }
+      contains: { "data.display_name": "Pecharunt" }
+      has_fields: ["data.types", "data.stats", "data.abilities", "actions"]
+
+  # ── Non-standard types: stellar & shadow ───────────────────────────
+  - name: "type matchups stellar succeeds with empty matchup lists"
+    command: "pokedex type matchups stellar"
+    assert:
+      exit_code: 0
+      equals: { "data.type_name": "stellar" }
+      contains: { "data.display_name": "Stellar" }
+      array_len: { "data.attacking.super_effective": { "min": 0, "max": 0 }, "data.defending.super_effective": { "min": 0, "max": 0 } }
+      has_fields: ["actions"]
+
+  - name: "type matchups shadow succeeds with empty matchup lists"
+    command: "pokedex type matchups shadow"
+    assert:
+      exit_code: 0
+      equals: { "data.type_name": "shadow" }
+      contains: { "data.display_name": "Shadow" }
+      array_len: { "data.attacking.no_effect": { "min": 0, "max": 0 }, "data.defending.no_effect": { "min": 0, "max": 0 } }
+      has_fields: ["actions"]
+
+  - name: "type pokemon stellar returns empty (no pokemon have stellar type)"
+    command: "pokedex type pokemon stellar"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      equals: { "meta.total": 0 }
+
+  - name: "type pokemon shadow returns empty (no pokemon have shadow type)"
+    command: "pokedex type pokemon shadow"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      equals: { "meta.total": 0 }
+
+  # ── Dex show + progress ────────────────────────────────────────────
+  - name: "dex show kanto returns 151 pokemon"
+    command: "pokedex dex show kanto"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 151 }
+      array_len: { "data": { "min": 1 } }
+      has_fields: ["data.0.pokedex_number", "data.0.name", "data.0.display_name", "actions"]
+
+  - name: "dex progress kanto --missing --limit=3 returns uncaught pokemon"
+    command: "pokedex dex progress kanto --missing --limit=3"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total", "data.caught", "data.percentage"]
+      array_len: { "data.entries": { "min": 1, "max": 3 } }
+      equals: { "data.dex_name": "kanto", "data.entries.0.caught": false, "meta.limit": 3 }
+      type_of: { "data.percentage": "number" }
+
+  # ── Pokemon moves with huge offset ─────────────────────────────────
+  - name: "pokemon moves pikachu --limit=1 --offset=9999 returns empty data"
+    command: "pokedex pokemon moves pikachu --limit=1 --offset=9999"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      equals: { "meta.limit": 1, "meta.offset": 9999 }
+      has_fields: ["meta.total", "actions"]
+
+  # ── Double-add same pokemon same game (allowed — multiple entries) ──
+  - name: "add pikachu to sword (first entry)"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --method=catch"
+    capture: { "first_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "add pikachu to sword again (second entry — allowed)"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --method=catch"
+    capture: { "second_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "both entries exist and have different IDs"
+    command: "pokedex collection show $first_id"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "sword" }
+      has_fields: ["data.id"]
+
+  - name: "second entry also exists"
+    command: "pokedex collection show $second_id"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "sword" }
+      has_fields: ["data.id"]
+
+  # ── All flags at once on collection add ─────────────────────────────
+  - name: "collection add with all flags at once"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --shiny --in-home --alpha --method=catch --status=living_dex --nickname=Sparky"
+    capture: { "all_flags_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "sword", "data.shiny": true, "data.in_home": true, "data.is_alpha": true, "data.status": "living_dex", "data.method": "catch", "data.nickname": "Sparky" }
+      has_fields: ["data.id", "data.warning", "actions"]
+      contains: { "data.warning": "Alpha" }
+
+  # ── Update then re-update back ──────────────────────────────────────
+  - name: "update all-flags entry to traded_away"
+    command: "pokedex collection update $all_flags_id --status=traded_away"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "traded_away" }
+      has_fields: ["data.id"]
+
+  - name: "re-update back to living_dex"
+    command: "pokedex collection update $all_flags_id --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "living_dex" }
+      has_fields: ["data.id"]
+
+  # ── Remove then try to show ─────────────────────────────────────────
+  - name: "add charmander for remove test"
+    command: "pokedex collection add --pokemon=charmander --game=red"
+    capture: { "remove_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "charmander", "data.game": "red" }
+
+  - name: "remove charmander entry"
+    command: "pokedex collection remove $remove_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+      has_fields: ["data.id", "actions"]
+
+  - name: "show removed entry returns NOT_FOUND"
+    command: "pokedex collection show $remove_id"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "No collection entry with id" }
+      has_fields: ["actions"]
+
   # ── Mutation + cleanup for update validation ───────────────────────
   - name: "add entry for update validation tests"
     command: "pokedex collection add --pokemon=bulbasaur --game=red"
@@ -368,6 +535,23 @@ steps:
     assert:
       exit_code: 0
       has_fields: ["data", "meta"]
+
+  # ── Clean up double-add entries ─────────────────────────────────────
+  - name: "clean up first pikachu entry"
+    command: "pokedex collection remove $first_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+  - name: "clean up second pikachu entry"
+    command: "pokedex collection remove $second_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+  - name: "clean up all-flags entry"
+    command: "pokedex collection remove $all_flags_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
 
   # ── Valid sort values ──────────────────────────────────────────────
   - name: "collection list --sort=id works"

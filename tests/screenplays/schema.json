@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pokedex Screenplay",
+  "description": "Schema for exploratory test screenplay YAML files. Screenplays define a sequence of CLI commands and assertions to replay as regression tests.",
+  "type": "object",
+  "required": ["name", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of this screenplay"
+    },
+    "persona": {
+      "type": "string",
+      "description": "Persona letter or identifier (e.g., 'A', 'smoke')"
+    },
+    "description": {
+      "type": "string",
+      "description": "What this screenplay tests"
+    },
+    "needs_seed": {
+      "type": "boolean",
+      "description": "Whether this screenplay requires a seeded database"
+    },
+    "mutates_collection": {
+      "type": "boolean",
+      "description": "Whether any step modifies collection data (add/update/remove)"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/step" }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": ["name", "command", "assert"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable description of what this step tests"
+        },
+        "command": {
+          "type": "string",
+          "description": "The CLI command to execute. Use $variable for captured values from previous steps. No shell quoting — arguments are split on whitespace.",
+          "pattern": "^pokedex "
+        },
+        "capture": {
+          "type": "object",
+          "description": "Extract values from the JSON response for use in subsequent steps via $variable substitution",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Dot-path into the JSON response (e.g., 'data.id')"
+          }
+        },
+        "assert": { "$ref": "#/$defs/assertions" }
+      }
+    },
+    "assertions": {
+      "type": "object",
+      "required": ["exit_code"],
+      "additionalProperties": false,
+      "properties": {
+        "exit_code": {
+          "type": "integer",
+          "description": "Expected process exit code. 0 for success, 1 for errors.",
+          "enum": [0, 1]
+        },
+        "has_fields": {
+          "type": "array",
+          "description": "List of dot-paths that must exist and be non-null in the JSON response",
+          "items": {
+            "type": "string",
+            "description": "Dot-path (e.g., 'data.types', 'meta.command', 'actions'). Array indices use numeric segments (e.g., 'data.0.name')."
+          }
+        },
+        "equals": {
+          "type": "object",
+          "description": "Map of dot-path to expected value. Value can be string, number, boolean, null, or array.",
+          "additionalProperties": true
+        },
+        "contains": {
+          "type": "object",
+          "description": "Map of dot-path to substring. Checks that the value at the path contains the substring. For non-string values, checks the JSON serialization.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "array_len": {
+          "type": "object",
+          "description": "Map of dot-path to bounds. Checks that the array at the path has length within bounds.",
+          "additionalProperties": {
+            "$ref": "#/$defs/array_bound"
+          }
+        },
+        "type_of": {
+          "type": "object",
+          "description": "Map of dot-path to expected JSON type.",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["string", "number", "boolean", "array", "object", "null"]
+          }
+        }
+      }
+    },
+    "array_bound": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Minimum array length (inclusive)"
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum array length (inclusive)"
+        }
+      }
+    }
+  }
+}

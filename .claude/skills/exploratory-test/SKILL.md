@@ -53,7 +53,7 @@ Each agent gets this preamble prepended to its persona description:
 
 ## Screenplay Recording Schema
 
-Each agent writes a YAML file at `tests/screenplays/` with this format:
+Each agent writes a YAML file at `tests/screenplays/`. The authoritative schema is at `tests/screenplays/schema.json` (JSON Schema). The runner enforces strict schema validation — **any unknown field causes a parse error, not a silent ignore.** Here is the format:
 
 ```yaml
 name: "Persona Name"

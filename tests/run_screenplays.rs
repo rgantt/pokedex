@@ -12,7 +12,11 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::process::Command;
 
+/// Screenplay schema is enforced by serde(deny_unknown_fields).
+/// Any field not in this struct will cause a parse error.
+/// See tests/screenplays/schema.json for the authoritative JSON Schema.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Screenplay {
     name: String,
     #[allow(dead_code)]
@@ -24,11 +28,10 @@ struct Screenplay {
     #[allow(dead_code)]
     mutates_collection: Option<bool>,
     steps: Vec<Step>,
-    #[serde(flatten)]
-    _extra: HashMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Step {
     name: String,
     command: String,
@@ -36,11 +39,11 @@ struct Step {
     capture: HashMap<String, String>,
     #[serde(default)]
     assert: Assertions,
-    #[serde(flatten)]
-    _extra: HashMap<String, Value>,
 }
 
+/// Only these 6 assertion types are supported. Unknown fields cause a parse error.
 #[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Assertions {
     exit_code: Option<i32>,
     #[serde(default)]
@@ -53,10 +56,6 @@ struct Assertions {
     type_of: HashMap<String, String>,
     #[serde(default)]
     array_len: HashMap<String, ArrayBound>,
-    // Catch-all: ignore unknown assertion types so agent-invented assertions
-    // don't break the runner. They just won't be evaluated.
-    #[serde(flatten)]
-    _extra: HashMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]

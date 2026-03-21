@@ -17,10 +17,28 @@ Before launching testers:
 ## Execution
 
 1. Read `.claude/skills/exploratory-test/personas.md` to get the persona definitions
-2. Launch ALL personas as background agents in a SINGLE message (parallel)
-3. Each agent should use the `pokedex` CLI directly (the installed binary, not cargo run)
-4. Each agent should test 10-20 commands and report ALL issues found — errors, wrong data, missing fields, confusing output, broken HATEOAS links, exit code problems
-5. If `$ARGUMENTS` contains a persona filter (e.g., "just D and E"), only launch those personas
+2. Select which personas to launch (see Selection Rules below)
+3. Launch selected personas as background agents in a SINGLE message (parallel)
+4. Each agent should use the `pokedex` CLI directly (the installed binary, not cargo run)
+5. Each agent should test 10-20 commands and report ALL issues found — errors, wrong data, missing fields, confusing output, broken HATEOAS links, exit code problems
+
+## Selection Rules
+
+If `$ARGUMENTS` contains a persona filter (e.g., "just D and E"), only launch those.
+
+Otherwise, launch a balanced set of ~9-12 agents covering:
+
+**Always include (core testers):**
+- A (HATEOAS), D (edge cases), G (forms/alpha) — these catch structural bugs
+
+**Always include at least 2 game-era playthroughs spanning early and late gens:**
+- Pick 1 from early gens: J (Red/Blue Gen 1), L (Gold/Silver Gen 2), M (Ruby/Sapphire Gen 3), N (Diamond/Pearl Gen 4)
+- Pick 1 from late gens: R (Sword/Shield Gen 8), U (Scarlet/Violet Gen 9), T (Legends Arceus), V (Legends Z-A)
+- Rotate which specific games are tested each round to maximize coverage over time
+
+**Fill remaining slots from:** B (cross-game), C (data quality), E (competitive), F (living dex), H (HOME transfers), I (variants), and any remaining playthrough personas
+
+**Never launch more than 12 agents** — diminishing returns on concurrent DB writes and context aggregation
 
 $ARGUMENTS
 
@@ -45,4 +63,5 @@ Compare against previous rounds. The goal is convergence toward zero bugs:
 - Round 1: 24 issues
 - Round 2: 13 issues
 - Round 3: 14 issues
+- Round 4: 17 issues (new categories: forms root cause, filter validation, type error handling)
 - This round: ?

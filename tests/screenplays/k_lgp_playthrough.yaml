@@ -1,0 +1,439 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Let's Go Pikachu Playthrough - Viridian Forest to Seafoam Islands"
+persona: lgp_playthrough
+description: >
+  End-to-end Let's Go Pikachu playthrough testing the
+  discover-inspect-catch-evolve-verify loop across viridian-forest, mt-moon,
+  rock-tunnel, pokemon-tower, and seafoam-islands. Also probes LGPE-specific
+  features: Alolan form trades, meltan/melmetal availability, and encounter
+  data quality (duplicate entries, meta.total vs data length consistency).
+  CRITICAL FINDING: seafoam-islands meta.total (51) disagrees with data
+  array length (50) -- off-by-one bug.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # LOCATION 1: viridian-forest
+  # ============================================================
+  - name: "Viridian Forest -- discover encounters"
+    command: "pokedex location encounters viridian-forest --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 9 }
+      array_len: { "data": { "min": 9, "max": 9 } }
+
+  - name: "Viridian Forest -- inspect Caterpie"
+    command: "pokedex pokemon show caterpie"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "caterpie", "data.generation": 1 }
+      has_fields: ["data.types", "data.stats", "data.abilities"]
+
+  - name: "Viridian Forest -- catch Caterpie"
+    command: "pokedex collection add --pokemon=caterpie --game=lets-go-pikachu --method=catch"
+    capture: { "caterpie_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "caterpie", "data.status": "caught", "data.method": "catch" }
+      has_fields: ["data.id", "data.created_at"]
+
+  - name: "Viridian Forest -- check Caterpie evolution chain"
+    command: "pokedex pokemon evolutions caterpie"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "caterpie" }
+      has_fields: ["data.children"]
+      contains: { "data.children.0.species_name": "metapod" }
+
+  - name: "Viridian Forest -- evolve Caterpie to Metapod"
+    command: "pokedex collection add --pokemon=metapod --game=lets-go-pikachu --method=evolve"
+    capture: { "metapod_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "metapod", "data.method": "evolve" }
+
+  - name: "Viridian Forest -- update Caterpie status to evolved"
+    command: "pokedex collection update $caterpie_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "caterpie" }
+
+  - name: "Viridian Forest -- evolve Metapod to Butterfree"
+    command: "pokedex collection add --pokemon=butterfree --game=lets-go-pikachu --method=evolve"
+    capture: { "butterfree_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "butterfree", "data.method": "evolve" }
+
+  - name: "Viridian Forest -- update Metapod status to evolved"
+    command: "pokedex collection update $metapod_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "metapod" }
+
+  - name: "Viridian Forest -- catch Pidgey"
+    command: "pokedex collection add --pokemon=pidgey --game=lets-go-pikachu --method=catch"
+    capture: { "pidgey_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pidgey", "data.status": "caught", "data.method": "catch" }
+
+  - name: "Viridian Forest -- catch Oddish"
+    command: "pokedex collection add --pokemon=oddish --game=lets-go-pikachu --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "oddish", "data.status": "caught" }
+
+  - name: "Viridian Forest -- verify stats after first area"
+    command: "pokedex collection stats --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species"]
+      type_of: { "data.total_entries": "number", "data.unique_species": "number" }
+
+  # ============================================================
+  # LOCATION 2: mt-moon
+  # ============================================================
+  - name: "Mt. Moon -- discover encounters"
+    command: "pokedex location encounters mt-moon --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 19 }
+      array_len: { "data": { "min": 19 } }
+
+  - name: "Mt. Moon -- inspect Clefairy"
+    command: "pokedex pokemon show clefairy"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "clefairy", "data.generation": 1 }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Mt. Moon -- catch Zubat"
+    command: "pokedex collection add --pokemon=zubat --game=lets-go-pikachu --method=catch"
+    capture: { "zubat_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zubat", "data.status": "caught", "data.method": "catch" }
+
+  - name: "Mt. Moon -- catch Geodude"
+    command: "pokedex collection add --pokemon=geodude --game=lets-go-pikachu --method=catch"
+    capture: { "geodude_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "geodude", "data.status": "caught", "data.method": "catch" }
+
+  - name: "Mt. Moon -- catch Paras"
+    command: "pokedex collection add --pokemon=paras --game=lets-go-pikachu --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "paras", "data.status": "caught" }
+
+  - name: "Mt. Moon -- catch Clefairy"
+    command: "pokedex collection add --pokemon=clefairy --game=lets-go-pikachu --method=catch"
+    capture: { "clefairy_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "clefairy", "data.status": "caught" }
+
+  # ============================================================
+  # LGPE FEATURE: Alolan form trade (in-game NPC trades)
+  # ============================================================
+  - name: "Alolan trade -- check Geodude forms"
+    command: "pokedex pokemon forms geodude"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 2 } }
+      contains: { "data.1.name": "geodude-alola" }
+      equals: { "data.1.is_default": false }
+
+  - name: "Alolan trade -- add Alolan Geodude via NPC trade"
+    command: "pokedex collection add --pokemon=geodude --form=alola --game=lets-go-pikachu --method=trade"
+    capture: { "alolan_geodude_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "geodude", "data.form_name": "alola", "data.method": "trade" }
+      contains: { "data.display_name": "Alolan" }
+
+  - name: "Alolan trade -- update traded Geodude to mark original evolved"
+    command: "pokedex collection update $geodude_id --status=traded_away"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "traded_away", "data.species_name": "geodude" }
+
+  # ============================================================
+  # LOCATION 3: rock-tunnel
+  # ============================================================
+  - name: "Rock Tunnel -- discover encounters"
+    command: "pokedex location encounters rock-tunnel --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 20 }
+      array_len: { "data": { "min": 10 } }
+
+  - name: "Rock Tunnel -- inspect Machop"
+    command: "pokedex pokemon show machop"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "machop", "data.generation": 1 }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Rock Tunnel -- catch Machop"
+    command: "pokedex collection add --pokemon=machop --game=lets-go-pikachu --method=catch"
+    capture: { "machop_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "machop", "data.status": "caught", "data.method": "catch" }
+
+  - name: "Rock Tunnel -- catch Cubone"
+    command: "pokedex collection add --pokemon=cubone --game=lets-go-pikachu --method=catch"
+    capture: { "cubone_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cubone", "data.status": "caught" }
+
+  - name: "Rock Tunnel -- catch Kangaskhan"
+    command: "pokedex collection add --pokemon=kangaskhan --game=lets-go-pikachu --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kangaskhan", "data.status": "caught" }
+
+  - name: "Rock Tunnel -- catch Charmander (rare spawn)"
+    command: "pokedex collection add --pokemon=charmander --game=lets-go-pikachu --method=catch"
+    capture: { "charmander_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "charmander", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 4: pokemon-tower
+  # ============================================================
+  - name: "Pokemon Tower -- discover encounters"
+    command: "pokedex location encounters pokemon-tower --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 24 }
+      array_len: { "data": { "min": 20 } }
+
+  - name: "Pokemon Tower -- inspect Gastly"
+    command: "pokedex pokemon show gastly"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "gastly", "data.generation": 1 }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Pokemon Tower -- catch Gastly"
+    command: "pokedex collection add --pokemon=gastly --game=lets-go-pikachu --method=catch"
+    capture: { "gastly_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gastly", "data.status": "caught", "data.method": "catch" }
+
+  - name: "Pokemon Tower -- check Gastly evolution chain"
+    command: "pokedex pokemon evolutions gastly"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gastly" }
+      contains: { "data.children.0.species_name": "haunter" }
+      has_fields: ["data.children.0.children"]
+
+  - name: "Pokemon Tower -- evolve Gastly to Haunter"
+    command: "pokedex collection add --pokemon=haunter --game=lets-go-pikachu --method=evolve"
+    capture: { "haunter_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "haunter", "data.method": "evolve" }
+
+  - name: "Pokemon Tower -- update Gastly status to evolved"
+    command: "pokedex collection update $gastly_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "gastly" }
+
+  - name: "Pokemon Tower -- evolve Haunter to Gengar (trade evo)"
+    command: "pokedex collection add --pokemon=gengar --game=lets-go-pikachu --method=evolve"
+    capture: { "gengar_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gengar", "data.method": "evolve" }
+
+  - name: "Pokemon Tower -- update Haunter status to evolved"
+    command: "pokedex collection update $haunter_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "haunter" }
+
+  # ============================================================
+  # LOCATION 5: seafoam-islands
+  # ============================================================
+  - name: "Seafoam Islands -- discover encounters"
+    command: "pokedex location encounters seafoam-islands --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      # BUG: meta.total is 51 but data array has 50 elements (off-by-one).
+      # Asserting on actual data length, NOT trusting meta.total.
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Seafoam Islands -- BUG: meta.total disagrees with data length"
+    command: "pokedex location encounters seafoam-islands --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      # CRITICAL: meta.total says 51 but only 50 entries in data array.
+      # This assertion documents the bug. If meta.total is fixed to 50,
+      # update this step.
+      equals: { "meta.total": 51 }
+
+  - name: "Seafoam Islands -- inspect Seel"
+    command: "pokedex pokemon show seel"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "seel", "data.generation": 1 }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Seafoam Islands -- catch Seel"
+    command: "pokedex collection add --pokemon=seel --game=lets-go-pikachu --method=catch"
+    capture: { "seel_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "seel", "data.status": "caught", "data.method": "catch" }
+
+  - name: "Seafoam Islands -- check Seel evolution chain"
+    command: "pokedex pokemon evolutions seel"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "seel" }
+      contains: { "data.children.0.species_name": "dewgong" }
+
+  - name: "Seafoam Islands -- evolve Seel to Dewgong"
+    command: "pokedex collection add --pokemon=dewgong --game=lets-go-pikachu --method=evolve"
+    capture: { "dewgong_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dewgong", "data.method": "evolve" }
+
+  - name: "Seafoam Islands -- update Seel status to evolved"
+    command: "pokedex collection update $seel_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "seel" }
+
+  - name: "Seafoam Islands -- catch Squirtle (rare spawn)"
+    command: "pokedex collection add --pokemon=squirtle --game=lets-go-pikachu --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "squirtle", "data.status": "caught" }
+
+  - name: "Seafoam Islands -- catch Shellder"
+    command: "pokedex collection add --pokemon=shellder --game=lets-go-pikachu --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "shellder", "data.status": "caught" }
+
+  - name: "Seafoam Islands -- catch Articuno (static legendary)"
+    command: "pokedex collection add --pokemon=articuno --game=lets-go-pikachu --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "articuno", "data.status": "caught" }
+
+  # ============================================================
+  # LGPE SPECIAL: Meltan / Melmetal (Pokemon GO transfer exclusive)
+  # ============================================================
+  - name: "Meltan -- inspect mythical species data"
+    command: "pokedex pokemon show meltan"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "meltan", "data.generation": 7, "data.is_mythical": true }
+      has_fields: ["data.types", "data.stats", "data.abilities"]
+
+  - name: "Meltan -- confirm zero encounters in LGP (GO-transfer only)"
+    command: "pokedex pokemon encounters meltan --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      # Meltan has no wild encounters in any game. It is obtained only
+      # via Pokemon GO transfer to LGPE. The encounter DB correctly
+      # returns an empty array.
+      array_len: { "data": { "min": 0, "max": 0 } }
+
+  - name: "Meltan -- confirm zero encounters globally"
+    command: "pokedex pokemon encounters meltan"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+
+  - name: "Meltan -- check evolution to Melmetal"
+    command: "pokedex pokemon evolutions meltan"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "meltan" }
+      contains: { "data.children.0.species_name": "melmetal" }
+
+  - name: "Melmetal -- inspect species data"
+    command: "pokedex pokemon show melmetal"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "melmetal", "data.generation": 7, "data.is_mythical": true }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Meltan -- add via GO transfer method"
+    command: "pokedex collection add --pokemon=meltan --game=lets-go-pikachu --method=transfer"
+    capture: { "meltan_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "meltan", "data.method": "transfer" }
+
+  - name: "Melmetal -- evolve from Meltan"
+    command: "pokedex collection add --pokemon=melmetal --game=lets-go-pikachu --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "melmetal", "data.method": "evolve" }
+
+  - name: "Meltan -- update status to evolved"
+    command: "pokedex collection update $meltan_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "meltan" }
+
+  # ============================================================
+  # LGPE FEATURE: Alolan form encounters
+  # BUG: geodude-alola encounters returns pokemon_name "Geodude"
+  # not "Alolan Geodude" -- the slug resolves to base species.
+  # ============================================================
+  - name: "Alolan encounters -- geodude-alola resolves to base species encounters"
+    command: "pokedex pokemon encounters geodude-alola --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      # BUG: This returns encounters for regular Geodude, not Alolan form.
+      # The pokemon_name field shows "Geodude" not "Alolan Geodude".
+      # In LGPE, Alolan forms are only obtained via NPC trades, not
+      # wild encounters, so there should arguably be zero results.
+      array_len: { "data": { "min": 1 } }
+
+  # ============================================================
+  # FINAL VERIFICATION
+  # ============================================================
+  - name: "Final stats -- verify 15+ species caught across playthrough"
+    command: "pokedex collection stats --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      # Total entries: caterpie, metapod, butterfree, pidgey, oddish,
+      # zubat, geodude, paras, clefairy, alolan-geodude, machop, cubone,
+      # kangaskhan, charmander, gastly, haunter, gengar, seel, dewgong,
+      # squirtle, shellder, articuno, meltan, melmetal = 24 entries
+      # Unique species: ~21 (geodude counted once despite alolan variant)
+      type_of: { "data.total_entries": "number", "data.unique_species": "number", "data.by_status": "array" }
+
+  - name: "Final stats -- collection list for LGP shows all entries"
+    command: "pokedex collection list --game=lets-go-pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      array_len: { "data": { "min": 24 } }

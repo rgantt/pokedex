@@ -114,8 +114,9 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
             species.display_name = form_display;
         }
 
-        // Override stats
-        if let Ok(stats) = queries::get_pokemon_stats_by_pokemon_id(conn, form_pokemon_id) {
+        // Override stats with form-specific values and display name
+        if let Ok(mut stats) = queries::get_pokemon_stats_by_pokemon_id(conn, form_pokemon_id) {
+            stats.pokemon_name = species.display_name.clone();
             species.stats = Some(stats);
         }
 
@@ -168,13 +169,11 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
         Action::new("stats", &format!("pokedex pokemon stats {form_action_name}")),
         Action::new("moves", &format!("pokedex pokemon moves {form_action_name}")),
         Action::new("encounters", &format!("pokedex pokemon encounters {form_action_name}")),
-        Action::new("add_to_collection", &format!("pokedex collection add --pokemon={} --game=<game>", species.name)),
+        Action::new("add_to_collection", &format!("pokedex collection add --pokemon={form_action_name} --game=<game>")),
     ];
     for type_name in &species.types {
         actions.push(Action::new("type_matchups", &format!("pokedex type matchups {}", type_name.to_lowercase())));
-    }
-    if let Some(first_type) = species.types.first() {
-        actions.push(Action::new("same_type", &format!("pokedex type pokemon {}", first_type.to_lowercase())));
+        actions.push(Action::new("same_type", &format!("pokedex type pokemon {}", type_name.to_lowercase())));
     }
 
     let response = Response::new(
@@ -472,9 +471,15 @@ pub fn stats(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<
         }
     }
 
+    // Preserve form context in actions (stats/moves use form name, evolutions uses species)
+    let action_name = if pokemon.to_lowercase() != name {
+        pokemon.to_lowercase()
+    } else {
+        name.clone()
+    };
     let actions = vec![
-        Action::new("show", &format!("pokedex pokemon show {name}")),
-        Action::new("moves", &format!("pokedex pokemon moves {name}")),
+        Action::new("show", &format!("pokedex pokemon show {action_name}")),
+        Action::new("moves", &format!("pokedex pokemon moves {action_name}")),
         Action::new("evolutions", &format!("pokedex pokemon evolutions {name}")),
     ];
 

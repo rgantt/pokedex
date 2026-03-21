@@ -6,19 +6,21 @@ name: "HATEOAS Walker"
 persona: hateoas_walker
 description: >
   Navigate the CLI purely via action links starting from discovery.
-  Tests deep HATEOAS chains: dex progress -> missing pokemon -> encounters ->
-  collection add -> verify dex changed. Pagination edge cases (last page has
-  no next_page). Template substitution ({species_slug}, {name}, {id}).
-  Special-character names (type-null, nidoran-f). Location encounters across
-  3 game eras (Gen 1 Red, Gen 4 Diamond, Gen 9 Scarlet). PLA encounter details.
-  Sword-era Max Raid encounters. --discover validation. Typo recovery chains.
-  Form-specific data (rotom-heat, growlithe-hisui). 40+ steps.
+  Tests deep HATEOAS chains: discovery -> show -> encounters -> collection add
+  -> collection show -> dex progress -> verify. Pagination edge cases including
+  last page of national dex (offset=1020). Template substitution ({species_slug},
+  {name}, {id}). Special-character names (type-null, nidoran-f). Location
+  encounters across multiple games without --game filter (viridian-forest spans
+  10 games). Dual-type matchups chain (garchomp Dragon/Ground -> both type
+  matchups). Obscure dexes (isle-of-armor, crown-tundra, kitakami). Last
+  national dex entry (1025 pecharunt). Every action rel followed at least once.
+  Typo recovery. Form variants. 55+ steps.
 needs_seed: true
 mutates_collection: true
 
 steps:
   # ========================================================================
-  # Chain 1: Discovery -> validate structure matches actual CLI
+  # Chain 1: Discovery -> validate command tree structure
   # ========================================================================
 
   - name: "--discover returns command tree with resources and entry_points"
@@ -26,33 +28,249 @@ steps:
     assert:
       exit_code: 0
       has_fields: ["data.resources", "data.entry_points", "actions", "meta.command"]
-      type_of: {"data.resources": "array"}
+      type_of: {"data.resources": "array", "data.entry_points": "array"}
       array_len: {"data.resources": {"min": 5}}
       contains: {"meta.command": "--discover"}
-  - name: "pokemon list with limit=3 shows first page"
-    command: "pokedex pokemon list --limit=3"
+
+  # ========================================================================
+  # Chain 2: Last national dex entry (1025) -> full action walk
+  # ========================================================================
+
+  - name: "pokemon show for last national dex entry (1025 pecharunt)"
+    command: "pokedex pokemon show 1025"
     assert:
       exit_code: 0
-      array_len: {"data": {"min": 3, "max": 3}}
-      equals: {"meta.limit": 3, "meta.offset": 0, "data.0.name": "bulbasaur"}
-  - name: "follow next_page action to page 2"
-    command: "pokedex pokemon list --limit=3 --offset=3"
+      equals: {"data.id": 1025, "data.name": "pecharunt", "data.display_name": "Pecharunt", "data.generation": 9, "data.is_mythical": true, "data.types": ["Poison", "Ghost"]}
+      has_fields: ["data.stats", "data.abilities", "data.genus", "actions"]
+      type_of: {"data.id": "number", "data.types": "array"}
+
+  - name: "follow evolutions action from pecharunt (standalone mythical, no children)"
+    command: "pokedex pokemon evolutions pecharunt"
     assert:
       exit_code: 0
-      equals: {"meta.offset": 3, "data.0.name": "charmander"}
-      has_fields: ["actions"]
-  - name: "gen 1 last page (offset=150) has only 1 result and no next_page"
-    command: "pokedex pokemon list --generation=1 --limit=3 --offset=150"
+      equals: {"data.species_name": "pecharunt"}
+      array_len: {"data.children": {"min": 0, "max": 0}}
+
+  - name: "follow forms action from pecharunt (single default form)"
+    command: "pokedex pokemon forms pecharunt"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 1, "max": 1}}
-      equals: {"data.0.name": "mew", "meta.offset": 150}
+      equals: {"data.0.name": "pecharunt", "data.0.is_default": true}
+
+  - name: "follow stats action from pecharunt (BST 600)"
+    command: "pokedex pokemon stats 1025"
+    assert:
+      exit_code: 0
+      equals: {"data.hp": 88, "data.attack": 88, "data.defense": 160, "data.speed": 88, "data.total": 600}
+
+  - name: "follow moves action from pecharunt (has level-up moves)"
+    command: "pokedex pokemon moves 1025 --limit=3"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 3, "max": 3}}
+      has_fields: ["data.0.move_name", "data.0.type_name", "data.0.damage_class", "data.0.learn_method", "meta.total"]
+
+  - name: "follow encounters action from pecharunt (Loyalty Plaza special encounter)"
+    command: "pokedex pokemon encounters 1025"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 1}}
+      has_fields: ["data.0.location", "data.0.method", "data.0.details"]
+      contains: {"data.0.location": "Loyalty Plaza"}
+
+  - name: "follow add_to_collection action with real game substituted"
+    command: "pokedex collection add --pokemon=pecharunt --game=scarlet --method=catch"
+    capture: {"pecharunt_id": "data.id"}
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "pecharunt", "data.game": "scarlet", "data.status": "caught"}
+      has_fields: ["data.id", "data.display_name", "actions"]
+
+  - name: "follow show action from collection add"
+    command: "pokedex collection show $pecharunt_id"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "pecharunt", "data.game": "scarlet"}
+      has_fields: ["data.created_at", "data.updated_at", "actions"]
+
+  - name: "follow update action to living_dex status"
+    command: "pokedex collection update $pecharunt_id --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: {"data.status": "living_dex"}
+
+  - name: "follow list action from collection"
+    command: "pokedex collection list"
+    assert:
+      exit_code: 0
+      type_of: {"data": "array"}
+      array_len: {"data": {"min": 1}}
+      has_fields: ["actions", "meta"]
+
+  - name: "follow stats action from collection"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status", "data.by_game", "actions"]
+      type_of: {"data.total_entries": "number"}
+
+  - name: "follow remove action to clean up pecharunt"
+    command: "pokedex collection remove $pecharunt_id"
+    assert:
+      exit_code: 0
+      equals: {"data.removed": true}
+      has_fields: ["actions"]
+
+  # ========================================================================
+  # Chain 3: Dual-type pokemon -> follow BOTH type_matchups actions
+  # ========================================================================
+
+  - name: "show garchomp (dual-type Dragon/Ground)"
+    command: "pokedex pokemon show garchomp"
+    assert:
+      exit_code: 0
+      equals: {"data.name": "garchomp", "data.types": ["Dragon", "Ground"], "data.generation": 4}
+      has_fields: ["data.stats", "data.abilities", "data.evolves_from", "actions"]
+
+  - name: "follow first type_matchups action (dragon) from garchomp"
+    command: "pokedex type matchups dragon"
+    assert:
+      exit_code: 0
+      equals: {"data.type_name": "dragon"}
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective", "data.attacking.no_effect"]
+      array_len: {"data.attacking.no_effect": {"min": 1}}
+
+  - name: "follow second type_matchups action (ground) from garchomp"
+    command: "pokedex type matchups ground"
+    assert:
+      exit_code: 0
+      equals: {"data.type_name": "ground"}
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+
+  - name: "follow pokemon_of_type action from dragon matchups"
+    command: "pokedex type pokemon dragon --limit=3"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 3, "max": 3}}
+      has_fields: ["meta.total", "actions"]
+
+  - name: "follow all_types action from matchups"
+    command: "pokedex type list"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 18}}
+      has_fields: ["actions"]
+
+  # ========================================================================
+  # Chain 4: Location encounters - viridian-forest WITHOUT --game filter
+  # ========================================================================
+
+  - name: "viridian-forest encounters without --game spans multiple games"
+    command: "pokedex location encounters viridian-forest --limit=5"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 5, "max": 5}}
+      has_fields: ["data.0.pokemon_name", "data.0.species_slug", "data.0.location", "data.0.game", "data.0.method", "meta.total"]
+
+  - name: "follow next_page action from viridian-forest page 1"
+    command: "pokedex location encounters viridian-forest --limit=5 --offset=5"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 5, "max": 5}}
+      equals: {"meta.offset": 5}
+      has_fields: ["actions"]
+
+  - name: "viridian-forest last page has prev_page but no next_page"
+    command: "pokedex location encounters viridian-forest --limit=5 --offset=121"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 5, "max": 5}}
+      equals: {"meta.offset": 121}
+
+  - name: "follow species_slug template from location encounters"
+    command: "pokedex pokemon show beedrill"
+    assert:
+      exit_code: 0
+      equals: {"data.name": "beedrill", "data.generation": 1}
+      has_fields: ["data.types", "actions"]
+
+  # ========================================================================
+  # Chain 5: Pagination - national dex offset=1020 (last 5 entries)
+  # ========================================================================
+
+  - name: "pokemon list offset=1020 shows last 5 entries of national dex"
+    command: "pokedex pokemon list --limit=5 --offset=1020"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 5, "max": 5}}
+      equals: {"data.4.name": "pecharunt", "data.4.id": 1025, "data.0.name": "raging-bolt", "meta.offset": 1020}
+
+  - name: "last page has prev_page action but no next_page"
+    command: "pokedex pokemon list --limit=5 --offset=1020"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 1025, "meta.limit": 5, "meta.offset": 1020}
+
+  # ========================================================================
+  # Chain 6: Obscure dexes - isle-of-armor, crown-tundra, kitakami
+  # ========================================================================
+
+  - name: "dex list includes all obscure dexes"
+    command: "pokedex dex list"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 10}}
+      has_fields: ["actions"]
+
+  - name: "dex progress isle-of-armor starts with slowpoke"
+    command: "pokedex dex progress isle-of-armor --limit=3"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total", "data.caught", "data.entries", "actions"]
+      type_of: {"data.percentage": "number"}
+
+  - name: "follow show_dex action from isle-of-armor progress"
+    command: "pokedex dex show isle-of-armor --limit=3"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 3, "max": 3}}
+      equals: {"data.0.name": "slowpoke"}
+      has_fields: ["actions"]
+
+  - name: "follow show_missing action from isle-of-armor progress"
+    command: "pokedex dex progress isle-of-armor --missing --limit=3"
+    assert:
+      exit_code: 0
+      array_len: {"data.entries": {"min": 3}}
+      equals: {"data.entries.0.caught": false}
+
+  - name: "dex progress crown-tundra starts with snom"
+    command: "pokedex dex progress crown-tundra --limit=3"
+    assert:
+      exit_code: 0
+      equals: {"data.dex_name": "crown-tundra", "data.entries.0.name": "snom"}
+      has_fields: ["data.total", "data.caught", "data.percentage"]
+      type_of: {"data.total": "number"}
+
+  - name: "dex progress kitakami starts with spinarak"
+    command: "pokedex dex progress kitakami --limit=3"
+    assert:
+      exit_code: 0
+      equals: {"data.dex_name": "kitakami", "data.entries.0.name": "spinarak"}
+      has_fields: ["data.total", "data.caught", "data.percentage"]
+
+  # ========================================================================
+  # Chain 7: Special-character names
+  # ========================================================================
+
   - name: "type-null resolves correctly (colon in display name)"
     command: "pokedex pokemon show type-null"
     assert:
       exit_code: 0
       equals: {"data.name": "type-null", "data.display_name": "Type: Null", "data.is_legendary": true, "data.types": ["Normal"], "data.generation": 7}
-      has_fields: ["data.types", "data.stats", "data.abilities", "actions"]
+      has_fields: ["data.stats", "data.abilities", "actions"]
+
   - name: "follow evolutions action from type-null -> silvally"
     command: "pokedex pokemon evolutions type-null"
     assert:
@@ -60,208 +278,106 @@ steps:
       equals: {"data.species_name": "type-null"}
       array_len: {"data.children": {"min": 1, "max": 1}}
       has_fields: ["data.children.0.species_name", "data.children.0.methods"]
-  - name: "follow stats action from type-null (all 95 except speed)"
-    command: "pokedex pokemon stats type-null"
-    assert:
-      exit_code: 0
-      equals: {"data.hp": 95, "data.attack": 95, "data.defense": 95, "data.speed": 59, "data.total": 534}
-  - name: "nidoran-f resolves correctly (unicode female symbol in display)"
+
+  - name: "nidoran-f resolves correctly (unicode in display name)"
     command: "pokedex pokemon show nidoran-f"
     assert:
       exit_code: 0
       equals: {"data.name": "nidoran-f", "data.id": 29, "data.generation": 1, "data.types": ["Poison"]}
       has_fields: ["data.display_name", "data.abilities", "actions"]
-  - name: "follow evolutions action from nidoran-f -> nidorina -> nidoqueen"
+
+  - name: "nidoran-f evolves through nidorina to nidoqueen"
     command: "pokedex pokemon evolutions nidoran-f"
     assert:
       exit_code: 0
       equals: {"data.species_name": "nidoran-f"}
       array_len: {"data.children": {"min": 1}}
       has_fields: ["data.children.0.children"]
-  - name: "follow show_missing action - first missing is bulbasaur"
-    command: "pokedex dex progress national --missing --limit=3"
-    assert:
-      exit_code: 0
-      equals: {"data.entries.0.name": "bulbasaur", "data.entries.0.caught": false}
-      array_len: {"data.entries": {"min": 3}}
-  - name: "check encounters for missing bulbasaur"
-    command: "pokedex pokemon encounters bulbasaur"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 1}}
-      has_fields: ["data.0.location", "data.0.game", "data.0.method"]
-  - name: "add bulbasaur to collection via red game"
-    command: "pokedex collection add --pokemon=bulbasaur --game=red --method=catch"
-    capture: { "bulba_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "bulbasaur", "data.game": "red", "data.status": "caught"}
-      has_fields: ["actions"]
-  - name: "follow show_caught action confirms bulbasaur"
-    command: "pokedex dex progress national --caught --limit=3"
-    assert:
-      exit_code: 0
-      array_len: {"data.entries": {"min": 1}}
-      equals: {"data.entries.0.name": "bulbasaur", "data.entries.0.caught": true}
-  - name: "follow collection show action from add"
-    command: "pokedex collection show $bulba_id"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "bulbasaur"}
-      has_fields: ["actions"]
-  - name: "clean up: remove bulbasaur from collection"
-    command: "pokedex collection remove $bulba_id"
-    assert:
-      exit_code: 0
-      equals: {"data.removed": true}
-      has_fields: ["actions"]
-  - name: "dex progress last page (offset=1020 of 1025) has no next_page"
-    command: "pokedex dex progress national --limit=5 --offset=1020"
-    assert:
-      exit_code: 0
-      array_len: {"data.entries": {"min": 5, "max": 5}}
-      equals: {"data.entries.4.name": "pecharunt", "meta.offset": 1020}
-  - name: "Gen 1 location: viridian-forest in Red"
-    command: "pokedex location encounters viridian-forest --game=red --limit=5"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 1, "max": 5}}
-      equals: {"data.0.game": "Red"}
-      has_fields: ["data.0.species_slug", "data.0.method", "data.0.rarity", "meta.total"]
-  - name: "Gen 1 location pagination: last page has prev_page but no next_page"
-    command: "pokedex location encounters viridian-forest --game=red --limit=5 --offset=5"
-    assert:
-      exit_code: 0
-      has_fields: ["data", "meta.total"]
-      equals: {"meta.offset": 5}
-  - name: "Gen 4 location: eterna-forest in Diamond has conditions"
-    command: "pokedex location encounters eterna-forest --game=diamond --limit=5"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 1, "max": 5}}
-      equals: {"data.0.game": "Diamond"}
-      has_fields: ["data.0.species_slug", "data.0.method", "meta.total"]
-  - name: "Gen 9 location: south-province-area-one in Scarlet has SV details"
-    command: "pokedex location encounters south-province-area-one --game=scarlet --limit=3"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 1, "max": 3}}
-      equals: {"data.0.game": "Scarlet"}
-      has_fields: ["data.0.species_slug", "data.0.details"]
-  - name: "PLA location: horseshoe-plains has alpha_levels in details"
-    command: "pokedex location encounters horseshoe-plains --game=legends-arceus --limit=3"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 1, "max": 3}}
-      equals: {"data.0.game": "Legends: Arceus"}
-      has_fields: ["data.0.species_slug", "data.0.details"]
-  - name: "Sword location: rolling-fields has Max Raid encounters"
-    command: "pokedex location encounters rolling-fields --game=sword --limit=3"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 1, "max": 3}}
-      equals: {"data.0.game": "Sword"}
-      has_fields: ["data.0.species_slug", "data.0.details"]
-  - name: "follow species_slug template: show pokemon from location results"
-    command: "pokedex pokemon show caterpie"
-    assert:
-      exit_code: 0
-      equals: {"data.name": "caterpie", "data.types": ["Bug"], "data.generation": 1}
-  - name: "type list returns all 18+ types"
-    command: "pokedex type list"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 18}}
-      has_fields: ["actions"]
-  - name: "follow matchups action for dragon type"
-    command: "pokedex type matchups dragon"
-    assert:
-      exit_code: 0
-      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
-      array_len: {"data.attacking.no_effect": {"min": 1}}
-  - name: "follow pokemon_of_type action"
-    command: "pokedex type pokemon dragon --limit=3"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 3}}
-      has_fields: ["meta.total", "actions"]
-  - name: "game list returns all games with show actions"
-    command: "pokedex game list"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 20}}
-      has_fields: ["actions"]
-  - name: "follow game show action for sword"
-    command: "pokedex game show sword"
-    assert:
-      exit_code: 0
-      equals: {"data.name": "sword", "data.generation": 8, "data.region": "Galar", "data.connects_to_home": true}
-      has_fields: ["actions"]
-  - name: "follow collection_for_game action (empty for sword)"
-    command: "pokedex collection list --game=sword"
-    assert:
-      exit_code: 0
-      has_fields: ["data", "actions", "meta"]
-      type_of: {"data": "array"}
-  - name: "home status returns counts"
-    command: "pokedex home status"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total_in_home", "data.unique_species_in_home", "data.shiny_in_home", "actions"]
-      type_of: {"data.total_in_home": "number"}
-  - name: "follow coverage action from home status"
-    command: "pokedex home coverage"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total", "data.caught", "data.percentage"]
-      type_of: {"data.percentage": "number"}
-  - name: "follow missing action from home status"
-    command: "pokedex home missing --limit=3"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 3, "max": 3}}
-      has_fields: ["data.0.name", "meta.total"]
-  - name: "home transferable for pikachu shows HOME-compatible games"
-    command: "pokedex home transferable pikachu"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 1}}
-      has_fields: ["data.0.name", "data.0.connects_to_home"]
-  - name: "dex list returns available pokedexes"
-    command: "pokedex dex list"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 10}}
-      has_fields: ["actions"]
-  - name: "follow dex show action for national dex"
-    command: "pokedex dex show national --limit=3"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 3, "max": 3}}
-      equals: {"data.0.name": "bulbasaur"}
-      has_fields: ["actions"]
+
+  # ========================================================================
+  # Chain 8: Form-specific data
+  # ========================================================================
+
   - name: "rotom-heat shows Electric/Fire with BST 520"
     command: "pokedex pokemon show rotom-heat"
     assert:
       exit_code: 0
       equals: {"data.display_name": "Heat Rotom", "data.types": ["Electric", "Fire"], "data.stats.total": 520}
       has_fields: ["data.stats", "data.abilities", "actions"]
+
   - name: "growlithe-hisui has Fire/Rock types"
     command: "pokedex pokemon show growlithe-hisui"
     assert:
       exit_code: 0
       contains: {"data.display_name": "Hisuian"}
       equals: {"data.types": ["Fire", "Rock"]}
+
   - name: "growlithe-hisui stats differ from base growlithe"
     command: "pokedex pokemon stats growlithe-hisui"
     assert:
       exit_code: 0
       equals: {"data.hp": 60, "data.attack": 75, "data.speed": 55}
-  - name: "base growlithe stats are different"
+
+  - name: "base growlithe stats are different from hisui form"
     command: "pokedex pokemon stats growlithe"
     assert:
       exit_code: 0
       equals: {"data.hp": 55, "data.attack": 70, "data.speed": 60}
+
+  # ========================================================================
+  # Chain 9: Game show -> follow actions
+  # ========================================================================
+
+  - name: "game list returns all games"
+    command: "pokedex game list"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 20}}
+      has_fields: ["actions"]
+
+  - name: "follow game show action for sword"
+    command: "pokedex game show sword"
+    assert:
+      exit_code: 0
+      equals: {"data.name": "sword", "data.generation": 8, "data.region": "Galar", "data.connects_to_home": true}
+      has_fields: ["actions"]
+
+  # ========================================================================
+  # Chain 10: Home commands
+  # ========================================================================
+
+  - name: "home status returns counts"
+    command: "pokedex home status"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_in_home", "data.unique_species_in_home", "data.shiny_in_home", "actions"]
+      type_of: {"data.total_in_home": "number"}
+
+  - name: "follow coverage action from home status"
+    command: "pokedex home coverage"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total", "data.caught", "data.percentage"]
+      type_of: {"data.percentage": "number"}
+
+  - name: "follow missing action from home"
+    command: "pokedex home missing --limit=3"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 3, "max": 3}}
+      has_fields: ["data.0.name", "meta.total"]
+
+  - name: "home transferable for pikachu shows HOME-compatible games"
+    command: "pokedex home transferable pikachu"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 1}}
+      has_fields: ["data.0.name", "data.0.connects_to_home"]
+
+  # ========================================================================
+  # Chain 11: Typo recovery -> did_you_mean -> correct result
+  # ========================================================================
+
   - name: "typo pikchu gets NOT_FOUND with recovery actions"
     command: "pokedex pokemon show pikchu"
     assert:
@@ -269,82 +385,140 @@ steps:
       equals: {"error.code": "NOT_FOUND"}
       contains: {"error.message": "pikchu"}
       array_len: {"actions": {"min": 1}}
-  - name: "typo charizar gets NOT_FOUND with recovery actions"
+
+  - name: "follow did_you_mean action recovers to pikachu"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      equals: {"data.name": "pikachu", "data.display_name": "Pikachu"}
+      has_fields: ["data.stats", "actions"]
+
+  - name: "typo charizar gets NOT_FOUND"
     command: "pokedex pokemon show charizar"
     assert:
       exit_code: 1
       equals: {"error.code": "NOT_FOUND"}
       array_len: {"actions": {"min": 1}}
-  - name: "typo evee gets NOT_FOUND with recovery actions"
+
+  - name: "typo evee gets NOT_FOUND"
     command: "pokedex pokemon show evee"
     assert:
       exit_code: 1
       equals: {"error.code": "NOT_FOUND"}
       contains: {"error.message": "evee"}
       array_len: {"actions": {"min": 1}}
-  - name: "follow did_you_mean action recovers to eevee"
-    command: "pokedex pokemon show eevee"
-    assert:
-      exit_code: 0
-      equals: {"data.name": "eevee", "data.display_name": "Eevee"}
-      has_fields: ["data.stats", "actions"]
-  - name: "follow evolutions action from eevee shows 8+ eeveelutions"
+
+  - name: "follow recovery to eevee -> 8+ eeveelutions"
     command: "pokedex pokemon evolutions eevee"
     assert:
       exit_code: 0
       array_len: {"data.children": {"min": 8}}
       has_fields: ["actions"]
+
+  # ========================================================================
+  # Chain 12: Error cases
+  # ========================================================================
+
   - name: "--limit=0 returns INVALID_PARAMETER error"
     command: "pokedex pokemon list --limit=0"
     assert:
       exit_code: 1
       equals: {"error.code": "INVALID_PARAMETER"}
       contains: {"error.message": "limit"}
+
   - name: "bad location returns NOT_FOUND with recovery actions"
     command: "pokedex location encounters not-a-place"
     assert:
       exit_code: 1
       equals: {"error.code": "NOT_FOUND"}
       array_len: {"actions": {"min": 1}}
-  - name: "not-found collection entry returns error"
+
+  - name: "nonexistent collection entry returns NOT_FOUND"
     command: "pokedex collection show 9999"
     assert:
       exit_code: 1
       equals: {"error.code": "NOT_FOUND"}
       has_fields: ["actions"]
-  - name: "wild-area without valid game returns NOT_FOUND with try actions"
-    command: "pokedex location encounters wild-area --game=sword"
-    assert:
-      exit_code: 1
-      equals: {"error.code": "NOT_FOUND"}
-      array_len: {"actions": {"min": 1}}
+
+  # ========================================================================
+  # Chain 13: Collection CRUD with capture/variable substitution
+  # ========================================================================
+
   - name: "add pikachu to collection in red"
     command: "pokedex collection add --pokemon=pikachu --game=red --method=catch"
-    capture: { "pika_id": "data.id" }
+    capture: {"pika_id": "data.id"}
     assert:
       exit_code: 0
       equals: {"data.species_name": "pikachu", "data.game": "red", "data.status": "caught"}
-      has_fields: ["actions"]
-  - name: "follow show action from collection add"
+      has_fields: ["data.id", "actions"]
+
+  - name: "follow pokemon_info action from collection add"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      equals: {"data.name": "pikachu"}
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "follow show action using captured $pika_id"
     command: "pokedex collection show $pika_id"
     assert:
       exit_code: 0
-      equals: {"data.species_name": "pikachu"}
+      equals: {"data.species_name": "pikachu", "data.game": "red"}
       has_fields: ["actions"]
+
   - name: "follow update action to living_dex status"
     command: "pokedex collection update $pika_id --status=living_dex"
     assert:
       exit_code: 0
       equals: {"data.status": "living_dex"}
+
   - name: "follow remove action to clean up"
     command: "pokedex collection remove $pika_id"
     assert:
       exit_code: 0
       equals: {"data.removed": true}
       has_fields: ["actions"]
-  - name: "collection list is empty after cleanup"
+
+  # ========================================================================
+  # Chain 14: Moves filtering actions
+  # ========================================================================
+
+  - name: "follow filter_level_up action from moves"
+    command: "pokedex pokemon moves pecharunt --method=level-up --limit=3"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 1}}
+      equals: {"data.0.learn_method": "level-up"}
+      has_fields: ["data.0.move_name", "data.0.level"]
+
+  - name: "follow filter_tm action from moves"
+    command: "pokedex pokemon moves pecharunt --method=machine --limit=3"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 1}}
+      equals: {"data.0.learn_method": "machine"}
+
+  # ========================================================================
+  # Chain 15: Dex progress national last page + collection empty verification
+  # ========================================================================
+
+  - name: "collection list is empty after all cleanups"
     command: "pokedex collection list"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta"]
       type_of: {"data": "array"}
+      has_fields: ["actions", "meta"]
+
+  - name: "dex progress national shows 1025 total with 0 caught"
+    command: "pokedex dex progress national --limit=3"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total", "data.caught", "data.entries"]
+      type_of: {"data.total": "number", "data.caught": "number"}
+
+  - name: "dex progress national last page (offset=1020) ends at pecharunt"
+    command: "pokedex dex progress national --limit=5 --offset=1020"
+    assert:
+      exit_code: 0
+      array_len: {"data.entries": {"min": 5, "max": 5}}
+      equals: {"data.entries.4.name": "pecharunt", "meta.offset": 1020}

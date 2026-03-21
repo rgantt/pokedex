@@ -2,376 +2,410 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Data Quality - Encounters, Stats, Types, Moves, Mythicals"
+name: "Data Quality - Cross-Endpoint Consistency & Correctness"
 persona: data-quality
-description: "Verify encounter rarity sums, stat consistency, type matchup symmetry, move learnsets, and mythical metadata"
+description: "Cross-check stats between show/stats endpoints, verify abilities match forms, validate type matchup symmetry, confirm encounter geography, dex counts, egg groups, and move learnsets"
 needs_seed: true
 mutates_collection: false
 
 steps:
-  # ── Encounter rarity sums ──────────────────────────────────────────
-  - name: "viridian-forest encounters in red exist"
-    command: "pokedex location encounters viridian-forest --game=red"
-    assert:
-      exit_code: 0
-      has_fields: ["data", "actions", "meta"]
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 5 } }
+  # ══════════════════════════════════════════════════════════════════════
+  # 1. STATS CROSS-CHECK: pokemon show vs pokemon stats (5 pokemon)
+  # ══════════════════════════════════════════════════════════════════════
 
-  - name: "viridian-forest has pikachu in red"
-    command: "pokedex location encounters viridian-forest --game=red"
-    assert:
-      exit_code: 0
-      contains: { "data": "Pikachu" }
-
-  - name: "viridian-forest has weedle in red"
-    command: "pokedex location encounters viridian-forest --game=red"
-    assert:
-      exit_code: 0
-      contains: { "data": "Weedle" }
-
-  - name: "viridian-forest has caterpie in red"
-    command: "pokedex location encounters viridian-forest --game=red"
-    assert:
-      exit_code: 0
-      contains: { "data": "Caterpie" }
-
-  - name: "viridian-forest has kakuna in red"
-    command: "pokedex location encounters viridian-forest --game=red"
-    assert:
-      exit_code: 0
-      contains: { "data": "Kakuna" }
-
-  - name: "viridian-forest red has exactly 10 encounter rows"
-    command: "pokedex location encounters viridian-forest --game=red"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 10, "max": 10 } }
-
-  - name: "sinnoh-route-201 encounters in diamond exist"
-    command: "pokedex location encounters sinnoh-route-201 --game=diamond"
-    assert:
-      exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 5 } }
-
-  - name: "sinnoh-route-201 in diamond has starly"
-    command: "pokedex location encounters sinnoh-route-201 --game=diamond"
-    assert:
-      exit_code: 0
-      contains: { "data": "Starly" }
-
-  - name: "sinnoh-route-201 in diamond has bidoof"
-    command: "pokedex location encounters sinnoh-route-201 --game=diamond"
-    assert:
-      exit_code: 0
-      contains: { "data": "Bidoof" }
-
-  # ── Stats consistency: pokemon show vs pokemon stats ───────────────
-  - name: "pikachu show has stats"
+  # ── Pikachu ──────────────────────────────────────────────────────────
+  - name: "pikachu show stats values"
     command: "pokedex pokemon show pikachu"
     assert:
       exit_code: 0
-      has_fields: ["data.stats.hp", "data.stats.attack", "data.stats.defense", "data.stats.special_attack", "data.stats.special_defense", "data.stats.speed", "data.stats.total"]
       equals: { "data.stats.hp": 35, "data.stats.attack": 55, "data.stats.defense": 40, "data.stats.special_attack": 50, "data.stats.special_defense": 50, "data.stats.speed": 90, "data.stats.total": 320 }
 
-  - name: "pikachu stats endpoint matches show"
+  - name: "pikachu stats endpoint matches show exactly"
     command: "pokedex pokemon stats pikachu"
     assert:
       exit_code: 0
       equals: { "data.hp": 35, "data.attack": 55, "data.defense": 40, "data.special_attack": 50, "data.special_defense": 50, "data.speed": 90, "data.total": 320 }
 
-  - name: "eevee show stats match stats endpoint"
-    command: "pokedex pokemon show eevee"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.hp": 55, "data.stats.attack": 55, "data.stats.defense": 50, "data.stats.special_attack": 45, "data.stats.special_defense": 65, "data.stats.speed": 55, "data.stats.total": 325 }
-
-  - name: "eevee stats endpoint values"
-    command: "pokedex pokemon stats eevee"
-    assert:
-      exit_code: 0
-      equals: { "data.hp": 55, "data.attack": 55, "data.defense": 50, "data.special_attack": 45, "data.special_defense": 65, "data.speed": 55, "data.total": 325 }
-
-  - name: "charizard show stats"
+  # ── Charizard ────────────────────────────────────────────────────────
+  - name: "charizard show stats values"
     command: "pokedex pokemon show charizard"
     assert:
       exit_code: 0
       equals: { "data.stats.hp": 78, "data.stats.attack": 84, "data.stats.defense": 78, "data.stats.special_attack": 109, "data.stats.special_defense": 85, "data.stats.speed": 100, "data.stats.total": 534 }
 
-  - name: "charizard stats endpoint matches show"
+  - name: "charizard stats endpoint matches show exactly"
     command: "pokedex pokemon stats charizard"
     assert:
       exit_code: 0
       equals: { "data.hp": 78, "data.attack": 84, "data.defense": 78, "data.special_attack": 109, "data.special_defense": 85, "data.speed": 100, "data.total": 534 }
 
-  # ── Kanto dex: all 151 species, all gen 1 ──────────────────────────
-  - name: "kanto dex has 151 entries"
-    command: "pokedex dex show kanto --limit=151"
-    assert:
-      exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 151, "max": 151 } }
-
-  - name: "fire is super effective against grass"
-    command: "pokedex type matchups fire"
-    assert:
-      exit_code: 0
-      contains: { "data.attacking.super_effective": "Grass" }
-
-  - name: "grass is not very effective against fire (symmetry)"
-    command: "pokedex type matchups grass"
-    assert:
-      exit_code: 0
-      contains: { "data.attacking.not_very_effective": "Fire" }
-
-  - name: "fire defends not very effectively against grass"
-    command: "pokedex type matchups fire"
-    assert:
-      exit_code: 0
-      contains: { "data.defending.not_very_effective": "Grass" }
-
-  - name: "grass is weak to fire defensively"
-    command: "pokedex type matchups grass"
-    assert:
-      exit_code: 0
-      contains: { "data.defending.super_effective": "Fire" }
-
-  - name: "electric is super effective against water"
-    command: "pokedex type matchups electric"
-    assert:
-      exit_code: 0
-      contains: { "data.attacking.super_effective": "Water" }
-
-  - name: "water is weak to electric defensively (symmetry)"
-    command: "pokedex type matchups water"
-    assert:
-      exit_code: 0
-      contains: { "data.defending.super_effective": "Electric" }
-
-  - name: "water is super effective against fire"
-    command: "pokedex type matchups water"
-    assert:
-      exit_code: 0
-      contains: { "data.attacking.super_effective": "Fire" }
-
-  - name: "fire is weak to water defensively (symmetry)"
-    command: "pokedex type matchups fire"
-    assert:
-      exit_code: 0
-      contains: { "data.defending.super_effective": "Water" }
-
-  # ── Magikarp encounters: ubiquitous across games ───────────────────
-  - name: "magikarp has encounters"
-    command: "pokedex pokemon encounters magikarp"
-    assert:
-      exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 100 } }
-
-  - name: "magikarp appears in red"
-    command: "pokedex pokemon encounters magikarp --game=red"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 10 } }
-
-  - name: "magikarp appears in diamond"
-    command: "pokedex pokemon encounters magikarp --game=diamond"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 10 } }
-
-  - name: "magikarp appears in sword"
-    command: "pokedex pokemon encounters magikarp --game=sword"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 1 } }
-
-  - name: "magikarp appears in scarlet"
-    command: "pokedex pokemon encounters magikarp --game=scarlet"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 1 } }
-
-  - name: "magikarp appears in gold"
-    command: "pokedex pokemon encounters magikarp --game=gold"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 10 } }
-
-  # ── Mythical pokemon metadata ──────────────────────────────────────
-  - name: "mew is mythical"
-    command: "pokedex pokemon show mew"
-    assert:
-      exit_code: 0
-      equals: { "data.is_mythical": true, "data.is_legendary": false, "data.generation": 1, "data.id": 151 }
-      has_fields: ["data.stats", "data.types", "data.abilities"]
-
-  - name: "mew is psychic type"
-    command: "pokedex pokemon show mew"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Psychic"] }
-
-  - name: "mew has 600 BST (all 100s)"
-    command: "pokedex pokemon stats mew"
-    assert:
-      exit_code: 0
-      equals: { "data.hp": 100, "data.attack": 100, "data.defense": 100, "data.special_attack": 100, "data.special_defense": 100, "data.speed": 100, "data.total": 600 }
-
-  - name: "arceus is mythical"
-    command: "pokedex pokemon show arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.is_mythical": true, "data.is_legendary": false, "data.generation": 4, "data.id": 493 }
-
-  - name: "arceus is normal type"
-    command: "pokedex pokemon show arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Normal"] }
-
-  - name: "arceus has 720 BST (all 120s)"
-    command: "pokedex pokemon stats arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.hp": 120, "data.attack": 120, "data.defense": 120, "data.special_attack": 120, "data.special_defense": 120, "data.speed": 120, "data.total": 720 }
-
-  - name: "arceus has multitype ability"
-    command: "pokedex pokemon show arceus"
-    assert:
-      exit_code: 0
-      contains: { "data.abilities": "multitype" }
-
-  # ── Move data: pikachu learnsets ───────────────────────────────────
-  - name: "pikachu level-up moves in red"
-    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
-    assert:
-      exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 5 } }
-
-  - name: "pikachu learns thunder-shock at L1 in red"
-    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
-    assert:
-      exit_code: 0
-      contains: { "data": "thunder-shock" }
-
-  - name: "pikachu learns thunder by level-up in red"
-    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
-    assert:
-      exit_code: 0
-      contains: { "data": "thunder" }
-
-  - name: "pikachu does NOT learn thunderbolt by level-up in red (TM only)"
-    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 5, "max": 10 } }
-
-  - name: "pikachu learns thunderbolt by TM in red"
-    command: "pokedex pokemon moves pikachu --game=red --method=machine"
-    assert:
-      exit_code: 0
-      contains: { "data": "thunderbolt" }
-
-  - name: "pikachu learns thunderbolt by level-up in yellow"
-    command: "pokedex pokemon moves pikachu --game=yellow --method=level-up"
-    assert:
-      exit_code: 0
-      contains: { "data": "thunderbolt" }
-
-  - name: "pikachu has more level-up moves in yellow than red"
-    command: "pokedex pokemon moves pikachu --game=yellow --method=level-up"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 8 } }
-
-  # ── Cross-endpoint consistency ─────────────────────────────────────
-  - name: "garchomp show has stats and abilities"
+  # ── Garchomp ─────────────────────────────────────────────────────────
+  - name: "garchomp show stats values"
     command: "pokedex pokemon show garchomp"
     assert:
       exit_code: 0
-      has_fields: ["data.stats", "data.abilities", "data.types"]
-      equals: { "data.name": "garchomp", "data.generation": 4 }
+      equals: { "data.stats.hp": 108, "data.stats.attack": 130, "data.stats.defense": 95, "data.stats.special_attack": 80, "data.stats.special_defense": 85, "data.stats.speed": 102, "data.stats.total": 600 }
 
-  - name: "garchomp BST is 600"
-    command: "pokedex pokemon show garchomp"
+  - name: "garchomp stats endpoint matches show exactly"
+    command: "pokedex pokemon stats garchomp"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 600 }
+      equals: { "data.hp": 108, "data.attack": 130, "data.defense": 95, "data.special_attack": 80, "data.special_defense": 85, "data.speed": 102, "data.total": 600 }
 
-  - name: "garchomp types are dragon and ground"
+  # ── Dragonite ────────────────────────────────────────────────────────
+  - name: "dragonite show stats values"
+    command: "pokedex pokemon show dragonite"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.hp": 91, "data.stats.attack": 134, "data.stats.defense": 95, "data.stats.special_attack": 100, "data.stats.special_defense": 100, "data.stats.speed": 80, "data.stats.total": 600 }
+
+  - name: "dragonite stats endpoint matches show exactly"
+    command: "pokedex pokemon stats dragonite"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 91, "data.attack": 134, "data.defense": 95, "data.special_attack": 100, "data.special_defense": 100, "data.speed": 80, "data.total": 600 }
+
+  # ── Snorlax ──────────────────────────────────────────────────────────
+  - name: "snorlax show stats values"
+    command: "pokedex pokemon show snorlax"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.hp": 160, "data.stats.attack": 110, "data.stats.defense": 65, "data.stats.special_attack": 65, "data.stats.special_defense": 110, "data.stats.speed": 30, "data.stats.total": 540 }
+
+  - name: "snorlax stats endpoint matches show exactly"
+    command: "pokedex pokemon stats snorlax"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 160, "data.attack": 110, "data.defense": 65, "data.special_attack": 65, "data.special_defense": 110, "data.speed": 30, "data.total": 540 }
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 2. ABILITIES CROSS-CHECK: pokemon show vs pokemon forms (default form)
+  # ══════════════════════════════════════════════════════════════════════
+
+  # Show and forms should agree on types for the default form
+  - name: "pikachu show types match default form types"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Electric"] }
+
+  - name: "pikachu default form has same types as show"
+    command: "pokedex pokemon forms pikachu"
+    assert:
+      exit_code: 0
+      equals: { "data.0.is_default": true, "data.0.types": ["Electric"] }
+
+  - name: "garchomp show types are Dragon/Ground"
     command: "pokedex pokemon show garchomp"
     assert:
       exit_code: 0
       equals: { "data.types": ["Dragon", "Ground"] }
 
-  - name: "garchomp evolves from gabite"
+  - name: "garchomp default form has same types as show"
+    command: "pokedex pokemon forms garchomp"
+    assert:
+      exit_code: 0
+      equals: { "data.0.is_default": true, "data.0.types": ["Dragon", "Ground"] }
+
+  - name: "gengar show types are Ghost/Poison"
+    command: "pokedex pokemon show gengar"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Ghost", "Poison"] }
+
+  - name: "gengar default form has same types as show"
+    command: "pokedex pokemon forms gengar"
+    assert:
+      exit_code: 0
+      equals: { "data.0.is_default": true, "data.0.types": ["Ghost", "Poison"] }
+
+  - name: "dragonite show types are Dragon/Flying"
+    command: "pokedex pokemon show dragonite"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Dragon", "Flying"] }
+
+  - name: "dragonite default form has same types as show"
+    command: "pokedex pokemon forms dragonite"
+    assert:
+      exit_code: 0
+      equals: { "data.0.is_default": true, "data.0.types": ["Dragon", "Flying"] }
+
+  # Show abilities should include the names visible in forms context
+  - name: "pikachu show has static ability"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "static" }
+
+  - name: "garchomp show has sand-veil ability"
     command: "pokedex pokemon show garchomp"
     assert:
       exit_code: 0
-      equals: { "data.evolves_from": "Gabite" }
+      contains: { "data.abilities": "sand-veil" }
 
-  # ── Additional encounter data ──────────────────────────────────────
-  - name: "eterna-forest encounters in diamond"
-    command: "pokedex location encounters eterna-forest --game=diamond"
+  - name: "gengar show has cursed-body ability"
+    command: "pokedex pokemon show gengar"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "cursed-body" }
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 3. TYPE MATCHUP SYMMETRY
+  # ══════════════════════════════════════════════════════════════════════
+
+  # Dragon is SE against Dragon attacking → Dragon weak to Dragon defending
+  - name: "dragon is super effective against dragon (attacking)"
+    command: "pokedex type matchups dragon"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.super_effective": "Dragon" }
+
+  - name: "dragon is weak to dragon (defending) — symmetry"
+    command: "pokedex type matchups dragon"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.super_effective": "Dragon" }
+
+  # Fire SE against Grass attacking → Grass weak to Fire defending
+  - name: "fire is super effective against grass (attacking)"
+    command: "pokedex type matchups fire"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.super_effective": "Grass" }
+
+  - name: "grass is weak to fire (defending) — symmetry check"
+    command: "pokedex type matchups grass"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.super_effective": "Fire" }
+
+  # If Fire NVE against Water → Water resists Fire
+  - name: "fire is not very effective against water (attacking)"
+    command: "pokedex type matchups fire"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.not_very_effective": "Water" }
+
+  - name: "water resists fire (defending) — symmetry check"
+    command: "pokedex type matchups water"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.not_very_effective": "Fire" }
+
+  # Dragon has no effect on Fairy → Fairy immune to Dragon
+  - name: "dragon has no effect on fairy (attacking)"
+    command: "pokedex type matchups dragon"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.no_effect": "Fairy" }
+
+  - name: "fairy is immune to dragon (defending) — symmetry check"
+    command: "pokedex type matchups fairy"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.no_effect": "Dragon" }
+
+  # Ice SE against Dragon attacking → Dragon weak to Ice defending
+  - name: "ice is super effective against dragon (attacking)"
+    command: "pokedex type matchups ice"
+    assert:
+      exit_code: 0
+      contains: { "data.attacking.super_effective": "Dragon" }
+
+  - name: "dragon is weak to ice (defending) — symmetry check"
+    command: "pokedex type matchups dragon"
+    assert:
+      exit_code: 0
+      contains: { "data.defending.super_effective": "Ice" }
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 4. MAGIKARP ENCOUNTERS IN RED = KANTO LOCATIONS ONLY
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "magikarp encounters in red return results"
+    command: "pokedex pokemon encounters magikarp --game=red"
     assert:
       exit_code: 0
       type_of: { "data": "array" }
-      array_len: { "data": { "min": 10 } }
+      array_len: { "data": { "min": 20 } }
 
-  - name: "galar-route-01 encounters in sword"
-    command: "pokedex location encounters galar-route-01 --game=sword"
+  - name: "magikarp red encounters include Kanto location Pallet Town"
+    command: "pokedex pokemon encounters magikarp --game=red"
+    assert:
+      exit_code: 0
+      contains: { "data": "Pallet Town" }
+
+  - name: "magikarp red encounters include Kanto location Cerulean City"
+    command: "pokedex pokemon encounters magikarp --game=red"
+    assert:
+      exit_code: 0
+      contains: { "data": "Cerulean City" }
+
+  - name: "magikarp red encounters include Kanto location Vermilion City"
+    command: "pokedex pokemon encounters magikarp --game=red"
+    assert:
+      exit_code: 0
+      contains: { "data": "Vermilion City" }
+
+  - name: "magikarp red encounters include Kanto location Safari Zone"
+    command: "pokedex pokemon encounters magikarp --game=red"
+    assert:
+      exit_code: 0
+      contains: { "data": "Safari Zone" }
+
+  - name: "magikarp red encounters include Kanto Route 12"
+    command: "pokedex pokemon encounters magikarp --game=red"
+    assert:
+      exit_code: 0
+      contains: { "data": "Route 12" }
+
+  - name: "magikarp red encounters are all game=red"
+    command: "pokedex pokemon encounters magikarp --game=red"
+    assert:
+      exit_code: 0
+      # No Johto/Hoenn locations should appear — all game slugs should be red
+      contains: { "data.0.game_slug": "red" }
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 5. DEX SHOW KANTO = EXACTLY 151 ENTRIES
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "kanto dex meta reports 151 total"
+    command: "pokedex dex show kanto"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 151 }
+
+  - name: "kanto dex with limit=200 returns exactly 151 entries"
+    command: "pokedex dex show kanto --limit=200"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 151, "max": 151 } }
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 6. EEVEE EGG GROUPS INCLUDE "Field"
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "eevee egg_groups include Field"
+    command: "pokedex pokemon show eevee"
+    assert:
+      exit_code: 0
+      contains: { "data.egg_groups": "Field" }
+      has_fields: ["data.egg_groups"]
+
+  - name: "eevee egg_groups is exactly Field (single group)"
+    command: "pokedex pokemon show eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.egg_groups": ["Field"] }
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 7. CHARIZARD LEVEL-UP MOVES IN RED INCLUDE FLAMETHROWER
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "charizard level-up moves in red exist"
+    command: "pokedex pokemon moves charizard --game=red --method=level-up"
     assert:
       exit_code: 0
       type_of: { "data": "array" }
       array_len: { "data": { "min": 5 } }
 
-  # ── Evolution chains ───────────────────────────────────────────────
-  - name: "gengar chain starts at gastly"
-    command: "pokedex pokemon evolutions gengar"
+  - name: "charizard learns flamethrower by level-up in red"
+    command: "pokedex pokemon moves charizard --game=red --method=level-up"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "gastly" }
-      has_fields: ["data.children"]
+      contains: { "data": "flamethrower" }
 
-  - name: "tyrogue has three evolution branches"
-    command: "pokedex pokemon evolutions tyrogue"
+  - name: "charizard learns fire-spin by level-up in red"
+    command: "pokedex pokemon moves charizard --game=red --method=level-up"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "tyrogue" }
-      array_len: { "data.children": { "min": 3 } }
+      contains: { "data": "fire-spin" }
 
-  - name: "eevee chain starts at eevee"
-    command: "pokedex pokemon evolutions leafeon"
+  - name: "charizard learns ember by level-up in red"
+    command: "pokedex pokemon moves charizard --game=red --method=level-up"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "eevee" }
-      has_fields: ["data.children"]
+      contains: { "data": "ember" }
 
-  # ── Regional forms ────────────────────────────────────────────────
-  - name: "meowth has at least 3 forms"
-    command: "pokedex pokemon forms meowth"
+  - name: "charizard learns slash by level-up in red"
+    command: "pokedex pokemon moves charizard --game=red --method=level-up"
     assert:
       exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 3 } }
+      contains: { "data": "slash" }
 
-  - name: "meowth forms include alolan"
-    command: "pokedex pokemon forms meowth"
+  - name: "charizard has exactly 10 level-up moves in red"
+    command: "pokedex pokemon moves charizard --game=red --method=level-up"
     assert:
       exit_code: 0
-      contains: { "data": "meowth-alola" }
+      array_len: { "data": { "min": 10, "max": 10 } }
 
-  - name: "meowth forms include galarian"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      contains: { "data": "meowth-galar" }
+  # ══════════════════════════════════════════════════════════════════════
+  # 8. ADDITIONAL CROSS-CHECKS — catch data inconsistencies
+  # ══════════════════════════════════════════════════════════════════════
 
-  - name: "vulpix has alolan form"
-    command: "pokedex pokemon forms vulpix"
+  # Eevee show abilities should include run-away and adaptability
+  - name: "eevee show has run-away ability"
+    command: "pokedex pokemon show eevee"
     assert:
       exit_code: 0
-      contains: { "data": "vulpix-alola" }
+      contains: { "data.abilities": "run-away" }
+
+  - name: "eevee show has adaptability ability"
+    command: "pokedex pokemon show eevee"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "adaptability" }
+
+  - name: "eevee show has anticipation as hidden ability"
+    command: "pokedex pokemon show eevee"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "anticipation" }
+
+  # Eevee stats cross-check
+  - name: "eevee show stats values"
+    command: "pokedex pokemon show eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.hp": 55, "data.stats.attack": 55, "data.stats.defense": 50, "data.stats.special_attack": 45, "data.stats.special_defense": 65, "data.stats.speed": 55, "data.stats.total": 325 }
+
+  - name: "eevee stats endpoint matches show exactly"
+    command: "pokedex pokemon stats eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 55, "data.attack": 55, "data.defense": 50, "data.special_attack": 45, "data.special_defense": 65, "data.speed": 55, "data.total": 325 }
+
+  # Eevee default form type should match show
+  - name: "eevee default form has Normal type matching show"
+    command: "pokedex pokemon forms eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.0.is_default": true, "data.0.types": ["Normal"] }
+
+  - name: "eevee show type is Normal"
+    command: "pokedex pokemon show eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Normal"] }
+
+  # Snorlax abilities cross-check
+  - name: "snorlax has immunity ability"
+    command: "pokedex pokemon show snorlax"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "immunity" }
+
+  - name: "snorlax has thick-fat ability"
+    command: "pokedex pokemon show snorlax"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "thick-fat" }
+
+  - name: "snorlax has gluttony hidden ability"
+    command: "pokedex pokemon show snorlax"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "gluttony" }

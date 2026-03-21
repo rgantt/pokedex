@@ -1,0 +1,104 @@
+name: "Competitive Team Building"
+persona: E
+description: "Build a competitive team: verify BST for pseudo-legendaries, moves by game/method, egg groups, type matchups, form variants, and collection dry-run workflow"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  - name: "garchomp BST 600 with stats and abilities inline"
+    command: "pokedex pokemon show garchomp"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "garchomp", "data.stats.total": 600, "data.types": ["Dragon", "Ground"] }
+      has_fields: ["data.stats", "data.abilities", "data.egg_groups"]
+      type_of: { "data.stats": "object", "data.abilities": "array", "data.egg_groups": "array" }
+      array_len: { "data.abilities": { "min": 1 }, "data.egg_groups": { "min": 1 } }
+
+  - name: "dragonite BST 600 with dragon egg group"
+    command: "pokedex pokemon show dragonite"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "dragonite", "data.stats.total": 600, "data.generation": 1 }
+      has_fields: ["data.stats", "data.abilities", "data.egg_groups"]
+      contains: { "data.display_name": "Dragonite" }
+      array_len: { "data.egg_groups": { "min": 2 } }
+
+  - name: "tyranitar BST 600 rock/dark typing"
+    command: "pokedex pokemon show tyranitar"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "tyranitar", "data.stats.total": 600, "data.types": ["Rock", "Dark"] }
+      has_fields: ["data.stats", "data.abilities", "data.egg_groups"]
+      contains: { "data.display_name": "Tyranitar" }
+
+  - name: "garchomp scarlet level-up moves has multiple levels"
+    command: "pokedex pokemon moves garchomp --game=scarlet --method=level-up"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta.total"]
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 5 } }
+      equals: { "data.0.learn_method": "level-up" }
+
+  - name: "dragon type matchups - fairy immune"
+    command: "pokedex type matchups dragon"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.attacking.no_effect", "data.defending.super_effective"]
+      equals: { "data.attacking.no_effect": ["Fairy"] }
+      array_len: { "data.defending.super_effective": { "min": 3 } }
+
+  - name: "ground type matchups - electric immune on defense"
+    command: "pokedex type matchups ground"
+    assert:
+      exit_code: 0
+      equals: { "data.defending.no_effect": ["Electric"] }
+      array_len: { "data.attacking.super_effective": { "min": 5 } }
+
+  - name: "rotom-heat BST 520"
+    command: "pokedex pokemon show rotom-heat"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 520, "data.types": ["Electric", "Fire"] }
+      contains: { "data.display_name": "Heat Rotom" }
+      has_fields: ["data.stats", "data.abilities", "data.egg_groups"]
+
+  - name: "vivillon default form is meadow with id 666"
+    command: "pokedex pokemon show vivillon-meadow"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 666, "data.name": "vivillon" }
+      contains: { "data.display_name": "Meadow Vivillon" }
+      has_fields: ["data.stats", "data.abilities", "data.egg_groups"]
+
+  - name: "vivillon forms list includes default meadow"
+    command: "pokedex pokemon forms vivillon"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 18 } }
+      equals: { "data.6.is_default": true, "data.6.form_name": "meadow" }
+
+  - name: "collection add dry-run with breed method"
+    command: "pokedex collection add --pokemon=garchomp --game=scarlet --method=breed --dry-run"
+    assert:
+      exit_code: 0
+      equals: { "data.pokemon": "garchomp", "data.game": "scarlet", "data.method": "breed", "data.dry_run": true }
+      has_fields: ["actions"]
+      contains: { "actions.0.description": "Run without --dry-run" }
+
+  - name: "collection add with breed method persists"
+    command: "pokedex collection add --pokemon=garchomp --game=scarlet --method=breed"
+    capture:
+      garchomp_id: "data.id"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "garchomp", "data.game": "scarlet", "data.method": "breed" }
+      has_fields: ["data.id", "data.created_at"]
+      type_of: { "data.id": "number" }
+
+  - name: "cleanup - remove bred garchomp"
+    command: "pokedex collection remove $garchomp_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }

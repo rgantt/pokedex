@@ -4,12 +4,12 @@
 # implementation. Don't contort the CLI to make a stale screenplay pass.
 name: "Edge Cases & Validation"
 persona: edge-tester
-description: "Validate error handling for invalid flags, boundary values, empty inputs, form resolution, and SQL injection"
+description: "Validate error handling for invalid flags, boundary values, empty inputs, form resolution, encounter warnings, and HOME compatibility"
 needs_seed: true
 mutates_collection: true
 
 steps:
-  # -- Invalid --type-filter ------
+  # ── Invalid --type-filter ──────────────────────────────────────────
   - name: "invalid type-filter returns JSON error"
     command: "pokedex pokemon list --type-filter=bogus"
     assert:
@@ -17,6 +17,8 @@ steps:
       equals: { "error.code": "INVALID_PARAMETER" }
       contains: { "error.message": "No type named 'bogus'" }
       has_fields: ["actions"]
+
+  # ── Invalid --generation ───────────────────────────────────────────
   - name: "generation 0 rejected"
     command: "pokedex pokemon list --generation=0"
     assert:
@@ -41,12 +43,16 @@ steps:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
       contains: { "error.message": "-1" }
+
+  # ── Invalid --category ─────────────────────────────────────────────
   - name: "invalid category rejected"
     command: "pokedex pokemon list --category=fakecategory"
     assert:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
       contains: { "error.message": "Invalid category 'fakecategory'" }
+
+  # ── Limit boundary values ──────────────────────────────────────────
   - name: "limit 0 returns JSON error"
     command: "pokedex pokemon list --limit=0"
     assert:
@@ -77,6 +83,8 @@ steps:
       exit_code: 0
       array_len: { "data": { "min": 0, "max": 0 } }
       has_fields: ["meta.total"]
+
+  # ── Invalid --status ───────────────────────────────────────────────
   - name: "invalid status on collection list"
     command: "pokedex collection list --status=bogus"
     assert:
@@ -97,6 +105,8 @@ steps:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
       contains: { "error.message": "Invalid status 'bogus'" }
+
+  # ── Invalid --method ───────────────────────────────────────────────
   - name: "invalid method on pokemon moves"
     command: "pokedex pokemon moves pikachu --method=bogus"
     assert:
@@ -110,18 +120,38 @@ steps:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
       contains: { "error.message": "Invalid method 'bogus'" }
+
+  # ── Invalid --sort ─────────────────────────────────────────────────
   - name: "invalid sort on collection list"
     command: "pokedex collection list --sort=bogus"
     assert:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
       contains: { "error.message": "Invalid sort 'bogus'" }
+
+  # ── Invalid --form ─────────────────────────────────────────────────
   - name: "invalid form on collection add"
     command: "pokedex collection add --pokemon=pikachu --game=red --form=megaevolution --dry-run"
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
       contains: { "error.message": "No form 'megaevolution' for pikachu" }
+
+  # ── Empty / missing inputs ─────────────────────────────────────────
+  - name: "collection add missing --pokemon flag"
+    command: "pokedex collection add --game=red"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required arguments" }
+  - name: "collection add missing --game flag"
+    command: "pokedex collection add --pokemon=pikachu"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required arguments" }
+
+  # ── NOT_FOUND errors ──────────────────────────────────────────────
   - name: "pokemon show nonexistent returns NOT_FOUND with suggestions"
     command: "pokedex pokemon show nonexistent123"
     assert:
@@ -238,18 +268,6 @@ steps:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
       array_len: { "actions": { "min": 1 } }
-  - name: "collection add missing --pokemon flag"
-    command: "pokedex collection add --game=red"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "required arguments" }
-  - name: "collection add missing --game flag"
-    command: "pokedex collection add --pokemon=pikachu"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "required arguments" }
   - name: "location encounters nonexistent location"
     command: "pokedex location encounters planet-mars"
     assert:
@@ -261,6 +279,8 @@ steps:
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
+
+  # ── Valid game slugs (--game=red, --game=gold) ─────────────────────
   - name: "pokemon encounters --game=red works"
     command: "pokedex pokemon encounters pikachu --game=red"
     assert:
@@ -277,6 +297,8 @@ steps:
     assert:
       exit_code: 0
       equals: { "data.game": "gold", "data.pokemon": "cyndaquil", "data.dry_run": true }
+
+  # ── Form resolution: vivillon-polar ────────────────────────────────
   - name: "vivillon-polar resolves to Polar Vivillon"
     command: "pokedex pokemon show vivillon-polar"
     assert:
@@ -284,6 +306,39 @@ steps:
       equals: { "data.id": 666, "data.name": "vivillon" }
       contains: { "data.display_name": "Polar" }
       has_fields: ["data.types", "data.stats"]
+
+  # ── Form auto-detection: growlithe-hisui ───────────────────────────
+  - name: "growlithe-hisui auto-detects form in legends-arceus"
+    command: "pokedex collection add --pokemon=growlithe-hisui --game=legends-arceus --dry-run"
+    assert:
+      exit_code: 0
+      equals: { "data.pokemon": "growlithe", "data.form": "hisui", "data.game": "legends-arceus" }
+      has_fields: ["data.dry_run"]
+
+  # ── --method=evolve suppresses encounter warning ───────────────────
+  - name: "unobtainable pokemon warns about no encounters"
+    command: "pokedex collection add --pokemon=mew --game=red --dry-run"
+    assert:
+      exit_code: 0
+      has_fields: ["data.warning"]
+      contains: { "data.warning": "No encounter data found" }
+  - name: "--method=evolve suppresses encounter warning"
+    command: "pokedex collection add --pokemon=mew --game=red --method=evolve --dry-run"
+    assert:
+      exit_code: 0
+      equals: { "data.method": "evolve", "data.dry_run": true }
+      type_of: { "data.pokemon": "string" }
+
+  # ── --in-home on pre-HOME game warns ───────────────────────────────
+  - name: "--in-home on pre-HOME game warns"
+    command: "pokedex collection add --pokemon=pikachu --game=red --in-home --dry-run"
+    assert:
+      exit_code: 0
+      equals: { "data.in_home": true }
+      contains: { "data.warning": "does not connect to Pokémon HOME" }
+      has_fields: ["actions"]
+
+  # ── Mutation + cleanup for update validation ───────────────────────
   - name: "add entry for update validation tests"
     command: "pokedex collection add --pokemon=bulbasaur --game=red"
     capture: { "update_id": "data.id" }
@@ -312,6 +367,9 @@ steps:
     command: "pokedex collection remove $update_id"
     assert:
       exit_code: 0
+      has_fields: ["data", "meta"]
+
+  # ── Valid sort values ──────────────────────────────────────────────
   - name: "collection list --sort=id works"
     command: "pokedex collection list --sort=id"
     assert:
@@ -322,6 +380,8 @@ steps:
     assert:
       exit_code: 0
       has_fields: ["data", "meta"]
+
+  # ── Collection list filter edge cases ──────────────────────────────
   - name: "collection list --pokemon=fakemon returns empty not error"
     command: "pokedex collection list --pokemon=fakemon"
     assert:

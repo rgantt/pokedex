@@ -1,0 +1,173 @@
+name: "Living Dex Builder - Sword"
+persona: living_dex
+description: >
+  Build a living dex in Sword: discover encounters on galar-route-01, add 10
+  Pokémon as living_dex, evolve 3 (mark base forms evolved), verify dex progress
+  with --status=living_dex, confirm traded_away is excluded, test collection
+  list --sort=dex, transfer 2 to HOME, and verify coverage changes.
+  --method=evolve must not warn about encounters.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # PHASE 1: Discover encounters on Route 1
+  # ============================================================
+  - name: "Discover galar-route-01 encounters in Sword"
+    command: "pokedex location encounters galar-route-01 --game=sword"
+    assert:
+          exit_code: 0
+          has_fields: ["data", "actions", "meta", "meta.total"]
+          array_len: {"data": {"min": 10}}
+  - name: "Add blipbug as living_dex"
+    command: "pokedex collection add --pokemon=blipbug --game=sword --method=catch --status=living_dex"
+    capture: { "blipbug_id": "data.id" }
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "blipbug", "data.status": "living_dex", "data.method": "catch"}
+          has_fields: ["data.id", "data.created_at"]
+  - name: "Add caterpie as living_dex"
+    command: "pokedex collection add --pokemon=caterpie --game=sword --method=catch --status=living_dex"
+    capture: { "caterpie_id": "data.id" }
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "caterpie", "data.status": "living_dex"}
+  - name: "Add grubbin as living_dex"
+    command: "pokedex collection add --pokemon=grubbin --game=sword --method=catch --status=living_dex"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "grubbin", "data.status": "living_dex"}
+  - name: "Add hoothoot as living_dex"
+    command: "pokedex collection add --pokemon=hoothoot --game=sword --method=catch --status=living_dex"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "hoothoot", "data.status": "living_dex"}
+  - name: "Add nickit as living_dex"
+    command: "pokedex collection add --pokemon=nickit --game=sword --method=catch --status=living_dex"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "nickit", "data.status": "living_dex"}
+  - name: "Add rookidee as living_dex"
+    command: "pokedex collection add --pokemon=rookidee --game=sword --method=catch --status=living_dex"
+    capture: { "rookidee_id": "data.id" }
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "rookidee", "data.status": "living_dex"}
+  - name: "Add skwovet as living_dex"
+    command: "pokedex collection add --pokemon=skwovet --game=sword --method=catch --status=living_dex"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "skwovet", "data.status": "living_dex"}
+  - name: "Add wooloo as living_dex"
+    command: "pokedex collection add --pokemon=wooloo --game=sword --method=catch --status=living_dex"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "wooloo", "data.status": "living_dex"}
+  - name: "Add pikachu as living_dex via gift"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --method=gift --status=living_dex"
+    capture: { "pikachu_id": "data.id" }
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "pikachu", "data.status": "living_dex", "data.method": "gift"}
+  - name: "Add eevee as living_dex via gift"
+    command: "pokedex collection add --pokemon=eevee --game=sword --method=gift --status=living_dex"
+    capture: { "eevee_id": "data.id" }
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "eevee", "data.status": "living_dex", "data.method": "gift"}
+  - name: "Evolve blipbug to dottler (no encounter warning)"
+    command: "pokedex collection add --pokemon=dottler --game=sword --method=evolve --status=living_dex"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "dottler", "data.status": "living_dex", "data.method": "evolve"}
+          has_fields: ["data.id"]
+  - name: "Evolve caterpie to metapod (no encounter warning)"
+    command: "pokedex collection add --pokemon=metapod --game=sword --method=evolve --status=living_dex"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "metapod", "data.status": "living_dex", "data.method": "evolve"}
+  - name: "Evolve rookidee to corvisquire (no encounter warning)"
+    command: "pokedex collection add --pokemon=corvisquire --game=sword --method=evolve --status=living_dex"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "corvisquire", "data.status": "living_dex", "data.method": "evolve"}
+  - name: "Mark blipbug as evolved"
+    command: "pokedex collection update $blipbug_id --status=evolved"
+    assert:
+          exit_code: 0
+          equals: {"data.status": "evolved", "data.species_name": "blipbug"}
+  - name: "Mark caterpie as evolved"
+    command: "pokedex collection update $caterpie_id --status=evolved"
+    assert:
+          exit_code: 0
+          equals: {"data.status": "evolved", "data.species_name": "caterpie"}
+  - name: "Mark rookidee as evolved"
+    command: "pokedex collection update $rookidee_id --status=evolved"
+    assert:
+          exit_code: 0
+          equals: {"data.status": "evolved", "data.species_name": "rookidee"}
+  - name: "Dex progress counts only living_dex status (10 total, 3 evolved excluded)"
+    command: "pokedex dex progress galar --status=living_dex --caught --game=sword"
+    assert:
+          exit_code: 0
+          has_fields: ["data.caught", "data.total", "data.percentage"]
+          array_len: {"data.entries": {"min": 10, "max": 10}}
+  - name: "Add grookey as traded_away"
+    command: "pokedex collection add --pokemon=grookey --game=sword --method=trade --status=traded_away"
+    assert:
+          exit_code: 0
+          equals: {"data.species_name": "grookey", "data.status": "traded_away", "data.method": "trade"}
+  - name: "Living_dex progress unchanged after traded_away add"
+    command: "pokedex dex progress galar --status=living_dex --game=sword"
+    assert:
+          exit_code: 0
+          has_fields: ["data.caught"]
+  - name: "General dex progress also excludes traded_away"
+    command: "pokedex dex progress galar --caught --game=sword"
+    assert:
+          exit_code: 0
+          has_fields: ["data.caught"]
+          array_len: {"data.entries": {"min": 1}}
+  - name: "Collection list sorted by dex number"
+    command: "pokedex collection list --sort=dex --game=sword"
+    assert:
+          exit_code: 0
+          has_fields: ["data", "actions", "meta", "meta.total"]
+          type_of: {"data": "array"}
+  - name: "Collection list with living_dex filter and dex sort"
+    command: "pokedex collection list --status=living_dex --game=sword --sort=dex"
+    assert:
+          exit_code: 0
+          has_fields: ["meta.total"]
+  - name: "Transfer pikachu to HOME"
+    command: "pokedex collection update $pikachu_id --status=transferred --in-home=true"
+    assert:
+          exit_code: 0
+          equals: {"data.status": "transferred", "data.in_home": true, "data.species_name": "pikachu"}
+  - name: "Transfer eevee to HOME"
+    command: "pokedex collection update $eevee_id --status=transferred --in-home=true"
+    assert:
+          exit_code: 0
+          equals: {"data.status": "transferred", "data.in_home": true, "data.species_name": "eevee"}
+  - name: "HOME coverage shows 2 species"
+    command: "pokedex home coverage"
+    assert:
+          exit_code: 0
+          has_fields: ["data.caught", "data.total", "data.percentage"]
+  - name: "HOME status shows 2 entries from sword"
+    command: "pokedex home status"
+    assert:
+          exit_code: 0
+          has_fields: ["data.total_in_home", "data.unique_species_in_home", "data.by_game_origin"]
+  - name: "Living_dex progress decreased after transfers (8 remaining)"
+    command: "pokedex dex progress galar --status=living_dex --caught --game=sword"
+    assert:
+          exit_code: 0
+          has_fields: ["data.caught"]
+          array_len: {"data.entries": {"min": 8, "max": 8}}
+  - name: "Collection stats reflect all statuses"
+    command: "pokedex collection stats --game=sword"
+    assert:
+          exit_code: 0
+          has_fields: ["data.total_entries", "data.unique_species", "data.in_home_count", "data.shiny_count", "data.by_status"]
+          contains: {"data.by_status": "living_dex"}

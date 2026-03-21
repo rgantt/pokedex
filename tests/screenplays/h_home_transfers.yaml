@@ -1,0 +1,200 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "HOME Transfers & Game Compatibility"
+persona: home_transfer_tester
+description: >
+  Tests game show for sword/red/diamond, game list uniqueness, HOME transferable
+  for pikachu (many games) and kleavor (PLA only), collection add on pre-HOME
+  games, home missing defaults to national, --in-home on pre-HOME game warns,
+  --method=evolve works, and game list --home-compatible filters correctly.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # -- Game show: sword (HOME-compatible, Gen 8) --
+
+  - name: "game show sword is HOME-compatible"
+    command: "pokedex game show sword"
+    assert:
+      exit_code: 0
+      has_fields: ["data.id", "data.name", "data.generation", "data.region"]
+      equals:
+        "data.name": "sword"
+        "data.connects_to_home": true
+        "data.transfer_direction": "both"
+        "data.generation": 8
+        "data.region": "Galar"
+
+  # -- Game show: red (pre-HOME, Gen 1) --
+
+  - name: "game show red is pre-HOME"
+    command: "pokedex game show red"
+    assert:
+      exit_code: 0
+      has_fields: ["data.id", "data.name", "data.generation", "data.region"]
+      equals:
+        "data.name": "red"
+        "data.connects_to_home": false
+        "data.generation": 1
+        "data.region": "Kanto"
+
+  # -- Game show: diamond (pre-HOME, Gen 4) --
+
+  - name: "game show diamond is pre-HOME"
+    command: "pokedex game show diamond"
+    assert:
+      exit_code: 0
+      has_fields: ["data.id", "data.name", "data.generation", "data.region"]
+      equals:
+        "data.name": "diamond"
+        "data.connects_to_home": false
+        "data.generation": 4
+        "data.region": "Sinnoh"
+
+  # -- Game list: no duplicate names --
+
+  - name: "game list returns all games with no duplicate names"
+    command: "pokedex game list"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 40 }
+
+  # -- HOME transferable: pikachu (many games) --
+
+  - name: "pikachu is transferable to many HOME games"
+    command: "pokedex home transferable pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions"]
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 8 }
+
+  - name: "pikachu transferable includes sword"
+    command: "pokedex home transferable pikachu"
+    assert:
+      exit_code: 0
+      contains:
+        "data": "sword"
+
+  # -- HOME transferable: kleavor (PLA only) --
+
+  - name: "kleavor is transferable only to Legends Arceus"
+    command: "pokedex home transferable kleavor"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 1, max: 1 }
+      equals:
+        "data.0.name": "legends-arceus"
+
+  # -- Collection add: pikachu to red (pre-HOME, should work) --
+
+  - name: "collection add pikachu to red succeeds"
+    command: "pokedex collection add --pokemon=pikachu --game=red --method=catch"
+    capture:
+      pikachu_red_id: "data.id"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "pikachu"
+        "data.game": "red"
+        "data.method": "catch"
+        "data.in_home": false
+      has_fields: ["data.id", "data.created_at"]
+
+  # -- Collection add: geodude to diamond (pre-HOME, should work) --
+
+  - name: "collection add geodude to diamond succeeds"
+    command: "pokedex collection add --pokemon=geodude --game=diamond --method=catch"
+    capture:
+      geodude_diamond_id: "data.id"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "geodude"
+        "data.game": "diamond"
+        "data.method": "catch"
+        "data.in_home": false
+      has_fields: ["data.id", "data.created_at"]
+
+  # -- Collection add: ralts to ruby (pre-HOME, should work) --
+
+  - name: "collection add ralts to ruby succeeds"
+    command: "pokedex collection add --pokemon=ralts --game=ruby --method=catch"
+    capture:
+      ralts_ruby_id: "data.id"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "ralts"
+        "data.game": "ruby"
+        "data.method": "catch"
+        "data.in_home": false
+      has_fields: ["data.id", "data.created_at"]
+
+  # -- --in-home on pre-HOME game should warn --
+
+  - name: "--in-home on pre-HOME game red produces warning"
+    command: "pokedex collection add --pokemon=charmander --game=red --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "charmander"
+        "data.game": "red"
+        "data.in_home": true
+      has_fields: ["data.warning"]
+      contains:
+        "data.warning": "does not connect to"
+
+  # -- home missing defaults to national --
+
+  - name: "home missing defaults to national dex"
+    command: "pokedex home missing"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta.total", "meta.limit", "meta.offset"]
+      contains:
+        "meta.command": "national"
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 1 }
+
+  # -- --method=evolve works --
+
+  - name: "--method=evolve records correctly"
+    command: "pokedex collection add --pokemon=gardevoir --game=ruby --method=evolve"
+    capture:
+      gardevoir_id: "data.id"
+    assert:
+      exit_code: 0
+      equals:
+        "data.species_name": "gardevoir"
+        "data.game": "ruby"
+        "data.method": "evolve"
+        "data.in_home": false
+      has_fields: ["data.id", "data.created_at"]
+
+  # -- game list --home-compatible only shows HOME games --
+
+  - name: "game list --home-compatible only returns HOME-connected games"
+    command: "pokedex game list --home-compatible"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 10, max: 15 }
+      has_fields: ["data.0.connects_to_home"]
+      equals:
+        "data.0.connects_to_home": true

@@ -7,9 +7,11 @@ persona: hateoas_walker
 description: >
   Navigate the CLI purely via action links starting from discovery.
   Tests 5+ action chains, pagination, 3 typo recoveries, location encounters,
-  game show, home missing, --limit=0 error, and growlithe-hisui form data.
+  game show ruby, home missing, --limit=0 error, rotom-heat form, and
+  growlithe-hisui form-specific stats. Verifies species_slug in location
+  encounter template actions.
 needs_seed: true
-mutates_collection: false
+mutates_collection: true
 
 steps:
   # -- Chain 1: Discovery -> pokemon list -> pagination -> show ------
@@ -21,98 +23,192 @@ steps:
       has_fields: ["data.resources", "data.entry_points", "actions", "meta"]
       type_of: { "data.resources": "array", "data.entry_points": "array" }
       array_len: { "data.entry_points": { "min": 5 } }
-  - name: "pokemon list with limit=5 shows first page"
-    command: "pokedex pokemon list --limit=5"
+
+  - name: "pokemon list with limit=3 shows first page"
+    command: "pokedex pokemon list --limit=3"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 5, "max": 5 } }
-      equals: { "meta.limit": 5, "meta.offset": 0, "data.0.name": "bulbasaur" }
+      array_len: { "data": { "min": 3, "max": 3 } }
+      equals: { "meta.limit": 3, "meta.offset": 0, "data.0.name": "bulbasaur" }
+
   - name: "follow next_page action to page 2"
-    command: "pokedex pokemon list --limit=5 --offset=5"
+    command: "pokedex pokemon list --limit=3 --offset=3"
     assert:
       exit_code: 0
-      equals: { "meta.offset": 5, "data.0.name": "charizard" }
-  - name: "show Hisuian Growlithe with correct types, stats, abilities"
-    command: "pokedex pokemon show growlithe-hisui"
+      equals: { "meta.offset": 3, "data.0.name": "charmander" }
+      has_fields: ["actions"]
+
+  - name: "follow prev_page action back to page 1"
+    command: "pokedex pokemon list --limit=3 --offset=0"
     assert:
       exit_code: 0
-      contains: { "data.display_name": "Hisuian" }
-      equals: {"data.types": ["Fire", "Rock"], "data.stats.hp": 60, "data.stats.attack": 75, "data.stats.defense": 45}
-      has_fields: ["data.stats", "data.abilities"]
-  - name: "follow forms action from growlithe show"
-    command: "pokedex pokemon forms growlithe"
+      equals: { "meta.offset": 0, "data.0.name": "bulbasaur" }
+
+  - name: "follow show action for charizard"
+    command: "pokedex pokemon show charizard"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 2 } }
-      equals: { "data.0.name": "growlithe", "data.1.name": "growlithe-hisui" }
-  - name: "follow evolutions action from growlithe show"
-    command: "pokedex pokemon evolutions growlithe"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "growlithe", "data.children.0.species_name": "arcanine"}
-      has_fields: ["data.children"]
-  - name: "follow show arcanine action from evolutions"
-    command: "pokedex pokemon show arcanine"
-    assert:
-      exit_code: 0
-      equals: { "data.display_name": "Arcanine", "data.types": ["Fire"] }
+      equals: { "data.name": "charizard", "data.display_name": "Charizard", "data.types": ["Fire", "Flying"] }
       has_fields: ["data.stats", "data.abilities", "actions"]
-  - name: "follow type_matchups fire action from growlithe show"
+
+  # -- Chain 2: charizard show -> evolutions -> type matchups -> type pokemon ------
+
+  - name: "follow evolutions action from charizard"
+    command: "pokedex pokemon evolutions charizard"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "charmander" }
+      has_fields: ["data.children"]
+      array_len: { "data.children": { "min": 1 } }
+
+  - name: "follow type_matchups fire action from charizard"
     command: "pokedex type matchups fire"
     assert:
       exit_code: 0
       equals: { "data.type_name": "fire" }
       has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+
+  - name: "follow pokemon_of_type action from matchups"
+    command: "pokedex type pokemon fire --limit=3"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 3 } }
+      has_fields: ["meta.total", "actions"]
+
   - name: "follow all_types action from type matchups"
     command: "pokedex type list"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 18 } }
-  - name: "game show red with correct generation and region"
-    command: "pokedex game show red"
+
+  # -- Chain 3: game show ruby -> all_games -> collection_for_game ------
+
+  - name: "game show ruby returns Gen 3 Hoenn"
+    command: "pokedex game show ruby"
     assert:
       exit_code: 0
-      equals: { "data.name": "red", "data.generation": 1, "data.region": "Kanto" }
+      equals: { "data.name": "ruby", "data.generation": 3, "data.region": "Hoenn" }
+      has_fields: ["actions"]
+
   - name: "follow all_games action from game show"
     command: "pokedex game list"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 20 } }
       has_fields: ["actions", "meta"]
+
+  # -- Chain 4: home missing -> coverage -> dex progress -> status ------
+
   - name: "home missing returns paginated species list"
-    command: "pokedex home missing"
+    command: "pokedex home missing --limit=3"
     assert:
       exit_code: 0
       has_fields: ["data", "actions", "meta.total"]
       type_of: { "meta.total": "number" }
+      array_len: { "data": { "min": 3, "max": 3 } }
+
   - name: "follow coverage action from home missing"
     command: "pokedex home coverage"
     assert:
       exit_code: 0
       has_fields: ["data.total", "data.caught", "data.percentage"]
+      type_of: { "data.percentage": "number" }
+
   - name: "follow dex_progress action from home coverage"
     command: "pokedex dex progress national --limit=5"
     assert:
       exit_code: 0
       has_fields: ["data", "actions", "meta"]
       equals: { "meta.limit": 5 }
+
   - name: "follow status action from home coverage"
     command: "pokedex home status"
     assert:
       exit_code: 0
       has_fields: ["data.total_in_home", "data.unique_species_in_home"]
+
+  # -- Chain 5: location encounters -> filter by game -> species_slug template ------
+
   - name: "location encounters viridian-forest returns encounter data"
-    command: "pokedex location encounters viridian-forest"
+    command: "pokedex location encounters viridian-forest --limit=5"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 10 } }
-      has_fields: ["data.0.pokemon_name", "data.0.game", "data.0.method", "data.0.rarity"]
+      array_len: { "data": { "min": 5, "max": 5 } }
+      has_fields: ["data.0.pokemon_name", "data.0.species_slug", "data.0.game", "data.0.method", "data.0.rarity"]
+
   - name: "location encounters with game filter narrows results"
-    command: "pokedex location encounters viridian-forest --game=red"
+    command: "pokedex location encounters viridian-forest --game=red --limit=3"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 1 } }
       equals: { "data.0.game": "Red" }
+      has_fields: ["data.0.species_slug"]
+
+  - name: "location encounters pagination works"
+    command: "pokedex location encounters viridian-forest --game=red --limit=3 --offset=3"
+    assert:
+      exit_code: 0
+      has_fields: ["meta.offset", "meta.total"]
+      equals: { "meta.offset": 3 }
+
+  # -- Chain 6: collection add -> show -> remove (via action links) ------
+
+  - name: "collection add pikachu in red"
+    command: "pokedex collection add --pokemon=pikachu --game=red"
+    capture: { "entry_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "red", "data.status": "caught" }
+      has_fields: ["actions"]
+
+  - name: "follow show action from collection add"
+    command: "pokedex collection show $entry_id"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu" }
+      has_fields: ["actions"]
+
+  - name: "follow remove action from collection show"
+    command: "pokedex collection remove $entry_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+      has_fields: ["actions"]
+
+  # -- Rotom-Heat form: Electric/Fire BST 520 ------
+
+  - name: "rotom-heat shows Heat Rotom with Electric/Fire and BST 520"
+    command: "pokedex pokemon show rotom-heat"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Heat Rotom", "data.types": ["Electric", "Fire"], "data.stats.total": 520 }
+      has_fields: ["data.stats", "data.abilities", "actions"]
+
+  # -- Growlithe-Hisui form-specific stats ------
+
+  - name: "growlithe-hisui show has Fire/Rock types"
+    command: "pokedex pokemon show growlithe-hisui"
+    assert:
+      exit_code: 0
+      contains: { "data.display_name": "Hisuian" }
+      equals: { "data.types": ["Fire", "Rock"] }
+
+  - name: "growlithe-hisui stats differ from base form"
+    command: "pokedex pokemon stats growlithe-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 60, "data.attack": 75, "data.speed": 55 }
+      has_fields: ["data.hp", "data.attack", "data.defense", "data.special_attack", "data.special_defense", "data.speed"]
+
+  - name: "growlithe base stats are different from hisui form"
+    command: "pokedex pokemon stats growlithe"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 55, "data.attack": 70, "data.speed": 60 }
+      has_fields: ["data.total"]
+
+  # -- Typo recovery (3 typos with exit code 1 + recovery actions) ------
+
   - name: "typo pikchu suggests pikachu"
     command: "pokedex pokemon show pikchu"
     assert:
@@ -120,43 +216,71 @@ steps:
       equals: { "error.code": "NOT_FOUND" }
       contains: { "error.message": "pikchu" }
       array_len: { "actions": { "min": 1 } }
-  - name: "typo charzard suggests charizard"
-    command: "pokedex pokemon show charzard"
+
+  - name: "typo charizar suggests charizard"
+    command: "pokedex pokemon show charizar"
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
       array_len: { "actions": { "min": 1 } }
-  - name: "typo eevvee suggests eevee"
-    command: "pokedex pokemon show eevvee"
+
+  - name: "typo evee suggests eevee"
+    command: "pokedex pokemon show evee"
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "evee" }
       array_len: { "actions": { "min": 1 } }
-  - name: "follow did_you_mean action recovers to pikachu"
-    command: "pokedex pokemon show pikachu"
+
+  - name: "follow did_you_mean action recovers to eevee"
+    command: "pokedex pokemon show eevee"
     assert:
       exit_code: 0
-      equals: { "data.name": "pikachu", "data.display_name": "Pikachu", "data.types": ["Electric"] }
-      has_fields: ["data.stats", "data.abilities", "actions"]
+      equals: { "data.name": "eevee", "data.display_name": "Eevee" }
+      has_fields: ["data.stats", "actions"]
+
+  - name: "follow evolutions action from eevee shows 8 eeveelutions"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      array_len: { "data.children": { "min": 8 } }
+      has_fields: ["actions"]
+
+  # -- Edge cases ------
+
   - name: "--limit=0 returns error with exit code 1"
     command: "pokedex pokemon list --limit=0"
     assert:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
       contains: { "error.message": "limit" }
+
   - name: "bad location returns NOT_FOUND with recovery actions"
     command: "pokedex location encounters not-a-place"
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
-  - name: "collection list returns HATEOAS actions"
+      array_len: { "actions": { "min": 1 } }
+
+  # -- Dex chain: dex list -> dex show -> pokemon show ------
+
+  - name: "dex list returns available pokedexes"
+    command: "pokedex dex list"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 10 } }
+      has_fields: ["actions"]
+
+  - name: "follow dex show action for national dex"
+    command: "pokedex dex show national --limit=3"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 3, "max": 3 } }
+      equals: { "data.0.name": "bulbasaur" }
+      has_fields: ["actions"]
+
+  - name: "collection list returns HATEOAS envelope"
     command: "pokedex collection list"
     assert:
       exit_code: 0
       has_fields: ["data", "actions", "meta"]
-  - name: "pokemon stats growlithe returns base stats"
-    command: "pokedex pokemon stats growlithe"
-    assert:
-      exit_code: 0
-      equals: { "data.pokemon_name": "Growlithe", "data.total": 350 }
-      has_fields: ["data.hp", "data.attack", "data.defense", "data.speed"]

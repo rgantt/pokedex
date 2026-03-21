@@ -155,13 +155,35 @@ pub fn add(
     };
 
     // C9: Check if species has encounters in this game's versions
+    // Suppress encounter warning for non-wild acquisition methods
     let encounter_warning = {
-        let w = check_species_in_game(conn, species_id, game_id);
-        match (w, alpha_warning) {
-            (Some(ew), Some(aw)) => Some(format!("{ew} {aw}")),
-            (Some(ew), None) => Some(ew),
-            (None, Some(aw)) => Some(aw),
-            (None, None) => None,
+        let w = if method.map(|m| ["evolve", "breed", "trade", "transfer", "gift"].contains(&m)).unwrap_or(false) {
+            None  // Don't warn for non-wild acquisition methods
+        } else {
+            check_species_in_game(conn, species_id, game_id)
+        };
+
+        // Warn if --in-home is set but the game doesn't connect to HOME
+        let home_warning = if in_home {
+            let connects: bool = conn.query_row(
+                "SELECT connects_to_home FROM games WHERE id = ?1",
+                rusqlite::params![game_id],
+                |row| row.get::<_, i64>(0).map(|v| v != 0),
+            ).unwrap_or(false);
+            if !connects {
+                Some(format!("{game_name} does not connect to Pokémon HOME. The --in-home flag may not be accurate."))
+            } else { None }
+        } else { None };
+
+        match (w, alpha_warning, home_warning) {
+            (Some(ew), Some(aw), Some(hw)) => Some(format!("{ew} {aw} {hw}")),
+            (Some(ew), Some(aw), None) => Some(format!("{ew} {aw}")),
+            (Some(ew), None, Some(hw)) => Some(format!("{ew} {hw}")),
+            (None, Some(aw), Some(hw)) => Some(format!("{aw} {hw}")),
+            (Some(ew), None, None) => Some(ew),
+            (None, Some(aw), None) => Some(aw),
+            (None, None, Some(hw)) => Some(hw),
+            (None, None, None) => None,
         }
     };
 

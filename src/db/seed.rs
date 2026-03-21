@@ -950,7 +950,7 @@ fn dedup_encounters(tx: &rusqlite::Transaction) -> Result<()> {
     let removed: usize = tx.execute(
         "DELETE FROM encounters WHERE id NOT IN ( \
          SELECT MIN(id) FROM encounters \
-         GROUP BY pokemon_id, version_id, location_area_id, min_level, max_level, encounter_slot_id \
+         GROUP BY pokemon_id, version_id, location_area_id, min_level, max_level \
          )",
         [],
     )?;

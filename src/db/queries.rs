@@ -840,6 +840,7 @@ pub fn get_encounters(
             };
             Encounter {
                 pokemon_name: annotated_name,
+                species_slug: species_name.clone(),
                 location,
                 area,
                 game,
@@ -992,6 +993,7 @@ pub fn get_location_encounters(
             };
             Encounter {
                 pokemon_name: annotated_name,
+                species_slug: species_slug.clone(),
                 location: location_name,
                 area,
                 game,

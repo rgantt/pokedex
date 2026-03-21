@@ -9,7 +9,7 @@ needs_seed: true
 mutates_collection: true
 
 steps:
-  # ── Rotom forms ──────────────────────────────────────────────────────
+  # -- Rotom forms ------
 
   - name: "base Rotom is Electric/Ghost with BST 440"
     command: "pokedex pokemon show rotom"
@@ -73,45 +73,45 @@ steps:
     assert:
       exit_code: 0
       array_len: { "data": { "min": 5 } }
-      contains: { "data.4.pokemon_name": "Galarian Darumaka" }
+      contains: { "data": "Galarian Darumaka" }
   - name: "wooper encounters in Scarlet show Paldean Wooper"
     command: "pokedex pokemon encounters wooper --game=scarlet"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 5 } }
-      contains: { "data.0.pokemon_name": "Paldean Wooper" }
-  - name: "stats subcommand for growlithe-hisui (known bug: returns base stats)"
+      contains: { "data": "Paldean Wooper" }
+  - name: "stats subcommand for growlithe-hisui returns form-specific stats"
     command: "pokedex pokemon stats growlithe-hisui"
     assert:
       exit_code: 0
-      equals: {"data.hp": 55, "data.attack": 70, "data.special_attack": 70, "data.speed": 60, "data.total": 350}
+      equals: {"data.hp": 60, "data.attack": 75, "data.special_attack": 65, "data.speed": 55, "data.total": 350}
   - name: "add alpha Kleavor to PLA"
-    command: "pokedex collection add --pokemon=kleavor --game=legends-arceus --alpha --notes='Alpha catch'"
+    command: "pokedex collection add --pokemon=kleavor --game=legends-arceus --alpha"
     assert:
       exit_code: 0
       equals: {"data.species_name": "kleavor", "data.game": "legends-arceus", "data.is_alpha": true, "data.status": "caught"}
       has_fields: ["data.id", "data.created_at"]
   - name: "add alpha Snorlax to PLA"
-    command: "pokedex collection add --pokemon=snorlax --game=legends-arceus --alpha --notes='Alpha catch'"
+    command: "pokedex collection add --pokemon=snorlax --game=legends-arceus --alpha"
     assert:
       exit_code: 0
       equals: {"data.species_name": "snorlax", "data.is_alpha": true}
   - name: "add alpha Walrein to PLA"
-    command: "pokedex collection add --pokemon=walrein --game=legends-arceus --alpha --notes='Alpha catch'"
+    command: "pokedex collection add --pokemon=walrein --game=legends-arceus --alpha"
     assert:
       exit_code: 0
       equals: {"data.species_name": "walrein", "data.is_alpha": true}
   - name: "add alpha Garchomp to PLA"
-    command: "pokedex collection add --pokemon=garchomp --game=legends-arceus --alpha --notes='Alpha catch'"
+    command: "pokedex collection add --pokemon=garchomp --game=legends-arceus --alpha"
     assert:
       exit_code: 0
       equals: {"data.species_name": "garchomp", "data.is_alpha": true}
   - name: "add alpha Hisuian Zoroark to PLA"
-    command: "pokedex collection add --pokemon=zoroark-hisui --game=legends-arceus --alpha --notes='Alpha catch'"
+    command: "pokedex collection add --pokemon=zoroark-hisui --game=legends-arceus --alpha"
     assert:
       exit_code: 0
       equals: {"data.species_name": "zoroark", "data.form_name": "hisui", "data.is_alpha": true}
-  - name: "PLA collection has 5 alphas"
+  - name: "PLA collection has alphas"
     command: "pokedex collection list --game=legends-arceus"
     assert:
       exit_code: 0

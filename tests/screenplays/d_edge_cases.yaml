@@ -9,7 +9,7 @@ needs_seed: true
 mutates_collection: true
 
 steps:
-  # ── Invalid --type-filter ──────────────────────────────────────────────
+  # -- Invalid --type-filter ------
   - name: "invalid type-filter returns JSON error"
     command: "pokedex pokemon list --type-filter=bogus"
     assert:

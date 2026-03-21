@@ -111,6 +111,7 @@ pub struct TypeEffectiveness {
 #[derive(Debug, Clone, Serialize)]
 pub struct Encounter {
     pub pokemon_name: String,
+    pub species_slug: String,
     pub location: String,
     pub area: String,
     pub game: String,

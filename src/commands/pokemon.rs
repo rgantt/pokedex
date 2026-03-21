@@ -433,7 +433,29 @@ pub fn stats(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<
         }
     };
 
-    let stats = queries::get_pokemon_stats(conn, species_id)?;
+    // If user requested a form (e.g. growlithe-hisui), use form-specific pokemon_id for stats
+    let form_pokemon_id = if pokemon.to_lowercase() != name {
+        queries::resolve_form_pokemon_id(conn, pokemon)?.unwrap_or_else(|| {
+            // Fallback: get default pokemon_id
+            conn.query_row(
+                "SELECT id FROM pokemon WHERE species_id = ?1 AND is_default = 1",
+                rusqlite::params![species_id],
+                |row| row.get(0),
+            ).unwrap_or(species_id)
+        })
+    } else {
+        conn.query_row(
+            "SELECT id FROM pokemon WHERE species_id = ?1 AND is_default = 1",
+            rusqlite::params![species_id],
+            |row| row.get(0),
+        ).unwrap_or(species_id)
+    };
+
+    let stats = if pokemon.to_lowercase() != name {
+        queries::get_pokemon_stats_by_pokemon_id(conn, form_pokemon_id)?
+    } else {
+        queries::get_pokemon_stats(conn, species_id)?
+    };
 
     let actions = vec![
         Action::new("show", &format!("pokedex pokemon show {name}")),

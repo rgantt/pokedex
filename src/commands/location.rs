@@ -31,7 +31,7 @@ pub fn encounters(
     if encounters.is_empty() && total == 0 {
         // Check if the location exists but has no encounters for this specific game
         let msg = if game.is_some() {
-            let (all_encounters, all_total) = queries::get_location_encounters(conn, location, None, 1, 0)?;
+            let (_all_encounters, all_total) = queries::get_location_encounters(conn, location, None, 1, 0)?;
             if all_total > 0 {
                 format!("No encounters at '{location}' in game '{}'. This location has {all_total} encounters in other games.", game.unwrap())
             } else {
@@ -41,7 +41,6 @@ pub fn encounters(
             format!("No encounters found for location '{location}'. Try a region prefix (e.g., 'hoenn-{location}', 'kanto-{location}') or a sub-area name.")
         };
         let mut actions = vec![
-            Action::new("try_without_game", &format!("pokedex location encounters {location}")),
             Action::new("try_dex", "pokedex dex list"),
             Action::new("discover", "pokedex --discover"),
         ];
@@ -58,7 +57,7 @@ pub fn encounters(
     }
 
     let mut actions = vec![
-        Action::new("show", "pokedex pokemon show {pokemon_name}"),
+        Action::new("show", "pokedex pokemon show {species_slug}"),
     ];
     if offset + limit < total {
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));

@@ -80,14 +80,27 @@ steps:
       exit_code: 0
 ```
 
+### Supported assertion types (ONLY these 6 are supported):
+
+1. `exit_code: N` — exact exit code match (integer)
+2. `has_fields: ["dot.path"]` — field exists at dot-path and is non-null
+3. `equals: {"dot.path": value}` — exact value match at dot-path (value can be string, number, bool, null, array)
+4. `contains: {"dot.path": "substring"}` — substring match on value at dot-path (works on strings; for non-strings, matches against JSON serialization)
+5. `array_len: {"dot.path": {"min": N, "max": M}}` — array length bounds check (min and max are optional)
+6. `type_of: {"dot.path": "string|number|boolean|array|object"}` — JSON type check
+
+**Do NOT use any assertion types not listed above.** The runner's `_extra` catch-all will silently ignore unknown keys like `json_path_exists`, `any_element`, `all_elements`, `all_match`, `has_action`, `action_contains`, `not_contains_key`, `json_path_any`, `json_path_count`, `contains_any`, etc. These assertions will NOT be evaluated, creating false confidence that a test passes.
+
 ### Assertion guidelines:
 - **Always** include `exit_code`
 - Use `has_fields` for structural checks (field exists)
 - Use `equals` sparingly — only for stable values (species name, type, generation number)
-- Use `contains` for display names that might change format
+- Use `contains` for display names that might change format; also useful for checking if an array contains an item (e.g., `contains: {"data": "Pikachu"}` serializes the array to JSON and checks for the substring)
 - Use `array_len` with ranges, not exact counts (data may grow)
-- Use `capture` + `$variable` for collection IDs that are auto-generated
+- Use `capture` + `$variable` for collection IDs that are auto-generated — NEVER use hardcoded IDs for collection updates
 - Do NOT assert exact JSON output — that's fragile
+- Do NOT assert exact `unique_species` or `total_entries` counts — these depend on test run order since screenplays share the same database
+- Do NOT use `--notes` or other flags with spaces in values — the test runner splits commands on whitespace without shell-style quoting
 - 2-4 assertions per step is ideal
 
 ## Aggregation
@@ -112,4 +125,5 @@ Compare against previous rounds. The goal is convergence toward zero bugs:
 - Round 6: ~15 issues
 - Round 7: 12 issues
 - Round 8: 7 issues
+- Round 9: 8 issues (6 fixed, 2 skipped as not actionable)
 - This round: ?

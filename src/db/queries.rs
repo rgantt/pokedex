@@ -1,7 +1,37 @@
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 
 use super::models::*;
+
+// ---- Regional form encounter mapping ----
+
+#[derive(serde::Deserialize)]
+struct RegionalEncounterEntry {
+    species: Option<String>,
+    form: Option<String>,
+    games: Option<Vec<String>>,
+    #[allow(dead_code)]
+    comment: Option<String>,
+    #[allow(dead_code)]
+    wild_methods: Option<Vec<String>>,
+}
+
+/// Build a lookup: (species_name, game_slug) -> form_label
+/// for annotating encounter pokemon_name with regional form info.
+fn build_regional_form_map() -> HashMap<(String, String), String> {
+    let json_str = include_str!("../../data/overrides/regional_encounters.json");
+    let entries: Vec<RegionalEncounterEntry> = serde_json::from_str(json_str).unwrap_or_default();
+    let mut map = HashMap::new();
+    for entry in &entries {
+        if let (Some(species), Some(form), Some(games)) = (&entry.species, &entry.form, &entry.games) {
+            for game in games {
+                map.insert((species.to_lowercase(), game.to_lowercase()), form.clone());
+            }
+        }
+    }
+    map
+}
 
 // ---- Pokemon queries ----
 
@@ -496,6 +526,10 @@ pub fn get_encounters(
     )?;
 
     let display_name = get_display_name(conn, species_id)?;
+    let species_name: String = conn.query_row(
+        "SELECT name FROM species WHERE id = ?1", params![species_id], |row| row.get(0),
+    )?;
+    let regional_map = build_regional_form_map();
 
     let mut sql = String::from(
         "SELECT DISTINCT \
@@ -565,8 +599,20 @@ pub fn get_encounters(
             } else {
                 (Some(min_level), Some(max_level))
             };
+            // Annotate with regional form if applicable (e.g., "Darumaka" -> "Galarian Darumaka" in Sword)
+            let annotated_name = if let Some(form_label) = regional_map.get(&(species_name.to_lowercase(), game_slug.to_lowercase())) {
+                // Only annotate wild encounter methods, not NPC trades/gifts
+                let is_wild = !method.to_lowercase().contains("trade") && !method.to_lowercase().contains("gift");
+                if is_wild {
+                    format!("{form_label} {display_name}")
+                } else {
+                    display_name.clone()
+                }
+            } else {
+                display_name.clone()
+            };
             Encounter {
-                pokemon_name: display_name.clone(),
+                pokemon_name: annotated_name,
                 location,
                 area,
                 game,

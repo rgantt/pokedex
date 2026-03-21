@@ -1,0 +1,50 @@
+[
+  {
+    "comment": "Maps species to their regional form name for wild encounters in specific games. NPC trades and gifts are excluded because they can give the base form (e.g., in-game trade for Kanto Meowth in Sword). Only applies to encounters using the base species pokemon_id — games that already use the correct regional form pokemon_id (Sun/Moon, LGPE for some) don't need this."
+  },
+  {
+    "comment": "Wild encounter methods that should show regional forms. Trades/gifts are excluded.",
+    "wild_methods": ["walking-tall-grass", "symbol-encounter", "static-encounter", "special-encounter", "wanderer", "curry", "max-raid-battle", "flying", "surfing", "fishing", "shaking-grass"]
+  },
+
+  {"species": "meowth", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "ponyta", "form": "Galarian", "games": ["shield"]},
+  {"species": "rapidash", "form": "Galarian", "games": ["shield"]},
+  {"species": "slowpoke", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "slowbro", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "farfetchd", "form": "Galarian", "games": ["sword"]},
+  {"species": "weezing", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "mr-mime", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "corsola", "form": "Galarian", "games": ["shield"]},
+  {"species": "zigzagoon", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "linoone", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "darumaka", "form": "Galarian", "games": ["sword"]},
+  {"species": "darmanitan", "form": "Galarian", "games": ["sword"]},
+  {"species": "yamask", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "stunfisk", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "slowking", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "articuno", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "zapdos", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "moltres", "form": "Galarian", "games": ["sword", "shield"]},
+
+  {"species": "growlithe", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "arcanine", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "voltorb", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "electrode", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "typhlosion", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "qwilfish", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "sneasel", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "samurott", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "lilligant", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "basculin", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "zorua", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "zoroark", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "braviary", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "sliggoo", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "goodra", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "avalugg", "form": "Hisuian", "games": ["legends-arceus"]},
+  {"species": "decidueye", "form": "Hisuian", "games": ["legends-arceus"]},
+
+  {"species": "wooper", "form": "Paldean", "games": ["scarlet", "violet"]},
+  {"species": "tauros", "form": "Paldean", "games": ["scarlet", "violet"]}
+]

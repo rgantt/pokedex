@@ -1294,3 +1294,39 @@ fn prev_page_offset_clamped_when_past_total() {
     let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
     assert_eq!(prev_offset, 975, "prev_page from offset=999999 should clamp to 975 (1025-50)");
 }
+
+#[test]
+fn regional_form_annotated_in_encounters() {
+    let conn = open_test_db();
+    // Darumaka in Sword should show "Galarian Darumaka" for wild encounters
+    let resolved = queries::resolve_pokemon(&conn, "darumaka").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, Some("sword")).unwrap();
+
+    let wild_encounters: Vec<_> = encounters.iter()
+        .filter(|e| !e.method.to_lowercase().contains("trade") && !e.method.to_lowercase().contains("gift"))
+        .collect();
+
+    if !wild_encounters.is_empty() {
+        assert!(wild_encounters.iter().all(|e| e.pokemon_name.contains("Galarian")),
+            "Wild Darumaka encounters in Sword should show 'Galarian Darumaka'");
+    }
+
+    // NPC trade Darumaka should NOT be annotated
+    let trade_encounters: Vec<_> = encounters.iter()
+        .filter(|e| e.method.to_lowercase().contains("trade"))
+        .collect();
+    for enc in &trade_encounters {
+        assert!(!enc.pokemon_name.contains("Galarian"),
+            "NPC trade Darumaka should not be annotated as Galarian");
+    }
+}
+
+#[test]
+fn hisuian_form_annotated_in_pla_encounters() {
+    let conn = open_test_db();
+    let resolved = queries::resolve_pokemon(&conn, "growlithe").unwrap().unwrap();
+    let encounters = queries::get_encounters(&conn, resolved.0, Some("legends-arceus")).unwrap();
+    assert!(!encounters.is_empty());
+    assert!(encounters.iter().all(|e| e.pokemon_name.contains("Hisuian")),
+        "Growlithe encounters in PLA should show 'Hisuian Growlithe'");
+}

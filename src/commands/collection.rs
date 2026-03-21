@@ -7,7 +7,7 @@ use crate::output::*;
 use super::validate_game_filter;
 
 const VALID_STATUSES: &[&str] = &["caught", "living_dex", "evolved", "traded_away", "transferred"];
-const VALID_METHODS: &[&str] = &["catch", "breed", "trade", "transfer", "gift", "raid", "research"];
+const VALID_METHODS: &[&str] = &["catch", "breed", "trade", "transfer", "gift", "raid", "research", "evolve"];
 
 pub fn add(
     conn: &Connection,
@@ -104,13 +104,24 @@ pub fn add(
         }
     }
 
-    // Resolve form if provided
-    let form_id = if let Some(form_name) = form {
+    // Auto-detect form from pokemon name when no explicit --form is given
+    let auto_form = if form.is_none() && pokemon.to_lowercase() != species_name.to_lowercase() {
+        pokemon.to_lowercase()
+            .strip_prefix(&species_name.to_lowercase())
+            .map(|s| s.trim_start_matches('-').to_string())
+            .filter(|s| !s.is_empty())
+    } else {
+        None
+    };
+    let effective_form: Option<String> = form.map(|s| s.to_string()).or(auto_form);
+
+    // Resolve form if provided or auto-detected
+    let form_id = if let Some(ref form_name) = effective_form {
         let fid: Option<i64> = conn.query_row(
             "SELECT pf.id FROM pokemon_forms pf \
              JOIN pokemon p ON p.id = pf.pokemon_id \
-             WHERE p.species_id = ?1 AND LOWER(pf.form_name) = LOWER(?2)",
-            rusqlite::params![species_id, form_name],
+             WHERE p.species_id = ?1 AND (LOWER(pf.form_name) = LOWER(?2) OR LOWER(pf.name) = LOWER(?3))",
+            rusqlite::params![species_id, form_name, format!("{}-{}", species_name, form_name)],
             |row| row.get(0),
         ).ok();
         fid
@@ -118,7 +129,7 @@ pub fn add(
         None
     };
 
-    if form.is_some() && form_id.is_none() {
+    if effective_form.is_some() && form_id.is_none() {
         let forms = queries::get_pokemon_forms(conn, species_id)?;
         let form_names: Vec<String> = forms.iter()
             .filter_map(|f| f.form_name.clone())
@@ -129,7 +140,7 @@ pub fn add(
             format!("Available forms: {}", form_names.join(", "))
         };
         let err = ErrorResponse::not_found(
-            &format!("No form '{}' for {species_name}. {forms_msg}", form.unwrap()),
+            &format!("No form '{}' for {species_name}. {forms_msg}", effective_form.as_deref().unwrap()),
             vec![Action::new("forms", &format!("pokedex pokemon forms {species_name}"))],
         );
         err.print()?;
@@ -177,7 +188,7 @@ pub fn add(
         let preview = AddPreview {
             pokemon: species_name.clone(),
             game: game_name.clone(),
-            form: form.map(|s| s.to_string()),
+            form: effective_form.clone(),
             shiny,
             in_home,
             is_alpha,
@@ -229,7 +240,7 @@ pub fn add(
     ];
 
     let mut meta_cmd = format!("pokedex collection add --pokemon={pokemon} --game={game}");
-    if let Some(f) = form { meta_cmd.push_str(&format!(" --form={f}")); }
+    if let Some(ref f) = effective_form { meta_cmd.push_str(&format!(" --form={f}")); }
     let response = Response::new(result, actions, Meta::simple(&meta_cmd));
     response.print(format)
 }

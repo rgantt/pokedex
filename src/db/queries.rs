@@ -67,10 +67,48 @@ pub fn resolve_pokemon(conn: &Connection, identifier: &str) -> Result<Option<(i6
         |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
     );
     match result {
-        Ok(r) => Ok(Some(r)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
+        Ok(r) => return Ok(Some(r)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {},
+        Err(e) => return Err(e.into()),
     }
+
+    // Try pokemon_forms.name for cosmetic forms (vivillon-polar, etc.)
+    let form_result = conn.query_row(
+        "SELECT p.species_id, s.name FROM pokemon_forms pf \
+         JOIN pokemon p ON p.id = pf.pokemon_id \
+         JOIN species s ON s.id = p.species_id \
+         WHERE LOWER(pf.name) = LOWER(?1)",
+        params![name],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+    );
+    match form_result {
+        Ok(r) => return Ok(Some(r)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {},
+        Err(e) => return Err(e.into()),
+    }
+
+    // Try regional form aliases: if name has a regional suffix (-alola, -galar, -hisui, -paldea),
+    // look up the base species and check if a form with that region exists
+    let regional_suffixes = ["-alola", "-galar", "-hisui", "-paldea"];
+    for suffix in &regional_suffixes {
+        if let Some(base) = name.strip_suffix(suffix) {
+            let region = &suffix[1..]; // strip leading '-'
+            let regional_result = conn.query_row(
+                "SELECT s.id, s.name FROM species s \
+                 JOIN pokemon p ON p.species_id = s.id \
+                 JOIN pokemon_forms pf ON pf.pokemon_id = p.id \
+                 WHERE LOWER(s.name) = LOWER(?1) \
+                 AND (LOWER(pf.form_name) = LOWER(?2) OR LOWER(pf.name) LIKE '%' || LOWER(?2))",
+                params![base, region],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+            );
+            if let Ok(r) = regional_result {
+                return Ok(Some(r));
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 /// Resolve a form name to its pokemon_id. Returns None if the identifier
@@ -84,11 +122,49 @@ pub fn resolve_form_pokemon_id(conn: &Connection, identifier: &str) -> Result<Op
     );
     match result {
         Ok((pokemon_id, is_default)) => {
-            if is_default == 1 { Ok(None) } else { Ok(Some(pokemon_id)) }
+            if is_default == 1 { return Ok(None); } else { return Ok(Some(pokemon_id)); }
         }
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {},
+        Err(e) => return Err(e.into()),
     }
+
+    // Try pokemon_forms.name for cosmetic forms (vivillon-polar, etc.)
+    let form_result = conn.query_row(
+        "SELECT p.id, p.is_default FROM pokemon_forms pf \
+         JOIN pokemon p ON p.id = pf.pokemon_id \
+         WHERE LOWER(pf.name) = LOWER(?1)",
+        params![name],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+    );
+    match form_result {
+        Ok((pokemon_id, is_default)) => {
+            if is_default == 1 { return Ok(None); } else { return Ok(Some(pokemon_id)); }
+        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => {},
+        Err(e) => return Err(e.into()),
+    }
+
+    // Try regional form aliases
+    let regional_suffixes = ["-alola", "-galar", "-hisui", "-paldea"];
+    for suffix in &regional_suffixes {
+        if let Some(base) = name.strip_suffix(suffix) {
+            let region = &suffix[1..];
+            let regional_result = conn.query_row(
+                "SELECT p.id, p.is_default FROM pokemon p \
+                 JOIN species s ON s.id = p.species_id \
+                 JOIN pokemon_forms pf ON pf.pokemon_id = p.id \
+                 WHERE LOWER(s.name) = LOWER(?1) \
+                 AND (LOWER(pf.form_name) = LOWER(?2) OR LOWER(pf.name) LIKE '%' || LOWER(?2))",
+                params![base, region],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+            );
+            if let Ok((pokemon_id, is_default)) = regional_result {
+                if is_default == 1 { return Ok(None); } else { return Ok(Some(pokemon_id)); }
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 /// Get types for a specific pokemon_id (not necessarily the default form).
@@ -112,8 +188,9 @@ pub fn get_form_display_name(conn: &Connection, pokemon_id: i64) -> Result<Optio
     let result = conn.query_row(
         "SELECT COALESCE(pfn.pokemon_name, pfn.name, pf.form_name) \
          FROM pokemon_forms pf \
+         JOIN pokemon p ON p.id = pf.pokemon_id \
          LEFT JOIN pokemon_form_names pfn ON pfn.pokemon_form_id = pf.id \
-         WHERE pf.pokemon_id = ?1 AND pf.is_default = 0",
+         WHERE pf.pokemon_id = ?1 AND p.is_default = 0",
         params![pokemon_id],
         |row| row.get::<_, Option<String>>(0),
     );
@@ -165,6 +242,9 @@ pub fn get_species(conn: &Connection, species_id: i64) -> Result<Species> {
         .filter_map(|r| r.ok())
         .collect();
 
+    let stats = get_pokemon_stats(conn, species_id).ok();
+    let abilities = get_pokemon_abilities(conn, species_id).unwrap_or_default();
+
     Ok(Species {
         id: species_id,
         name,
@@ -178,6 +258,8 @@ pub fn get_species(conn: &Connection, species_id: i64) -> Result<Species> {
         evolves_from,
         genus,
         egg_groups,
+        stats,
+        abilities,
     })
 }
 
@@ -196,6 +278,31 @@ pub fn get_species_types(conn: &Connection, species_id: i64) -> Result<Vec<Strin
         .filter_map(|r| r.ok())
         .collect();
     Ok(types)
+}
+
+pub fn get_pokemon_abilities(conn: &Connection, species_id: i64) -> Result<Vec<AbilityInfo>> {
+    let mut stmt = conn.prepare(
+        "SELECT a.name, COALESCE(an.name, a.name), pa.is_hidden, \
+         (SELECT ap.short_effect FROM ability_prose ap WHERE ap.ability_id = a.id LIMIT 1) \
+         FROM pokemon_abilities pa \
+         JOIN abilities a ON a.id = pa.ability_id \
+         LEFT JOIN ability_names an ON an.ability_id = a.id \
+         JOIN pokemon p ON p.id = pa.pokemon_id \
+         WHERE p.species_id = ?1 AND p.is_default = 1 \
+         ORDER BY pa.slot"
+    )?;
+    let abilities = stmt
+        .query_map(params![species_id], |row| {
+            Ok(AbilityInfo {
+                name: row.get(0)?,
+                display_name: row.get(1)?,
+                is_hidden: row.get::<_, i64>(2)? != 0,
+                short_effect: row.get(3)?,
+            })
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(abilities)
 }
 
 pub fn list_species(
@@ -448,7 +555,8 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
 pub fn get_pokemon_forms(conn: &Connection, species_id: i64) -> Result<Vec<PokemonForm>> {
     let mut stmt = conn.prepare(
         "SELECT pf.id, pf.pokemon_id, pf.name, \
-         CASE WHEN p.is_default = 1 AND pf.is_default = 1 THEN COALESCE(sn.name, s.name) \
+         CASE WHEN p.is_default = 1 AND pf.is_default = 1 AND pf.form_name IS NULL THEN COALESCE(sn.name, s.name) \
+              WHEN p.is_default = 1 AND pf.is_default = 1 AND pf.form_name IS NOT NULL THEN COALESCE(pfn.pokemon_name, pfn.name, COALESCE(sn.name, s.name)) \
               ELSE COALESCE(pfn.pokemon_name, pfn.name, pf.form_name, COALESCE(sn.name, s.name)) \
          END, \
          pf.form_name, (p.is_default AND pf.is_default), pf.is_mega, pf.is_battle_only \
@@ -716,7 +824,7 @@ pub fn get_location_encounters(
 
     // Try exact match first; only fall back to LIKE if exact returns nothing.
     // This prevents e.g. "wild-zone-1" from also matching "wild-zone-10", "wild-zone-11".
-    let exact_where = " WHERE (LOWER(la.name) = LOWER(?1) OR LOWER(l.name) = LOWER(?1) OR LOWER(COALESCE(ln.name, '')) = LOWER(?1))";
+    let exact_where = " WHERE (LOWER(l.name) = LOWER(?1) OR LOWER(COALESCE(ln.name, '')) = LOWER(?1) OR LOWER(la.name) = LOWER(?1))";
     let like_where = " WHERE (LOWER(la.name) = LOWER(?1) OR LOWER(l.name) = LOWER(?1) OR LOWER(COALESCE(ln.name, '')) = LOWER(?1) \
                 OR LOWER(la.name) LIKE '%' || LOWER(?1) || '%' OR LOWER(COALESCE(ln.name, '')) LIKE '%' || LOWER(?1) || '%')";
 
@@ -1312,6 +1420,7 @@ pub fn list_games(conn: &Connection, home_compatible: bool) -> Result<Vec<GameIn
          LEFT JOIN versions v ON v.version_group_id = vg.id AND LOWER(v.name) = LOWER(g.name) \
          LEFT JOIN version_names vn ON vn.version_id = v.id \
          {where_clause} \
+         GROUP BY g.id \
          ORDER BY g.id"
     );
     let mut stmt = conn.prepare(&sql)?;

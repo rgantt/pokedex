@@ -17,6 +17,10 @@ pub struct Species {
     pub genus: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub egg_groups: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stats: Option<PokemonStats>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub abilities: Vec<AbilityInfo>,
 }
 
 #[derive(Debug, Clone, Serialize)]

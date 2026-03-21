@@ -30,7 +30,7 @@ pub fn encounters(
 
     if encounters.is_empty() && total == 0 {
         ErrorResponse::not_found(
-            &format!("No encounters found for location '{location}'"),
+            &format!("No encounters found for location '{location}'. Try adding a region prefix (e.g., 'hoenn-{location}', 'kanto-{location}') or use a sub-area name."),
             vec![
                 Action::new("try_dex", "pokedex dex list"),
                 Action::new("try_game", "pokedex game list"),

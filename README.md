@@ -48,14 +48,23 @@ Run `pokedex --discover` for the full machine-readable command tree. Run any com
 ### Pokemon Queries
 
 ```bash
-pokedex pokemon list --type=fire --generation=1
-pokedex pokemon show charizard
+pokedex pokemon list --type-filter=fire --generation=1
+pokedex pokemon show charizard           # types, egg groups, stats, abilities
+pokedex pokemon show growlithe-hisui     # form-specific types (Fire/Rock)
 pokedex pokemon search bulbsaur          # fuzzy search (handles typos)
-pokedex pokemon evolutions eevee         # full chain with evolution conditions
+pokedex pokemon evolutions eevee         # full chain with all game-era methods
 pokedex pokemon forms charizard          # base, mega-x, mega-y, gmax
-pokedex pokemon stats garchomp           # base stats (HP/Atk/Def/SpA/SpD/Spe)
 pokedex pokemon moves pikachu --game=sword --method=level-up
 pokedex pokemon encounters karrablast --game=sword
+pokedex pokemon encounters darumaka --game=sword  # shows "Galarian Darumaka"
+```
+
+### Location Encounters
+
+```bash
+pokedex location encounters viridian-forest --game=red
+pokedex location encounters wild-zone-3 --game=legends-za
+pokedex location encounters rolling-fields --game=sword
 ```
 
 ### Type Matchups

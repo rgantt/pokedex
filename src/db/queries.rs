@@ -282,31 +282,52 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
     )?;
     let display_name = get_display_name(conn, species_id)?;
 
-    // Get evolution trigger info for this species.
-    // The trigger_detail column (added by the overrides system) takes priority
-    // over the auto-computed detail when present.
-    let evo_info: Option<(String, String)> = conn.query_row(
-        "SELECT et.name, \
-         COALESCE( \
-           pe.trigger_detail, \
-           CASE WHEN pe.minimum_level IS NOT NULL THEN 'Level ' || pe.minimum_level END, \
-           CASE WHEN pe.trigger_item_id IS NOT NULL THEN 'Use ' || COALESCE((SELECT name FROM items WHERE id = pe.trigger_item_id), 'item') END, \
-           CASE WHEN pe.minimum_happiness IS NOT NULL THEN 'Happiness ' || pe.minimum_happiness END, \
-           CASE WHEN pe.known_move_id IS NOT NULL THEN 'Know ' || COALESCE((SELECT name FROM moves WHERE id = pe.known_move_id), 'move') END, \
-           CASE WHEN pe.held_item_id IS NOT NULL THEN 'Hold ' || COALESCE((SELECT name FROM items WHERE id = pe.held_item_id), 'item') END, \
-           '' \
-         ) || CASE WHEN pe.time_of_day != '' THEN ' (' || pe.time_of_day || ')' ELSE '' END \
-         FROM pokemon_evolution pe \
-         JOIN evolution_triggers et ON et.id = pe.evolution_trigger_id \
-         WHERE pe.evolved_species_id = ?1 LIMIT 1",
-        params![species_id],
-        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
-    ).ok();
+    // Get ALL evolution methods for this species (may differ by game/generation)
+    let mut methods = Vec::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT et.name, \
+             COALESCE( \
+               pe.trigger_detail, \
+               CASE WHEN pe.minimum_level IS NOT NULL THEN 'Level ' || pe.minimum_level END, \
+               CASE WHEN pe.trigger_item_id IS NOT NULL THEN 'Use ' || COALESCE((SELECT name FROM items WHERE id = pe.trigger_item_id), 'item') END, \
+               CASE WHEN pe.minimum_happiness IS NOT NULL THEN 'Happiness ' || pe.minimum_happiness END, \
+               CASE WHEN pe.known_move_id IS NOT NULL THEN 'Know ' || COALESCE((SELECT name FROM moves WHERE id = pe.known_move_id), 'move') END, \
+               CASE WHEN pe.held_item_id IS NOT NULL THEN 'Hold ' || COALESCE((SELECT name FROM items WHERE id = pe.held_item_id), 'item') END, \
+               '' \
+             ) || CASE WHEN pe.time_of_day != '' THEN ' (' || pe.time_of_day || ')' ELSE '' END, \
+             COALESCE((SELECT COALESCE(ln.name, l.name) FROM locations l \
+               LEFT JOIN (SELECT location_id, name FROM location_names GROUP BY location_id) ln ON ln.location_id = l.id \
+               WHERE l.id = pe.location_id), NULL), \
+             COALESCE((SELECT name FROM items WHERE id = pe.trigger_item_id), NULL) \
+             FROM pokemon_evolution pe \
+             JOIN evolution_triggers et ON et.id = pe.evolution_trigger_id \
+             WHERE pe.evolved_species_id = ?1 ORDER BY pe.id DESC"
+        )?;
+        let rows = stmt.query_map(params![species_id], |row| {
+            let trigger: String = row.get(0)?;
+            let detail: String = row.get::<_, String>(1).unwrap_or_default();
+            let location: Option<String> = row.get(2)?;
+            let item: Option<String> = row.get(3)?;
+            Ok(EvolutionMethod {
+                trigger,
+                trigger_detail: if detail.is_empty() { None } else { Some(detail) },
+                location,
+                item,
+            })
+        })?;
 
-    let (trigger, trigger_detail) = match evo_info {
-        Some((t, d)) => (Some(t), if d.is_empty() { None } else { Some(d) }),
-        None => (None, None),
-    };
+        // Deduplicate methods by (trigger, trigger_detail) — keep unique methods only
+        let mut seen = std::collections::HashSet::new();
+        for row in rows {
+            if let Ok(method) = row {
+                let key = (method.trigger.clone(), method.trigger_detail.clone());
+                if seen.insert(key) {
+                    methods.push(method);
+                }
+            }
+        }
+    }
 
     // Find children
     let mut child_stmt = conn.prepare(
@@ -326,8 +347,7 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
         species_id,
         species_name: name,
         display_name,
-        trigger,
-        trigger_detail,
+        methods,
         children,
     })
 }

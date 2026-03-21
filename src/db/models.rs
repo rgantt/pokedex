@@ -59,11 +59,21 @@ pub struct EvolutionNode {
     pub species_id: i64,
     pub species_name: String,
     pub display_name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub trigger: Option<String>,
+    /// All known evolution methods for this species (may vary by game)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub methods: Vec<EvolutionMethod>,
+    pub children: Vec<EvolutionNode>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct EvolutionMethod {
+    pub trigger: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trigger_detail: Option<String>,
-    pub children: Vec<EvolutionNode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub item: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

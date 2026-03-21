@@ -322,7 +322,8 @@ fn evolution_chain_has_correct_structure() {
     // Check a specific evolution has trigger info
     let vaporeon = chain.children.iter().find(|c| c.species_name == "vaporeon");
     assert!(vaporeon.is_some(), "Vaporeon not found in Eevee's chain");
-    assert_eq!(vaporeon.unwrap().trigger.as_deref(), Some("use-item"));
+    assert!(!vaporeon.unwrap().methods.is_empty(), "Vaporeon should have evolution methods");
+    assert_eq!(vaporeon.unwrap().methods[0].trigger, "use-item");
 }
 
 #[test]
@@ -508,8 +509,12 @@ fn trade_evolutions_have_trigger_detail() {
         let node = find_node(&chain, species)
             .unwrap_or_else(|| panic!("{species} not found in its own evolution chain"));
         assert!(
-            node.trigger_detail.is_some(),
-            "{species} evolution should have trigger_detail (override), got None"
+            !node.methods.is_empty(),
+            "{species} evolution should have methods"
+        );
+        assert!(
+            node.methods.iter().any(|m| m.trigger_detail.is_some()),
+            "{species} evolution should have at least one method with trigger_detail"
         );
     }
 }
@@ -1083,11 +1088,13 @@ fn tyrogue_evolutions_have_stat_conditions() {
     assert_eq!(chain.children.len(), 3, "Tyrogue should have 3 evolutions");
 
     for child in &chain.children {
-        let detail = child.trigger_detail.as_ref()
-            .unwrap_or_else(|| panic!("{} should have trigger_detail", child.species_name));
-        assert!(detail.contains("Attack") || detail.contains("Defense"),
-            "{} trigger_detail should mention Attack/Defense conditions, got: {}",
-            child.species_name, detail);
+        assert!(!child.methods.is_empty(), "{} should have evolution methods", child.species_name);
+        let has_stat_condition = child.methods.iter().any(|m| {
+            m.trigger_detail.as_ref().map_or(false, |d| d.contains("Attack") || d.contains("Defense"))
+        });
+        assert!(has_stat_condition,
+            "{} should have a method mentioning Attack/Defense conditions",
+            child.species_name);
     }
 }
 
@@ -1122,10 +1129,32 @@ fn wurmple_evolution_has_personality_detail() {
     assert_eq!(chain.children.len(), 2, "Wurmple should have 2 evolution branches");
 
     for child in &chain.children {
-        let detail = child.trigger_detail.as_ref()
-            .unwrap_or_else(|| panic!("{} should have trigger_detail", child.species_name));
-        assert!(detail.contains("random") || detail.contains("personality"),
-            "{} trigger_detail should mention random/personality, got: {}",
-            child.species_name, detail);
+        assert!(!child.methods.is_empty(), "{} should have evolution methods", child.species_name);
+        let has_personality = child.methods.iter().any(|m| {
+            m.trigger_detail.as_ref().map_or(false, |d| d.contains("random") || d.contains("personality"))
+        });
+        assert!(has_personality,
+            "{} should have a method mentioning random/personality",
+            child.species_name);
     }
+}
+
+#[test]
+fn leafeon_has_multiple_evolution_methods() {
+    let conn = open_test_db();
+    let chain = queries::get_evolution_chain(&conn, 133).unwrap(); // Eevee
+
+    let leafeon = chain.children.iter().find(|c| c.species_name == "leafeon");
+    assert!(leafeon.is_some(), "Leafeon not found in Eevee's chain");
+    let leafeon = leafeon.unwrap();
+
+    // Leafeon should have multiple methods (use-item in modern games, level-up in older)
+    assert!(leafeon.methods.len() >= 2,
+        "Leafeon should have 2+ evolution methods (level-up + use-item), got {}",
+        leafeon.methods.len());
+
+    let has_use_item = leafeon.methods.iter().any(|m| m.trigger == "use-item");
+    let has_level_up = leafeon.methods.iter().any(|m| m.trigger == "level-up");
+    assert!(has_use_item, "Leafeon should have a use-item method (Leaf Stone)");
+    assert!(has_level_up, "Leafeon should have a level-up method (Mossy Rock)");
 }

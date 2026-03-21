@@ -208,6 +208,9 @@ pub fn seed_from_directory(conn: &mut Connection, csv_dir: &Path) -> Result<()> 
     // Update games table with version_group_ids
     update_games_version_groups(&tx)?;
 
+    // Create game entries for all versions that have encounter data but aren't in the games table
+    populate_games_from_versions(&tx)?;
+
     tx.commit()?;
 
     // Phase 2: Supplement with PokeDB.org encounter data (Gen 6+ games)
@@ -1422,6 +1425,24 @@ fn update_games_version_groups(tx: &rusqlite::Transaction) -> Result<()> {
     Ok(())
 }
 
+/// Create game entries for all versions that have encounter data but aren't already
+/// in the games table. This allows collection tracking for pre-HOME games (Red, Gold, etc).
+fn populate_games_from_versions(tx: &rusqlite::Transaction) -> Result<()> {
+    tx.execute(
+        "INSERT OR IGNORE INTO games (name, version_group_id, connects_to_home, transfer_direction)
+         SELECT v.name, v.version_group_id, 0, NULL
+         FROM versions v
+         WHERE v.id IN (SELECT DISTINCT version_id FROM encounters)
+         AND v.name NOT IN (SELECT name FROM games)",
+        [],
+    )?;
+    let count: i64 = tx.query_row("SELECT changes()", [], |row| row.get(0))?;
+    if count > 0 {
+        eprintln!("  pre-HOME games added: {count}");
+    }
+    Ok(())
+}
+
 // ============================================================
 // PokeDB.org supplementary encounter data
 // ============================================================
@@ -2094,6 +2115,9 @@ fn seed_pokedb_encounter_rows(
                     Some("one") => (None, Some("Fixed encounter".to_string())),
                     Some("choose one") => (None, Some("Starter choice".to_string())),
                     Some("two") => (None, Some("Fixed double encounter".to_string())),
+                    Some("respawns") => (None, Some("Respawning encounter".to_string())),
+                    Some("only one") => (None, Some("One-time encounter".to_string())),
+                    Some("unlimited") => (None, Some("Unlimited encounters".to_string())),
                     _ => (raw_prob, None),
                 };
 

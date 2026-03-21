@@ -73,6 +73,57 @@ pub fn resolve_pokemon(conn: &Connection, identifier: &str) -> Result<Option<(i6
     }
 }
 
+/// Resolve a form name to its pokemon_id. Returns None if the identifier
+/// is not a form name or matches the default form.
+pub fn resolve_form_pokemon_id(conn: &Connection, identifier: &str) -> Result<Option<i64>> {
+    let name = identifier.to_lowercase().replace(' ', "-");
+    let result = conn.query_row(
+        "SELECT p.id, p.is_default FROM pokemon p WHERE LOWER(p.name) = LOWER(?1)",
+        params![name],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+    );
+    match result {
+        Ok((pokemon_id, is_default)) => {
+            if is_default == 1 { Ok(None) } else { Ok(Some(pokemon_id)) }
+        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Get types for a specific pokemon_id (not necessarily the default form).
+pub fn get_pokemon_types_by_pokemon_id(conn: &Connection, pokemon_id: i64) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT COALESCE(tn.name, t.name) FROM pokemon_types pt \
+         JOIN types t ON t.id = pt.type_id \
+         LEFT JOIN type_names tn ON tn.type_id = t.id \
+         WHERE pt.pokemon_id = ?1 \
+         ORDER BY pt.slot"
+    )?;
+    let types: Vec<String> = stmt
+        .query_map(params![pokemon_id], |row| row.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(types)
+}
+
+/// Get the display name for a specific pokemon form by pokemon_id.
+pub fn get_form_display_name(conn: &Connection, pokemon_id: i64) -> Result<Option<String>> {
+    let result = conn.query_row(
+        "SELECT COALESCE(pfn.pokemon_name, pfn.name, pf.form_name) \
+         FROM pokemon_forms pf \
+         LEFT JOIN pokemon_form_names pfn ON pfn.pokemon_form_id = pf.id \
+         WHERE pf.pokemon_id = ?1 AND pf.is_default = 0",
+        params![pokemon_id],
+        |row| row.get::<_, Option<String>>(0),
+    );
+    match result {
+        Ok(name) => Ok(name),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
 pub fn get_display_name(conn: &Connection, species_id: i64) -> Result<String> {
     conn.query_row(
         "SELECT COALESCE(sn.name, s.name) FROM species s LEFT JOIN species_names sn ON sn.species_id = s.id WHERE s.id = ?1",
@@ -650,8 +701,7 @@ pub fn get_location_encounters(
 ) -> Result<(Vec<Encounter>, u64)> {
     let location_lower = location.to_lowercase();
 
-    let mut base_sql = String::from(
-        "FROM encounters e \
+    let base_from = "FROM encounters e \
          JOIN encounter_slots es ON es.id = e.encounter_slot_id \
          JOIN encounter_methods em ON em.id = es.encounter_method_id \
          LEFT JOIN (SELECT encounter_method_id, name FROM encounter_method_names GROUP BY encounter_method_id) emn ON emn.encounter_method_id = em.id \
@@ -662,10 +712,22 @@ pub fn get_location_encounters(
          LEFT JOIN (SELECT version_id, name FROM version_names GROUP BY version_id) vn ON vn.version_id = v.id \
          JOIN pokemon p ON p.id = e.pokemon_id \
          JOIN species s ON s.id = p.species_id \
-         LEFT JOIN species_names sn ON sn.species_id = s.id \
-         WHERE (LOWER(la.name) = LOWER(?1) OR LOWER(l.name) = LOWER(?1) OR LOWER(COALESCE(ln.name, '')) = LOWER(?1) \
-                OR LOWER(la.name) LIKE '%' || LOWER(?1) || '%' OR LOWER(COALESCE(ln.name, '')) LIKE '%' || LOWER(?1) || '%')"
-    );
+         LEFT JOIN species_names sn ON sn.species_id = s.id";
+
+    // Try exact match first; only fall back to LIKE if exact returns nothing.
+    // This prevents e.g. "wild-zone-1" from also matching "wild-zone-10", "wild-zone-11".
+    let exact_where = " WHERE (LOWER(la.name) = LOWER(?1) OR LOWER(l.name) = LOWER(?1) OR LOWER(COALESCE(ln.name, '')) = LOWER(?1))";
+    let like_where = " WHERE (LOWER(la.name) = LOWER(?1) OR LOWER(l.name) = LOWER(?1) OR LOWER(COALESCE(ln.name, '')) = LOWER(?1) \
+                OR LOWER(la.name) LIKE '%' || LOWER(?1) || '%' OR LOWER(COALESCE(ln.name, '')) LIKE '%' || LOWER(?1) || '%')";
+
+    let exact_count: u64 = {
+        let sql = format!("SELECT COUNT(DISTINCT e.id) {base_from}{exact_where}");
+        let mut stmt = conn.prepare(&sql)?;
+        stmt.query_row(params![&location_lower], |row| row.get(0))?
+    };
+
+    let where_clause = if exact_count > 0 { exact_where } else { like_where };
+    let mut base_sql = format!("{base_from}{where_clause}");
 
     let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(location_lower)];
 
@@ -682,6 +744,8 @@ pub fn get_location_encounters(
         stmt.query_row(params.as_slice(), |row| row.get(0))?
     };
 
+    let regional_map = build_regional_form_map();
+
     // Data query
     let select_sql = format!(
         "SELECT DISTINCT \
@@ -691,7 +755,8 @@ pub fn get_location_encounters(
          COALESCE(vn.name, v.name) as game_name, \
          COALESCE(emn.name, em.name) as method_name, \
          e.min_level, e.max_level, es.rarity, e.id, \
-         v.name as game_slug \
+         v.name as game_slug, \
+         s.name as species_slug \
          {base_sql} \
          ORDER BY pokemon_name, method_name \
          LIMIT ?{limit_idx} OFFSET ?{offset_idx}",
@@ -717,10 +782,11 @@ pub fn get_location_encounters(
                 row.get::<_, Option<i64>>(7)?,
                 row.get::<_, i64>(8)?,
                 row.get::<_, String>(9)?,
+                row.get::<_, String>(10)?,
             ))
         })?
         .filter_map(|r| r.ok())
-        .map(|(pokemon_name, location_name, area, game, method, min_level, max_level, rarity, encounter_id, game_slug)| {
+        .map(|(pokemon_name, location_name, area, game, method, min_level, max_level, rarity, encounter_id, game_slug, species_slug)| {
             let conditions = get_encounter_conditions(conn, encounter_id);
             let details = get_encounter_details(conn, encounter_id);
             let has_uncatchable_note = details.as_ref()
@@ -737,8 +803,19 @@ pub fn get_location_encounters(
             } else {
                 (Some(min_level), Some(max_level))
             };
+            // Annotate with regional form if applicable (e.g., "Darumaka" -> "Galarian Darumaka" in Sword)
+            let annotated_name = if let Some(form_label) = regional_map.get(&(species_slug.to_lowercase(), game_slug.to_lowercase())) {
+                let is_wild = !method.to_lowercase().contains("trade") && !method.to_lowercase().contains("gift");
+                if is_wild {
+                    format!("{form_label} {pokemon_name}")
+                } else {
+                    pokemon_name
+                }
+            } else {
+                pokemon_name
+            };
             Encounter {
-                pokemon_name,
+                pokemon_name: annotated_name,
                 location: location_name,
                 area,
                 game,

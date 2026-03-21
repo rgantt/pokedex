@@ -91,7 +91,19 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
         }
     };
 
-    let species = queries::get_species(conn, species_id)?;
+    let mut species = queries::get_species(conn, species_id)?;
+
+    // If the user searched for a form name (e.g. "growlithe-hisui"), override
+    // the display_name and types with form-specific data.
+    if let Ok(Some(form_pokemon_id)) = queries::resolve_form_pokemon_id(conn, pokemon) {
+        let form_types = queries::get_pokemon_types_by_pokemon_id(conn, form_pokemon_id)?;
+        if !form_types.is_empty() {
+            species.types = form_types;
+        }
+        if let Ok(Some(form_display)) = queries::get_form_display_name(conn, form_pokemon_id) {
+            species.display_name = form_display;
+        }
+    }
 
     let mut actions = vec![
         Action::new("evolutions", &format!("pokedex pokemon evolutions {}", species.name)),
@@ -117,6 +129,14 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
 }
 
 pub fn search(conn: &Connection, query: &str, limit: u64, format: &OutputFormat) -> Result<()> {
+    if query.trim().is_empty() {
+        ErrorResponse::invalid_parameter(
+            "Search query is required",
+            vec![Action::new("list", "pokedex pokemon list --limit=20")],
+        ).print()?;
+        return Ok(());
+    }
+
     let results = queries::search_species(conn, query, limit)?;
 
     let mut actions: Vec<Action> = results.iter().map(|r| {

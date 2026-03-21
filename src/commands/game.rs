@@ -22,6 +22,25 @@ pub fn show(conn: &Connection, game: &str, format: &OutputFormat) -> Result<()> 
     let (_, game_name) = match resolved {
         Some(r) => r,
         None => {
+            // Check if it's a known version (pre-HOME game)
+            let is_known_version: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM versions WHERE LOWER(name) = LOWER(?1))",
+                rusqlite::params![game],
+                |row| row.get::<_, i64>(0).map(|v| v != 0),
+            ).unwrap_or(false);
+
+            if is_known_version {
+                let err = ErrorResponse::not_found(
+                    &format!("'{game}' is a known game but not tracked in the games list. Use --game={game} with encounter/move commands to filter by this version."),
+                    vec![
+                        Action::new("encounters", &format!("pokedex pokemon encounters pikachu --game={game}")),
+                        Action::new("game_list", "pokedex game list"),
+                    ],
+                );
+                err.print()?;
+                return Ok(());
+            }
+
             let all_games = queries::list_games(conn, false)?;
             let mut suggestions: Vec<Action> = all_games.iter()
                 .filter(|g| strsim::jaro_winkler(&game.to_lowercase(), &g.name.to_lowercase()) > 0.5)

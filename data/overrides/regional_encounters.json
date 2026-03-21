@@ -23,9 +23,9 @@
   {"species": "yamask", "form": "Galarian", "games": ["sword", "shield"]},
   {"species": "stunfisk", "form": "Galarian", "games": ["sword", "shield"]},
   {"species": "slowking", "form": "Galarian", "games": ["sword", "shield"]},
-  {"species": "articuno", "form": "Galarian", "games": ["sword", "shield"]},
-  {"species": "zapdos", "form": "Galarian", "games": ["sword", "shield"]},
-  {"species": "moltres", "form": "Galarian", "games": ["sword", "shield"]},
+  {"species": "articuno", "form": "Galarian", "games": ["sword", "shield", "scarlet", "violet"]},
+  {"species": "zapdos", "form": "Galarian", "games": ["sword", "shield", "scarlet", "violet"]},
+  {"species": "moltres", "form": "Galarian", "games": ["sword", "shield", "scarlet", "violet"]},
 
   {"species": "growlithe", "form": "Hisuian", "games": ["legends-arceus"]},
   {"species": "arcanine", "form": "Hisuian", "games": ["legends-arceus"]},

@@ -324,8 +324,8 @@ pub enum HomeCommands {
     },
     /// Show species missing from HOME
     Missing {
-        /// Dex to check against: home, national
-        #[arg(long, default_value = "home")]
+        /// Dex to check against: national, kanto, paldea, etc.
+        #[arg(long, default_value = "national")]
         dex: String,
         #[arg(long, default_value = "50")]
         limit: u64,

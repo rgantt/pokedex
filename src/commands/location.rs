@@ -13,6 +13,14 @@ pub fn encounters(
     offset: u64,
     format: &OutputFormat,
 ) -> Result<()> {
+    if location.trim().is_empty() {
+        ErrorResponse::invalid_parameter(
+            "Location name is required",
+            vec![Action::new("discover", "pokedex --discover")],
+        ).print()?;
+        return Ok(());
+    }
+
     if let Some(g) = game {
         validate_game_filter(conn, g, &format!("pokedex location encounters {location}"))?;
     }
@@ -20,11 +28,16 @@ pub fn encounters(
     let limit = limit.max(1);
     let (encounters, total) = queries::get_location_encounters(conn, location, game, limit, offset)?;
 
-    if encounters.is_empty() {
+    if encounters.is_empty() && total == 0 {
         ErrorResponse::not_found(
             &format!("No encounters found for location '{location}'"),
-            vec![Action::new("search", "pokedex pokemon list --limit=20")],
+            vec![
+                Action::new("try_dex", "pokedex dex list"),
+                Action::new("try_game", "pokedex game list"),
+                Action::new("discover", "pokedex --discover"),
+            ],
         ).print()?;
+        return Ok(());
     }
 
     let mut cmd = format!("pokedex location encounters {location}");

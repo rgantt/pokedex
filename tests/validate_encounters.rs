@@ -1330,3 +1330,63 @@ fn hisuian_form_annotated_in_pla_encounters() {
     assert!(encounters.iter().all(|e| e.pokemon_name.contains("Hisuian")),
         "Growlithe encounters in PLA should show 'Hisuian Growlithe'");
 }
+
+// ============================================================
+// Phase 18: Round 6 fixes validation
+// ============================================================
+
+#[test]
+fn location_encounters_exact_match_no_prefix_bleed() {
+    let conn = open_test_db();
+    // wild-zone-1 should NOT match wild-zone-10, 11, etc.
+    let (encounters, _) = queries::get_location_encounters(&conn, "wild-zone-1", Some("legends-za"), 50, 0).unwrap();
+    for enc in &encounters {
+        assert_eq!(enc.area, "wild-zone-1",
+            "wild-zone-1 query returned encounter from {}", enc.area);
+    }
+}
+
+#[test]
+fn location_encounters_empty_string_rejected() {
+    let conn = open_test_db();
+    let (encounters, total) = queries::get_location_encounters(&conn, "", None, 50, 0).unwrap();
+    // Empty string should return no results (command layer validates, but query should also be safe)
+    // If the query doesn't guard, this would return 94K+ results
+    assert!(total < 100, "Empty location query should not return massive results, got {total}");
+}
+
+#[test]
+fn location_encounters_applies_regional_annotation() {
+    let conn = open_test_db();
+    // Wooper encounters in Scarlet areas should show "Paldean Wooper"
+    let (encounters, _) = queries::get_location_encounters(&conn, "south-province-area-one", Some("scarlet"), 200, 0).unwrap();
+    let wooper_encounters: Vec<_> = encounters.iter()
+        .filter(|e| e.pokemon_name.to_lowercase().contains("wooper"))
+        .collect();
+    // If wooper is present, it should be annotated as Paldean for wild encounters
+    for enc in &wooper_encounters {
+        if !enc.method.to_lowercase().contains("trade") {
+            assert!(enc.pokemon_name.contains("Paldean"),
+                "Wooper in Scarlet location should show 'Paldean Wooper', got '{}'", enc.pokemon_name);
+        }
+    }
+}
+
+#[test]
+fn home_missing_default_dex_works() {
+    let conn = open_test_db();
+    // This tests that the default dex value resolves (should be "national" now, not "home")
+    let resolved = queries::resolve_pokedex(&conn, "national");
+    assert!(resolved.is_ok());
+    assert!(resolved.unwrap().is_some(), "national dex should resolve");
+}
+
+#[test]
+fn empty_search_returns_error_not_success() {
+    let conn = open_test_db();
+    // Empty search should return empty results (validation at command layer)
+    let results = queries::search_species(&conn, "", 10).unwrap();
+    assert!(results.is_empty(), "Empty search should return no results");
+    let results = queries::search_species(&conn, "   ", 10).unwrap();
+    assert!(results.is_empty(), "Whitespace search should return no results");
+}

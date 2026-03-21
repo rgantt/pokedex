@@ -40,7 +40,7 @@ pub fn list(
             ).print()?;
         }
     }
-    let limit = limit.max(1);
+    let limit = super::validate_limit(limit)?;
     let (species, total) = queries::list_species(conn, type_filter, generation, category, limit, offset)?;
 
     let mut cmd_parts = vec!["pokedex pokemon list".to_string()];
@@ -330,7 +330,7 @@ pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Optio
         }
     }
 
-    let limit = limit.max(1);
+    let limit = super::validate_limit(limit)?;
     let (moves, total) = queries::get_pokemon_moves(conn, species_id, game, method, limit, offset)?;
 
     let mut cmd = format!("pokedex pokemon moves {name}");

@@ -52,9 +52,19 @@ pub fn add(
         Some(r) => r,
         None => {
             let all = queries::list_games(conn, false)?;
-            let suggestions: Vec<Action> = all.iter().map(|g| {
-                Action::new("did_you_mean", &format!("pokedex collection add --pokemon={species_name} --game={}{form_flag}", g.name))
-            }).collect();
+            let mut scored: Vec<_> = all.iter()
+                .map(|g| (strsim::jaro_winkler(&game.to_lowercase(), &g.name.to_lowercase()), g))
+                .filter(|(score, _)| *score > 0.6)
+                .collect();
+            scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            scored.truncate(5);
+            let suggestions: Vec<Action> = if scored.is_empty() {
+                vec![Action::new("list", "pokedex game list")]
+            } else {
+                scored.iter().map(|(_, g)| {
+                    Action::new("did_you_mean", &format!("pokedex collection add --pokemon={species_name} --game={}{form_flag}", g.name))
+                }).collect()
+            };
             let err = ErrorResponse::not_found(
                 &format!("No game named '{game}'"),
                 suggestions,
@@ -113,9 +123,13 @@ pub fn add(
         let form_names: Vec<String> = forms.iter()
             .filter_map(|f| f.form_name.clone())
             .collect();
+        let forms_msg = if form_names.is_empty() {
+            format!("{species_name} has no alternate forms")
+        } else {
+            format!("Available forms: {}", form_names.join(", "))
+        };
         let err = ErrorResponse::not_found(
-            &format!("No form '{}' for {}. Available forms: {}",
-                form.unwrap(), species_name, form_names.join(", ")),
+            &format!("No form '{}' for {species_name}. {forms_msg}", form.unwrap()),
             vec![Action::new("forms", &format!("pokedex pokemon forms {species_name}"))],
         );
         err.print()?;
@@ -448,7 +462,7 @@ pub fn list_entries(
         return Ok(());
     }
 
-    let limit = limit.max(1);
+    let limit = super::validate_limit(limit)?;
     let (entries, total) = queries::list_collection(conn, game, pokemon, shiny_only, in_home, status, limit, offset, sort)?;
 
     let mut actions = vec![

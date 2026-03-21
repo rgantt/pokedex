@@ -31,7 +31,7 @@ pub fn show(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &Outp
         }
     };
 
-    let limit = limit.max(1);
+    let limit = super::validate_limit(limit)?;
     let (entries, total) = queries::get_dex_entries(conn, pokedex_id, limit, offset)?;
 
     let mut actions = vec![
@@ -97,7 +97,7 @@ pub fn progress(
         }
     }
 
-    let limit = limit.max(1);
+    let limit = super::validate_limit(limit)?;
     let (progress, filtered_count) = queries::get_dex_progress(conn, pokedex_id, &dex_name, missing, caught, game, status, limit, offset)?;
 
     let mut cmd = format!("pokedex dex progress {dex}");

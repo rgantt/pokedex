@@ -55,7 +55,7 @@ pub fn missing(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &O
         }
     };
 
-    let limit = limit.max(1);
+    let limit = super::validate_limit(limit)?;
     let (entries, total) = queries::get_home_missing(conn, pokedex_id, limit, offset)?;
 
     let cmd = format!("pokedex home missing --dex={dex_name}");

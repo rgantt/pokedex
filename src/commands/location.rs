@@ -25,7 +25,7 @@ pub fn encounters(
         validate_game_filter(conn, g, &format!("pokedex location encounters {location}"))?;
     }
 
-    let limit = limit.max(1);
+    let limit = super::validate_limit(limit)?;
     let (encounters, total) = queries::get_location_encounters(conn, location, game, limit, offset)?;
 
     if encounters.is_empty() && total == 0 {

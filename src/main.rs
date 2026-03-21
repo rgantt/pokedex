@@ -4,10 +4,22 @@ use pokedex::cli::*;
 use pokedex::db;
 use pokedex::discover;
 use pokedex::commands;
-use pokedex::output::OutputFormat;
+use pokedex::output::{OutputFormat, ErrorResponse, Action};
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(e) => {
+            // Convert clap errors to JSON for agent consumption
+            let message = e.to_string().lines().next().unwrap_or("Invalid command").to_string();
+            let _ = ErrorResponse::not_found(
+                &message,
+                vec![Action::new("discover", "pokedex --discover"),
+                     Action::new("help", "pokedex --help")],
+            ).print();
+            unreachable!() // print() calls process::exit(1)
+        }
+    };
 
     if cli.discover {
         return discover::print_discovery();

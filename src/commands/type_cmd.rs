@@ -63,7 +63,7 @@ pub fn pokemon_of_type(conn: &Connection, type_name: &str, limit: u64, offset: u
         return Ok(());
     }
 
-    let limit = limit.max(1);
+    let limit = super::validate_limit(limit)?;
     let (species, total) = queries::list_species(conn, Some(type_name), None, None, limit, offset)?;
 
     let mut actions = vec![

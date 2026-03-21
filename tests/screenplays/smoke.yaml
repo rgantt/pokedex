@@ -1,3 +1,7 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
 name: "Smoke Test"
 persona: smoke
 description: "Basic sanity checks across all major commands"

@@ -155,6 +155,20 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
         }
     }
 
+    // Override generation with the form's introduction generation (if different from species)
+    if pokemon.to_lowercase() != species.name {
+        let form_gen: Option<i64> = conn.query_row(
+            "SELECT vg.generation_id FROM pokemon_forms pf \
+             JOIN version_groups vg ON vg.id = pf.introduced_in_version_group_id \
+             WHERE LOWER(pf.name) = LOWER(?1)",
+            rusqlite::params![pokemon],
+            |row| row.get(0),
+        ).ok();
+        if let Some(form_generation) = form_gen {
+            species.generation = form_generation;
+        }
+    }
+
     // For form-specific commands (stats, encounters, moves), preserve the form name in actions
     // so agents stay in form context. Species-level commands use the base species name.
     let form_action_name = if pokemon.to_lowercase() != species.name {

@@ -465,10 +465,16 @@ fn seed_pokemon_types(tx: &rusqlite::Transaction, csvs: &HashMap<String, CsvData
 
 fn seed_pokemon_forms(tx: &rusqlite::Transaction, csvs: &HashMap<String, CsvData>) -> Result<()> {
     let data = get_csv(csvs, "pokemon_forms.csv")?;
+    // Add introduced_in_version_group_id column if missing
+    match tx.execute_batch("ALTER TABLE pokemon_forms ADD COLUMN introduced_in_version_group_id INTEGER;") {
+        Ok(()) => {}
+        Err(e) if e.to_string().contains("duplicate column") => {}
+        Err(e) => return Err(e.into()),
+    }
     let mut stmt = tx.prepare(
         "INSERT OR IGNORE INTO pokemon_forms (id, pokemon_id, name, form_name, \
-         is_default, is_battle_only, is_mega, form_order) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
+         is_default, is_battle_only, is_mega, form_order, introduced_in_version_group_id) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
     )?;
     let mut count = 0;
     for row in data {
@@ -481,6 +487,7 @@ fn seed_pokemon_forms(tx: &rusqlite::Transaction, csvs: &HashMap<String, CsvData
             int(row, "is_battle_only"),
             int(row, "is_mega"),
             int(row, "form_order"),
+            opt_int(row, "introduced_in_version_group_id"),
         ])?;
         count += 1;
     }

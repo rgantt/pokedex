@@ -1,0 +1,7 @@
+id,identifier,generation_id,type_id,power,pp,accuracy,priority,target_id,damage_class_id,effect_id,effect_chance,contest_type_id,contest_effect_id,super_contest_effect_id
+1,pound,1,1,40,35,100,0,10,2,1,,5,1,5
+33,tackle,1,1,40,35,100,0,10,2,1,,5,1,5
+85,thunderbolt,1,13,90,15,100,0,10,3,1,,1,1,1
+53,ember,1,10,40,25,100,0,10,3,1,,1,1,1
+22,vine-whip,1,12,45,25,100,0,10,2,1,,1,1,1
+84,thunder-shock,1,13,40,30,100,0,10,3,1,,1,1,1

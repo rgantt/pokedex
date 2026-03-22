@@ -1,0 +1,4 @@
+move_damage_class_id,local_language_id,name,description
+1,9,status,
+2,9,physical,
+3,9,special,

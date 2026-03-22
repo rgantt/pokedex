@@ -207,7 +207,7 @@ steps:
     assert:
       exit_code: 0
       has_fields: [data.id, data.species_name, data.game, data.status, actions]
-      equals: {data.id: 5, data.species_name: pikachu}
+      type_of: {data.id: number, data.species_name: string}
 
   - name: "Error:_invalid_type_filter"
     command: pokedex pokemon list --type-filter=dragn

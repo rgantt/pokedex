@@ -3,6 +3,11 @@
 [![Coverage](https://github.com/rgantt/pokedex/actions/workflows/coverage.yml/badge.svg)](https://github.com/rgantt/pokedex/actions/workflows/coverage.yml)
 [![codecov](https://codecov.io/gh/rgantt/pokedex/graph/badge.svg)](https://codecov.io/gh/rgantt/pokedex)
 
+> **TODO — Activate Codecov badge:**
+> 1. Sign in at [codecov.io](https://codecov.io) with GitHub
+> 2. Add the `rgantt/pokedex` repo
+> 3. Copy the upload token → add as repo secret `CODECOV_TOKEN` (Settings > Secrets > Actions)
+
 A SQLite-backed CLI for tracking your Pokémon collection across HOME-compatible games. Designed to be used by AI agents — every command outputs structured JSON with navigable action links, so an agent can discover and traverse the entire command tree without documentation.
 
 ## Quick Start

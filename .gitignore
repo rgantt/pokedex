@@ -2,3 +2,5 @@
 __pycache__/
 .claude/projects/
 .claude/settings.local.json
+*.profraw
+coverage.lcov

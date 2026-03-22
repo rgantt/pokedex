@@ -1,0 +1,15 @@
+id,identifier,pokemon_id,introduced_in_version_group_id,is_default,is_battle_only,is_mega,form_order,order
+1,bulbasaur,1,,1,0,0,1,1
+2,ivysaur,2,,1,0,0,1,2
+3,venusaur,3,,1,0,0,1,3
+4,charmander,4,,1,0,0,1,5
+25,pikachu,25,,1,0,0,1,35
+26,raichu,26,,1,0,0,1,36
+58,growlithe,58,,1,0,0,1,74
+92,gastly,92,,1,0,0,1,114
+93,haunter,93,,1,0,0,1,115
+94,gengar,94,,1,0,0,1,116
+172,pichu,172,,1,0,0,1,26
+629,vullaby,629,,1,0,0,1,135
+627,rufflet,627,,1,0,0,1,133
+10229,growlithe-hisui,10229,,0,0,0,2,74

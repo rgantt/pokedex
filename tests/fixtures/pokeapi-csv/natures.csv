@@ -1,0 +1,6 @@
+id,identifier,decreased_stat_id,increased_stat_id,hates_flavor_id,likes_flavor_id,game_index
+1,hardy,2,2,,,0
+2,lonely,3,2,,,1
+3,brave,6,2,,,2
+4,adamant,4,2,,,3
+5,naughty,5,2,,,4

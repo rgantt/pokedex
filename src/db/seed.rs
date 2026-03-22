@@ -247,7 +247,7 @@ pub fn drop_reference_data(conn: &Connection) -> Result<()> {
     let tables = [
         "encounter_condition_value_map", "encounter_condition_value_names",
         "encounter_condition_values", "encounter_condition_names", "encounters",
-        "encounter_slots", "encounter_methods", "location_area_prose", "location_areas",
+        "encounter_slots", "encounter_methods", "location_areas",
         "location_names", "locations", "pokemon_species_flavor_text",
         "move_flavor_text", "ability_flavor_text", "item_flavor_text",
         "move_meta_stat_changes", "move_meta", "move_flags", "move_flag_types",

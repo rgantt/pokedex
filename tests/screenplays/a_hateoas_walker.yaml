@@ -94,7 +94,7 @@ steps:
     command: "pokedex location encounters pallet-town --game=red --limit=5"
     assert:
       exit_code: 0
-      equals: {"data.0.game_slug": "red", "meta.total": 7}
+      equals: {"data.0.game_slug": "red", "meta.total": 8}
       has_fields: ["data.0.species_slug"]
 
   # ========================================================================

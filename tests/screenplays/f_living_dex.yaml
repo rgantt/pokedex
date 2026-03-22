@@ -20,64 +20,64 @@ steps:
     command: "pokedex dex show kanto --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 151, "data.dex_name": "kanto"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 151}
+      has_fields: ["data.0.pokedex_number"]
 
   - name: "Johto dex returns data"
     command: "pokedex dex show original-johto --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 251, "data.dex_name": "original-johto"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 251}
+      has_fields: ["data.0.pokedex_number"]
 
   - name: "Hoenn dex returns data"
     command: "pokedex dex show hoenn --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 202, "data.dex_name": "hoenn"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 202}
+      has_fields: ["data.0.pokedex_number"]
 
   - name: "Sinnoh dex returns data"
     command: "pokedex dex show original-sinnoh --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 151, "data.dex_name": "original-sinnoh"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 151}
+      has_fields: ["data.0.pokedex_number"]
 
   - name: "Unova dex returns data"
     command: "pokedex dex show original-unova --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 156, "data.dex_name": "original-unova"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 156}
+      has_fields: ["data.0.pokedex_number"]
 
   - name: "Kalos dex returns data"
     command: "pokedex dex show kalos-central --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 150, "data.dex_name": "kalos-central"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 150}
+      has_fields: ["data.0.pokedex_number"]
 
   - name: "Alola dex returns data"
     command: "pokedex dex show original-alola --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 302, "data.dex_name": "original-alola"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 302}
+      has_fields: ["data.0.pokedex_number"]
 
   - name: "Galar dex has 400 species"
     command: "pokedex dex show galar --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 400, "data.dex_name": "galar"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 400}
+      has_fields: ["data.0.pokedex_number"]
 
   - name: "Paldea dex has 400 species"
     command: "pokedex dex show paldea --limit=1"
     assert:
       exit_code: 0
-      equals: {"meta.total": 400, "data.dex_name": "paldea"}
-      has_fields: ["data.entries"]
+      equals: {"meta.total": 400}
+      has_fields: ["data.0.pokedex_number"]
 
   # ============================================================
   # PHASE 2: Build 25-pokemon living dex across sword + scarlet

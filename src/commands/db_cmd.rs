@@ -7,6 +7,25 @@ use crate::db::seed;
 use crate::output::*;
 use serde::Serialize;
 
+/// What the seed command should do, determined by current DB state and flags.
+#[derive(Debug, PartialEq)]
+pub enum SeedAction {
+    AlreadySeeded,
+    Reseed,
+    FreshSeed,
+}
+
+/// Pure decision logic — testable without DB or I/O.
+pub fn seed_decision(is_seeded: bool, refresh: bool) -> SeedAction {
+    if is_seeded && !refresh {
+        SeedAction::AlreadySeeded
+    } else if is_seeded && refresh {
+        SeedAction::Reseed
+    } else {
+        SeedAction::FreshSeed
+    }
+}
+
 pub fn seed_cmd(
     conn: &mut Connection,
     from: Option<&str>,
@@ -14,7 +33,9 @@ pub fn seed_cmd(
     keep_cache: bool,
     format: &OutputFormat,
 ) -> Result<()> {
-    if db::is_seeded(conn)? && !refresh {
+    let action = seed_decision(db::is_seeded(conn)?, refresh);
+
+    if action == SeedAction::AlreadySeeded {
         #[derive(Serialize)]
         struct AlreadySeeded { seeded: bool, message: String }
 
@@ -32,7 +53,7 @@ pub fn seed_cmd(
         return response.print(format);
     }
 
-    if refresh && db::is_seeded(conn)? {
+    if action == SeedAction::Reseed {
         eprintln!("Dropping reference data for reseed...");
         seed::drop_reference_data(conn)?;
     }

@@ -93,7 +93,6 @@ pub fn progress(
                 &format!("Invalid status '{s}'. Valid values: {}", VALID_STATUSES.join(", ")),
                 suggestions,
             ).print()?;
-            return Ok(());
         }
     }
 

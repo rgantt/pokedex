@@ -87,26 +87,8 @@ pub fn resolve_pokemon(conn: &Connection, identifier: &str) -> Result<Option<(i6
         Err(e) => return Err(e.into()),
     }
 
-    // Try regional form aliases: if name has a regional suffix (-alola, -galar, -hisui, -paldea),
-    // look up the base species and check if a form with that region exists
-    let regional_suffixes = ["-alola", "-galar", "-hisui", "-paldea"];
-    for suffix in &regional_suffixes {
-        if let Some(base) = name.strip_suffix(suffix) {
-            let region = &suffix[1..]; // strip leading '-'
-            let regional_result = conn.query_row(
-                "SELECT s.id, s.name FROM species s \
-                 JOIN pokemon p ON p.species_id = s.id \
-                 JOIN pokemon_forms pf ON pf.pokemon_id = p.id \
-                 WHERE LOWER(s.name) = LOWER(?1) \
-                 AND (LOWER(pf.form_name) = LOWER(?2) OR LOWER(pf.name) LIKE '%' || LOWER(?2))",
-                params![base, region],
-                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
-            );
-            if let Ok(r) = regional_result {
-                return Ok(Some(r));
-            }
-        }
-    }
+    // Regional forms (e.g., growlithe-hisui) are already handled by the pokemon table
+    // lookup above (lines 64-68), since they have their own pokemon.name entries.
 
     Ok(None)
 }
@@ -144,25 +126,8 @@ pub fn resolve_form_pokemon_id(conn: &Connection, identifier: &str) -> Result<Op
         Err(e) => return Err(e.into()),
     }
 
-    // Try regional form aliases
-    let regional_suffixes = ["-alola", "-galar", "-hisui", "-paldea"];
-    for suffix in &regional_suffixes {
-        if let Some(base) = name.strip_suffix(suffix) {
-            let region = &suffix[1..];
-            let regional_result = conn.query_row(
-                "SELECT p.id, p.is_default FROM pokemon p \
-                 JOIN species s ON s.id = p.species_id \
-                 JOIN pokemon_forms pf ON pf.pokemon_id = p.id \
-                 WHERE LOWER(s.name) = LOWER(?1) \
-                 AND (LOWER(pf.form_name) = LOWER(?2) OR LOWER(pf.name) LIKE '%' || LOWER(?2))",
-                params![base, region],
-                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
-            );
-            if let Ok((pokemon_id, is_default)) = regional_result {
-                if is_default == 1 { return Ok(None); } else { return Ok(Some(pokemon_id)); }
-            }
-        }
-    }
+    // Regional forms (e.g., growlithe-hisui) are already handled by the pokemon table
+    // lookup above, since they have their own pokemon.name entries.
 
     Ok(None)
 }

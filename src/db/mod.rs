@@ -9,10 +9,18 @@ use rusqlite_migration::{Migrations, M};
 use std::path::PathBuf;
 
 pub fn db_path() -> PathBuf {
-    if let Ok(path) = std::env::var("POKEDEX_DB_PATH") {
+    resolve_db_path(
+        std::env::var("POKEDEX_DB_PATH").ok().as_deref(),
+        std::env::var("HOME").ok().as_deref(),
+    )
+}
+
+/// Pure path resolution — testable without env var side effects.
+pub fn resolve_db_path(env_path: Option<&str>, home: Option<&str>) -> PathBuf {
+    if let Some(path) = env_path {
         PathBuf::from(path)
     } else {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let home = home.unwrap_or(".");
         PathBuf::from(home).join(".pokedex").join("db.sqlite")
     }
 }

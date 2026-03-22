@@ -49,7 +49,7 @@ Each agent gets this preamble prepended to its persona description:
 
 > You are testing the `pokedex` CLI tool. Run commands, check outputs carefully, and report ALL issues you find. For every error response, check: exit code (should be 1), valid JSON, at least one recovery action. For every success response, verify: data accuracy, HATEOAS actions present, no malformed JSON. Be thorough.
 >
-> **SCREENPLAY RECORDING**: As you test, build a YAML screenplay of every command you run and the key assertions you check. At the END of your run, write this screenplay to `tests/screenplays/<persona_letter>_<persona_name>.yaml`. Use the schema documented below. Record 2-4 assertions per step — focus on INTENT (what should be true) not exact output matching.
+> **SCREENPLAY RECORDING**: As you test, build a YAML screenplay of every command you run and the key assertions you check. At the END of your run, write this screenplay to `tests/screenplays/<persona_letter>_<short_name>_<YYYYMMDD_HHMMSS>.yaml` (use the current UTC timestamp so each run produces a unique file). Do NOT overwrite existing screenplay files — every run adds a new file. Record 2-4 assertions per step — focus on INTENT (what should be true) not exact output matching.
 
 ## Screenplay Recording Schema
 
@@ -119,8 +119,8 @@ After ALL agents complete:
 3. Note which issues are NEW vs previously seen in earlier rounds
 4. List what's VERIFIED WORKING across all testers
 5. For each issue: fix it, add to known_issues.md, or explain why it's unfixable
-6. **Collect all screenplay YAML files from agents and commit them to `tests/screenplays/`**
-7. Run `cargo test --test run_screenplays` to verify all screenplays pass
+6. **Each agent writes a uniquely-named screenplay file** — they accumulate over time, never overwrite
+7. Run `cargo test --test run_screenplays` to verify all screenplays pass (runner picks up all `*.yaml` in `tests/screenplays/`)
 
 ## Convergence Tracking
 

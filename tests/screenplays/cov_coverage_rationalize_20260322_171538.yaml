@@ -1,0 +1,308 @@
+name: Coverage Rationalizer
+persona: COV
+description: Cover missed lines through realistic game scenarios
+needs_seed: true
+mutates_collection: true
+
+steps:
+  - name: Evolutions misspelling falls through to empty suggestions
+    command: pokedex pokemon evolutions xyzz
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Forms misspelling returns not-found with search action
+    command: pokedex pokemon forms xyzz
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Encounters misspelling returns not-found
+    command: pokedex pokemon encounters xyzz
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Moves misspelling returns not-found
+    command: pokedex pokemon moves xyzz
+    assert:
+      exit_code: 1
+      has_fields: [error.code]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Stats misspelling returns not-found
+    command: pokedex pokemon stats xyzz
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Search with no match returns empty results
+    command: pokedex pokemon search zzzzzzzzz
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+
+  - name: Show cosmetic form vivillon-polar gets display name
+    command: pokedex pokemon show vivillon-polar
+    assert:
+      exit_code: 0
+      has_fields: [data.display_name, data.types]
+      equals: {data.display_name: Polar Vivillon}
+
+  - name: Stats for regional form growlithe-hisui
+    command: pokedex pokemon stats growlithe-hisui
+    assert:
+      exit_code: 0
+      has_fields: [data.hp, data.attack, data.total]
+      equals: {data.pokemon_name: Hisuian Growlithe}
+
+  - name: Game show for unknown game gives not-found
+    command: pokedex game show xyzzy
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Game show for pre-HOME game red
+    command: pokedex game show red
+    assert:
+      exit_code: 0
+      has_fields: [data.name, data.connects_to_home, data.generation]
+      equals: {data.connects_to_home: false}
+
+  - name: Collection add with invalid form
+    command: pokedex collection add --pokemon=pikachu --game=scarlet --form=nonexistent --dry-run
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Collection add with --in-home on pre-HOME game warns
+    command: pokedex collection add --pokemon=pikachu --game=red --in-home --dry-run
+    assert:
+      exit_code: 0
+      has_fields: [data.warning, data.in_home]
+      equals: {data.in_home: true}
+
+  - name: Collection add with --alpha on non-legends game warns
+    command: pokedex collection add --pokemon=pikachu --game=scarlet --alpha --dry-run
+    assert:
+      exit_code: 0
+      has_fields: [data.warning, data.is_alpha]
+      equals: {data.is_alpha: true}
+
+  - name: "All three warnings combined: encounter + alpha + in-home"
+    command: pokedex collection add --pokemon=chikorita --game=red --alpha --in-home --dry-run
+    assert:
+      exit_code: 0
+      has_fields: [data.warning, data.is_alpha, data.in_home]
+
+  - name: Encounter + alpha warnings on HOME game
+    command: pokedex collection add --pokemon=mewtwo --game=scarlet --alpha --dry-run
+    assert:
+      exit_code: 0
+      has_fields: [data.warning]
+
+  - name: Encounter + home warnings without alpha
+    command: pokedex collection add --pokemon=chikorita --game=red --in-home --dry-run
+    assert:
+      exit_code: 0
+      has_fields: [data.warning]
+
+  - name: Alpha + home warnings without encounter warning
+    command: pokedex collection add --pokemon=pikachu --game=red --alpha --in-home --dry-run
+    assert:
+      exit_code: 0
+      has_fields: [data.warning]
+
+  - name: Collection list with offset past total
+    command: pokedex collection list --offset=99999
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+
+  - name: Type pokemon with offset shows prev_page
+    command: pokedex type pokemon fire --offset=20 --limit=10
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+
+  - name: Encounters with invalid game gives fuzzy suggestions
+    command: pokedex pokemon encounters pikachu --game=xyzzy
+    assert:
+      exit_code: 1
+      has_fields: [error.code]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Close misspelling on evolutions gives did_you_mean
+    command: pokedex pokemon evolutions pikach
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Close misspelling on forms gives did_you_mean
+    command: pokedex pokemon forms pikach
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Close misspelling on encounters gives did_you_mean
+    command: pokedex pokemon encounters pikach
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Close misspelling on moves gives did_you_mean
+    command: pokedex pokemon moves pikach
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Close misspelling on stats gives did_you_mean
+    command: pokedex pokemon stats pikach
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Game show close misspelling gives fuzzy suggestions
+    command: pokedex game show scarleet
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Dex progress with invalid status
+    command: pokedex dex progress national --status=invalid
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+
+  - name: Close game misspelling on encounters gives fuzzy did_you_mean
+    command: pokedex pokemon encounters pikachu --game=scarleet
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: Add bulbasaur to collection
+    command: pokedex collection add --pokemon=bulbasaur --game=scarlet --status=caught
+    capture: {added_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game]
+
+  - name: Update collection entry status
+    command: pokedex collection update $added_id --status=living_dex
+    assert:
+      exit_code: 0
+      has_fields: [data.status]
+      equals: {data.status: living_dex}
+
+  - name: Show collection entry by ID
+    command: pokedex collection show $added_id
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.status]
+      equals: {data.status: living_dex}
+
+  - name: Remove collection entry
+    command: pokedex collection remove $added_id
+    assert:
+      exit_code: 0
+      has_fields: [data.removed]
+
+  - name: Collection stats shows summary
+    command: pokedex collection stats
+    assert:
+      exit_code: 0
+      has_fields: [data.total_entries, data.unique_species]
+      type_of: {data.total_entries: number}
+
+  - name: Collection stats filtered by game
+    command: pokedex collection stats --game=scarlet
+    assert:
+      exit_code: 0
+      has_fields: [data.total_entries, data.unique_species]
+
+  - name: Home status shows in-home summary
+    command: pokedex home status
+    assert:
+      exit_code: 0
+      has_fields: [data.total_in_home, data.unique_species_in_home, data.shiny_in_home]
+
+  - name: Home transferable shows games for pikachu
+    command: pokedex home transferable pikachu
+    assert:
+      exit_code: 0
+      has_fields: [data]
+
+  - name: Home missing shows species not in home
+    command: pokedex home missing --limit=5
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+
+  - name: Home coverage shows national dex progress
+    command: pokedex home coverage
+    assert:
+      exit_code: 0
+      has_fields: [data.dex_name, data.total, data.caught, data.percentage]
+      equals: {data.dex_name: national}
+
+  - name: Collection list filtered by pokemon
+    command: pokedex collection list --pokemon=pikachu
+    assert:
+      exit_code: 0
+      has_fields: [data, meta]
+
+  - name: Collection list shiny only
+    command: pokedex collection list --shiny-only
+    assert:
+      exit_code: 0
+      has_fields: [data, meta]
+
+  - name: Collection list in-home only
+    command: pokedex collection list --in-home
+    assert:
+      exit_code: 0
+      has_fields: [data, meta]
+
+  - name: Collection list by status
+    command: pokedex collection list --status=caught
+    assert:
+      exit_code: 0
+      has_fields: [data, meta]
+
+  - name: Collection list sorted by dex
+    command: pokedex collection list --sort=dex --limit=5
+    assert:
+      exit_code: 0
+      has_fields: [data, meta]
+
+  - name: Encounters filtered by game
+    command: pokedex pokemon encounters pikachu --game=red
+    assert:
+      exit_code: 0
+      has_fields: [data]
+
+  - name: Moves filtered by method
+    command: pokedex pokemon moves pikachu --method=level-up --limit=5
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+
+  - name: Game list home-compatible only
+    command: pokedex game list --home-compatible
+    assert:
+      exit_code: 0
+      has_fields: [data]

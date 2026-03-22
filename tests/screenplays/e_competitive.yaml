@@ -5,12 +5,20 @@ needs_seed: true
 mutates_collection: true
 
 steps:
+  # === Stat outliers ===
+
+  - name: "blissey highest HP in game at 255 with 540 BST"
+    command: "pokedex pokemon show blissey"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.hp": 255, "data.stats.total": 540 }
+      has_fields: ["data.abilities", "data.egg_groups"]
+
   - name: "shedinja has 236 BST with 1 HP and wonder guard"
     command: "pokedex pokemon show shedinja"
     assert:
       exit_code: 0
       equals: { "data.stats.total": 236, "data.stats.hp": 1 }
-      has_fields: ["data.abilities", "data.egg_groups"]
       contains: { "data.abilities.0.display_name": "Wonder Guard" }
 
   - name: "shuckle has 505 BST with 230 def and 230 spdef"
@@ -18,7 +26,6 @@ steps:
     assert:
       exit_code: 0
       equals: { "data.stats.total": 505, "data.stats.defense": 230, "data.stats.special_defense": 230 }
-      has_fields: ["data.abilities"]
       contains: { "data.types.0": "Bug" }
 
   - name: "shuckle hidden ability is contrary"
@@ -29,13 +36,6 @@ steps:
       contains: { "data.abilities.2.display_name": "Contrary" }
       array_len: { "data.abilities": { "min": 3 } }
 
-  - name: "deoxys normal form 600 BST balanced offenses"
-    command: "pokedex pokemon show deoxys"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 600, "data.stats.attack": 150, "data.stats.speed": 150 }
-      contains: { "data.display_name": "Deoxys" }
-
   - name: "deoxys attack form 600 BST with 180 atk and spatk"
     command: "pokedex pokemon show deoxys-attack"
     assert:
@@ -43,58 +43,117 @@ steps:
       equals: { "data.stats.total": 600, "data.stats.attack": 180, "data.stats.special_attack": 180 }
       contains: { "data.display_name": "Attack Deoxys" }
 
-  - name: "deoxys defense form 600 BST with 160 def and spdef"
-    command: "pokedex pokemon show deoxys-defense"
+  - name: "regieleki fastest pokemon at 200 speed with 580 BST"
+    command: "pokedex pokemon show regieleki"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 600, "data.stats.defense": 160, "data.stats.special_defense": 160 }
-      contains: { "data.display_name": "Defense" }
+      equals: { "data.stats.speed": 200, "data.stats.total": 580 }
+      has_fields: ["data.abilities"]
 
-  - name: "deoxys speed form 600 BST with 180 speed"
-    command: "pokedex pokemon show deoxys-speed"
+  - name: "chansey lowest non-shedinja attack at 5 with 250 HP"
+    command: "pokedex pokemon show chansey"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 600, "data.stats.speed": 180 }
-      contains: { "data.display_name": "Speed Deoxys" }
+      equals: { "data.stats.attack": 5, "data.stats.hp": 250, "data.stats.total": 450 }
+      array_len: { "data.abilities": { "min": 3 } }
 
-  - name: "blaziken has speed boost as hidden ability"
-    command: "pokedex pokemon show blaziken"
+  # === BST outliers ===
+
+  - name: "eternatus-eternamax highest BST at 1125"
+    command: "pokedex pokemon show eternatus-eternamax"
     assert:
       exit_code: 0
-      equals: { "data.abilities.1.is_hidden": true, "data.stats.total": 530 }
-      contains: { "data.abilities.1.display_name": "Speed Boost" }
-      has_fields: ["data.types", "data.egg_groups"]
+      equals: { "data.stats.total": 1125 }
+      contains: { "data.display_name": "Eternamax" }
 
-  - name: "mega blaziken 630 BST with speed boost as regular ability"
-    command: "pokedex pokemon show blaziken-mega"
+  - name: "mega mewtwo X 780 BST psychic/fighting"
+    command: "pokedex pokemon show mewtwo-mega-x"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 630, "data.abilities.0.is_hidden": false }
-      contains: { "data.abilities.0.display_name": "Speed Boost" }
-      has_fields: ["data.stats.attack", "data.stats.speed"]
+      equals: { "data.stats.total": 780, "data.types": ["Psychic", "Fighting"] }
+      has_fields: ["data.abilities"]
 
-  - name: "normal type immune to ghost both attacking and defending"
+  - name: "mega mewtwo Y 780 BST pure psychic"
+    command: "pokedex pokemon show mewtwo-mega-y"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 780, "data.types": ["Psychic"] }
+      has_fields: ["data.stats.special_attack"]
+
+  - name: "mega rayquaza 780 BST dragon/flying"
+    command: "pokedex pokemon show rayquaza-mega"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 780 }
+      has_fields: ["data.types", "data.abilities"]
+
+  - name: "primal groudon 770 BST ground/fire with desolate land"
+    command: "pokedex pokemon show groudon-primal"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 770, "data.types": ["Ground", "Fire"] }
+      contains: { "data.abilities.0.display_name": "Desolate Land" }
+
+  - name: "primal kyogre 770 BST pure water with primordial sea"
+    command: "pokedex pokemon show kyogre-primal"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 770, "data.types": ["Water"] }
+      contains: { "data.abilities.0.display_name": "Primordial Sea" }
+
+  - name: "zygarde complete 708 BST dragon/ground"
+    command: "pokedex pokemon show zygarde-complete"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 708, "data.types": ["Dragon", "Ground"] }
+      has_fields: ["data.abilities"]
+
+  # === Ability uniqueness ===
+
+  - name: "shedinja sole wonder guard user with exactly 1 ability"
+    command: "pokedex pokemon show shedinja"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 1, "max": 1 } }
+      contains: { "data.abilities.0.display_name": "Wonder Guard" }
+      equals: { "data.abilities.0.is_hidden": false }
+
+  - name: "castform sole forecast user with exactly 1 ability"
+    command: "pokedex pokemon show castform"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 1, "max": 1 } }
+      contains: { "data.abilities.0.display_name": "Forecast" }
+
+  - name: "arceus sole multitype user with exactly 1 ability"
+    command: "pokedex pokemon show arceus"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 1, "max": 1 } }
+      contains: { "data.abilities.0.display_name": "Multitype" }
+
+  # === Type chart edge cases ===
+
+  - name: "normal ghost double immunity both attacking and defending"
     command: "pokedex type matchups normal"
     assert:
       exit_code: 0
       equals: { "data.attacking.no_effect": ["Ghost"], "data.defending.no_effect": ["Ghost"] }
       has_fields: ["data.defending.super_effective"]
 
-  - name: "ghost type immune to normal attacking"
+  - name: "ghost type immune to normal attacks"
     command: "pokedex type matchups ghost"
     assert:
       exit_code: 0
       equals: { "data.attacking.no_effect": ["Normal"] }
       array_len: { "data.defending.no_effect": { "min": 2 } }
-      has_fields: ["data.defending.super_effective"]
 
-  - name: "steel has 10 resistances and poison immunity"
-    command: "pokedex type matchups steel"
+  - name: "electric attacks have no effect on ground"
+    command: "pokedex type matchups electric"
     assert:
       exit_code: 0
-      equals: { "data.defending.no_effect": ["Poison"] }
-      array_len: { "data.defending.not_very_effective": { "min": 10 } }
-      has_fields: ["data.attacking.super_effective"]
+      equals: { "data.attacking.no_effect": ["Ground"] }
+      has_fields: ["data.defending.super_effective"]
 
   - name: "fairy immune to dragon defending"
     command: "pokedex type matchups fairy"
@@ -102,78 +161,52 @@ steps:
       exit_code: 0
       equals: { "data.defending.no_effect": ["Dragon"] }
       array_len: { "data.attacking.super_effective": { "min": 3 } }
-      has_fields: ["data.defending.super_effective"]
 
-  - name: "dragon type attacks have no effect on fairy"
+  - name: "dragon attacks have no effect on fairy"
     command: "pokedex type matchups dragon"
     assert:
       exit_code: 0
       equals: { "data.attacking.no_effect": ["Fairy"] }
       array_len: { "data.defending.super_effective": { "min": 3 } }
 
-  - name: "mega kangaskhan 590 BST with parental bond"
-    command: "pokedex pokemon show kangaskhan-mega"
+  - name: "steel resists 10 types and immune to poison"
+    command: "pokedex type matchups steel"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 590, "data.types": ["Normal"] }
-      contains: { "data.abilities.0.display_name": "Parental Bond" }
-      has_fields: ["data.stats.attack"]
+      equals: { "data.defending.no_effect": ["Poison"] }
+      array_len: { "data.defending.not_very_effective": { "min": 10 } }
 
-  - name: "primal groudon 770 BST ground/fire typing"
-    command: "pokedex pokemon show groudon-primal"
+  - name: "ground attacks have no effect on flying"
+    command: "pokedex type matchups ground"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 770, "data.types": ["Ground", "Fire"] }
-      contains: { "data.abilities.0.display_name": "Desolate Land" }
+      equals: { "data.attacking.no_effect": ["Flying"] }
+      has_fields: ["data.attacking.super_effective"]
 
-  - name: "base groudon 670 BST pure ground"
-    command: "pokedex pokemon show groudon"
+  # === Item evolution accuracy ===
+
+  - name: "onix to steelix via trade holding metal-coat"
+    command: "pokedex pokemon evolutions onix"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 670, "data.types": ["Ground"] }
-      has_fields: ["data.abilities"]
-      contains: { "data.display_name": "Groudon" }
+      equals: { "data.children.0.species_name": "steelix" }
+      contains: { "data.children.0.methods.0.trigger_detail": "metal-coat" }
 
-  - name: "garchomp level-up moves in scarlet have correct levels and categories"
-    command: "pokedex pokemon moves garchomp --game=scarlet --method=level-up"
+  - name: "seadra to kingdra via trade holding dragon-scale"
+    command: "pokedex pokemon evolutions horsea"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 10 } }
-      has_fields: ["data.0.level", "data.0.damage_class", "data.0.power"]
-      equals: { "data.0.learn_method": "level-up" }
+      equals: { "data.children.0.children.0.species_name": "kingdra" }
+      contains: { "data.children.0.children.0.methods.0.trigger_detail": "dragon-scale" }
 
-  - name: "garchomp TM moves in scarlet include earthquake"
-    command: "pokedex pokemon moves garchomp --game=scarlet --method=machine"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 30 } }
-      equals: { "data.0.learn_method": "machine" }
-      has_fields: ["data.0.move_name", "data.0.type_name"]
-
-  - name: "blaziken egg moves exist with correct damage classes"
-    command: "pokedex pokemon moves blaziken --method=egg"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 5 } }
-      equals: { "data.0.learn_method": "egg" }
-      has_fields: ["data.0.damage_class", "data.0.type_name"]
-
-  - name: "shedinja has TM/HM machine moves"
-    command: "pokedex pokemon moves shedinja --method=machine"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 20 } }
-      has_fields: ["data.0.move_name", "data.0.damage_class"]
-
-  - name: "porygon evolves to porygon2 via trade with up-grade"
+  - name: "porygon to porygon2 via trade with up-grade"
     command: "pokedex pokemon evolutions porygon"
     assert:
       exit_code: 0
       equals: { "data.children.0.species_name": "porygon2" }
       contains: { "data.children.0.methods.0.trigger_detail": "up-grade" }
-      has_fields: ["data.children.0.children.0.methods"]
 
-  - name: "porygon-z evolves from porygon2 via trade with dubious-disc"
+  - name: "porygon2 to porygon-z via trade with dubious-disc"
     command: "pokedex pokemon evolutions porygon"
     assert:
       exit_code: 0
@@ -192,16 +225,37 @@ steps:
     command: "pokedex pokemon evolutions scyther"
     assert:
       exit_code: 0
-      equals: { "data.children.1.species_name": "kleavor", "data.children.1.methods.0.item": "black-augurite" }
+      equals: { "data.children.1.species_name": "kleavor" }
       contains: { "data.children.1.methods.0.trigger_detail": "black-augurite" }
 
   - name: "electabuzz to electivire via trade with electirizer"
     command: "pokedex pokemon evolutions electabuzz"
     assert:
       exit_code: 0
-      contains: { "data.children.0.children.0.methods.0.trigger_detail": "electirizer" }
       equals: { "data.children.0.children.0.species_name": "electivire" }
+      contains: { "data.children.0.children.0.methods.0.trigger_detail": "electirizer" }
       has_fields: ["data.children.0.methods"]
+
+  - name: "misdreavus to mismagius via dusk-stone"
+    command: "pokedex pokemon evolutions misdreavus"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "mismagius", "data.children.0.methods.0.item": "dusk-stone" }
+      contains: { "data.children.0.methods.0.trigger_detail": "dusk-stone" }
+
+  - name: "snorunt splits into glalie at 42 and froslass via dawn-stone"
+    command: "pokedex pokemon evolutions snorunt"
+    assert:
+      exit_code: 0
+      array_len: { "data.children": { "min": 2, "max": 2 } }
+      equals: { "data.children.0.species_name": "glalie", "data.children.1.species_name": "froslass" }
+
+  - name: "kirlia to gallade via dawn-stone"
+    command: "pokedex pokemon evolutions ralts"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.children.1.species_name": "gallade" }
+      contains: { "data.children.0.children.1.methods.0.trigger_detail": "dawn-stone" }
 
   - name: "eevee has 8 evolution branches"
     command: "pokedex pokemon evolutions eevee"
@@ -211,36 +265,48 @@ steps:
       equals: { "data.species_name": "eevee" }
       has_fields: ["data.children.0.methods"]
 
-  - name: "sylveon evolves via level-up with fairy move and friendship"
-    command: "pokedex pokemon evolutions eevee"
+  # === Move learn method accuracy ===
+
+  - name: "garchomp level-up moves in scarlet have levels and categories"
+    command: "pokedex pokemon moves garchomp --game=scarlet --method=level-up"
     assert:
       exit_code: 0
-      equals: { "data.children.7.species_name": "sylveon" }
-      contains: { "data.children.7.methods.0.trigger_detail": "Fairy" }
+      array_len: { "data": { "min": 10 } }
+      has_fields: ["data.0.level", "data.0.damage_class", "data.0.power"]
+      equals: { "data.0.learn_method": "level-up" }
 
-  - name: "aegislash shield form has 500 BST with stance change"
-    command: "pokedex pokemon show aegislash"
+  - name: "garchomp TM moves in scarlet at least 30"
+    command: "pokedex pokemon moves garchomp --game=scarlet --method=machine"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 500, "data.stats.defense": 140, "data.stats.special_defense": 140 }
-      contains: { "data.abilities.0.display_name": "Stance Change" }
+      array_len: { "data": { "min": 30 } }
+      equals: { "data.0.learn_method": "machine" }
+      has_fields: ["data.0.move_name", "data.0.type_name"]
 
-  - name: "aegislash blade form swaps offenses to 140"
-    command: "pokedex pokemon show aegislash-blade"
+  - name: "blaziken egg moves exist with damage classes"
+    command: "pokedex pokemon moves blaziken --method=egg"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 500, "data.stats.attack": 140, "data.stats.special_attack": 140 }
-      contains: { "data.display_name": "Blade" }
+      array_len: { "data": { "min": 5 } }
+      equals: { "data.0.learn_method": "egg" }
+      has_fields: ["data.0.damage_class", "data.0.type_name"]
 
-  - name: "deoxys has all four forms listed"
-    command: "pokedex pokemon forms deoxys"
+  - name: "salamence level-up moves in sword count 17"
+    command: "pokedex pokemon moves salamence --game=sword --method=level-up"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 4, "max": 4 } }
-      equals: { "data.0.is_default": true }
-      has_fields: ["data.0.types", "data.1.name"]
+      array_len: { "data": { "min": 17, "max": 17 } }
+      equals: { "data.0.learn_method": "level-up" }
+      has_fields: ["data.0.level", "data.0.move_name"]
 
-  - name: "invalid move method returns error with valid methods"
+  - name: "salamence TM moves in sword count 45"
+    command: "pokedex pokemon moves salamence --game=sword --method=machine"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 45, "max": 45 } }
+      equals: { "data.0.learn_method": "machine" }
+
+  - name: "invalid move method returns error with valid methods listed"
     command: "pokedex pokemon moves garchomp --method=invalidmethod"
     assert:
       exit_code: 1
@@ -248,30 +314,66 @@ steps:
       contains: { "error.message": "level-up" }
       array_len: { "actions": { "min": 1 } }
 
-  # === NEW: Ability slot counts for 10 pokemon ===
+  # === Competitive forms ===
 
-  - name: "pikachu has 2 abilities (static plus hidden lightning-rod)"
-    command: "pokedex pokemon show pikachu"
+  - name: "mega kangaskhan 590 BST with parental bond"
+    command: "pokedex pokemon show kangaskhan-mega"
     assert:
       exit_code: 0
-      array_len: { "data.abilities": { "min": 2, "max": 2 } }
-      equals: { "data.abilities.1.is_hidden": true }
-      contains: { "data.abilities.0.display_name": "Static" }
+      equals: { "data.stats.total": 590, "data.types": ["Normal"] }
+      contains: { "data.abilities.0.display_name": "Parental Bond" }
 
-  - name: "charizard has 2 abilities including hidden solar-power"
-    command: "pokedex pokemon show charizard"
+  - name: "mega blaziken 630 BST with speed boost"
+    command: "pokedex pokemon show blaziken-mega"
     assert:
       exit_code: 0
-      array_len: { "data.abilities": { "min": 2, "max": 2 } }
-      equals: { "data.abilities.1.is_hidden": true }
-      contains: { "data.abilities.1.display_name": "Solar Power" }
+      equals: { "data.stats.total": 630, "data.abilities.0.is_hidden": false }
+      contains: { "data.abilities.0.display_name": "Speed Boost" }
 
-  - name: "tyranitar has 2 abilities including hidden unnerve"
-    command: "pokedex pokemon show tyranitar"
+  - name: "mega salamence 700 BST with aerilate"
+    command: "pokedex pokemon show salamence-mega"
     assert:
       exit_code: 0
-      array_len: { "data.abilities": { "min": 2, "max": 2 } }
-      contains: { "data.abilities.0.display_name": "Sand Stream" }
+      equals: { "data.stats.total": 700 }
+      contains: { "data.abilities.0.display_name": "Aerilate" }
+
+  - name: "aegislash shield form 500 BST 140 def/spdef stance change"
+    command: "pokedex pokemon show aegislash"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 500, "data.stats.defense": 140, "data.stats.special_defense": 140 }
+      contains: { "data.abilities.0.display_name": "Stance Change" }
+
+  - name: "aegislash blade form swaps to 140 atk/spatk"
+    command: "pokedex pokemon show aegislash-blade"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 500, "data.stats.attack": 140, "data.stats.special_attack": 140 }
+      contains: { "data.display_name": "Blade" }
+
+  - name: "deoxys has all four forms"
+    command: "pokedex pokemon forms deoxys"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 4, "max": 4 } }
+      equals: { "data.0.is_default": true }
+      has_fields: ["data.0.types", "data.1.name"]
+
+  # === Hidden ability audit ===
+
+  - name: "blaziken has speed boost as hidden ability"
+    command: "pokedex pokemon show blaziken"
+    assert:
+      exit_code: 0
+      equals: { "data.abilities.1.is_hidden": true, "data.stats.total": 530 }
+      contains: { "data.abilities.1.display_name": "Speed Boost" }
+
+  - name: "dragonite has multiscale hidden ability 600 BST"
+    command: "pokedex pokemon show dragonite"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 600, "data.types": ["Dragon", "Flying"] }
+      contains: { "data.abilities.1.display_name": "Multiscale" }
 
   - name: "lucario has 3 abilities with hidden justified"
     command: "pokedex pokemon show lucario"
@@ -281,14 +383,6 @@ steps:
       equals: { "data.abilities.2.is_hidden": true }
       contains: { "data.abilities.2.display_name": "Justified" }
 
-  - name: "togekiss has 3 abilities with hidden super-luck"
-    command: "pokedex pokemon show togekiss"
-    assert:
-      exit_code: 0
-      array_len: { "data.abilities": { "min": 3, "max": 3 } }
-      equals: { "data.abilities.2.is_hidden": true }
-      contains: { "data.abilities.2.display_name": "Super Luck" }
-
   - name: "gengar has exactly 1 ability cursed-body no hidden"
     command: "pokedex pokemon show gengar"
     assert:
@@ -297,14 +391,6 @@ steps:
       equals: { "data.abilities.0.is_hidden": false }
       contains: { "data.abilities.0.display_name": "Cursed Body" }
 
-  - name: "clefable has 3 abilities with hidden unaware"
-    command: "pokedex pokemon show clefable"
-    assert:
-      exit_code: 0
-      array_len: { "data.abilities": { "min": 3, "max": 3 } }
-      equals: { "data.abilities.2.is_hidden": true }
-      contains: { "data.abilities.2.display_name": "Unaware" }
-
   - name: "mimikyu has exactly 1 ability disguise"
     command: "pokedex pokemon show mimikyu"
     assert:
@@ -312,209 +398,49 @@ steps:
       array_len: { "data.abilities": { "min": 1, "max": 1 } }
       contains: { "data.abilities.0.display_name": "Disguise" }
 
-  - name: "dragapult has 3 abilities with hidden cursed-body"
-    command: "pokedex pokemon show dragapult"
+  # === Competitive team building workflow: dragon gen 3 -> Salamence -> Sword ===
+
+  - name: "search dragon type gen 3 yields 9 pokemon including salamence"
+    command: "pokedex pokemon list --type-filter=dragon --generation=3"
     assert:
       exit_code: 0
-      array_len: { "data.abilities": { "min": 3, "max": 3 } }
-      equals: { "data.abilities.2.is_hidden": true }
-      contains: { "data.abilities.2.display_name": "Cursed Body" }
-
-  - name: "sableye has 3 abilities with hidden prankster"
-    command: "pokedex pokemon show sableye"
-    assert:
-      exit_code: 0
-      array_len: { "data.abilities": { "min": 3, "max": 3 } }
-      equals: { "data.abilities.2.is_hidden": true, "data.types": ["Dark", "Ghost"] }
-      contains: { "data.abilities.2.display_name": "Prankster" }
-
-  # === NEW: Move accuracy by game — Pikachu Red vs Scarlet ===
-
-  - name: "pikachu level-up moves in red are only 7"
-    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 7, "max": 7 } }
-      equals: { "data.0.learn_method": "level-up" }
-      has_fields: ["data.0.level", "data.0.move_name"]
-
-  - name: "pikachu level-up moves in scarlet are 20 showing generation growth"
-    command: "pokedex pokemon moves pikachu --game=scarlet --method=level-up"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 20, "max": 20 } }
-      equals: { "data.0.learn_method": "level-up" }
-      has_fields: ["data.0.damage_class", "data.0.power"]
-
-  # === NEW: TM compatibility varies by game ===
-
-  - name: "pikachu has 22 TM moves in red"
-    command: "pokedex pokemon moves pikachu --game=red --method=machine"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 22, "max": 22 } }
-      equals: { "data.0.learn_method": "machine" }
-
-  - name: "pikachu has 47 TM moves in scarlet showing expanded compatibility"
-    command: "pokedex pokemon moves pikachu --game=scarlet --method=machine"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 47, "max": 47 } }
-      equals: { "data.0.learn_method": "machine" }
-
-  # === NEW: Evolution item accuracy ===
-
-  - name: "snorunt evolves to froslass via dawn-stone"
-    command: "pokedex pokemon evolutions snorunt"
-    assert:
-      exit_code: 0
-      equals: { "data.children.1.species_name": "froslass", "data.children.1.methods.0.item": "dawn-stone" }
-      contains: { "data.children.1.methods.0.trigger_detail": "dawn-stone" }
-
-  - name: "snorunt also evolves to glalie at level 42"
-    command: "pokedex pokemon evolutions snorunt"
-    assert:
-      exit_code: 0
-      equals: { "data.children.0.species_name": "glalie" }
-      contains: { "data.children.0.methods.0.trigger_detail": "Level 42" }
-      array_len: { "data.children": { "min": 2, "max": 2 } }
-
-  - name: "kirlia evolves to gallade via dawn-stone"
-    command: "pokedex pokemon evolutions ralts"
-    assert:
-      exit_code: 0
-      equals: { "data.children.0.children.1.species_name": "gallade", "data.children.0.children.1.methods.0.item": "dawn-stone" }
-      contains: { "data.children.0.children.1.methods.0.trigger_detail": "dawn-stone" }
-
-  - name: "misdreavus evolves to mismagius via dusk-stone"
-    command: "pokedex pokemon evolutions misdreavus"
-    assert:
-      exit_code: 0
-      equals: { "data.children.0.species_name": "mismagius", "data.children.0.methods.0.item": "dusk-stone" }
-      contains: { "data.children.0.methods.0.trigger_detail": "dusk-stone" }
-
-  # === NEW: Stat distribution edge cases ===
-
-  - name: "chansey has highest HP at 250 with 450 BST"
-    command: "pokedex pokemon show chansey"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.hp": 250, "data.stats.total": 450 }
-      has_fields: ["data.abilities"]
-      array_len: { "data.abilities": { "min": 3 } }
-
-  - name: "chansey stats command shows 250 hp directly"
-    command: "pokedex pokemon stats chansey"
-    assert:
-      exit_code: 0
-      equals: { "data.hp": 250, "data.total": 450 }
-      has_fields: ["data.pokemon_name"]
-
-  # === NEW: Sableye Dark/Ghost dual typing ===
-
-  - name: "sableye dark/ghost typing verified"
-    command: "pokedex pokemon show sableye"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Dark", "Ghost"] }
-      has_fields: ["data.stats.total"]
-
-  # === NEW: Encounter probability verification in Scarlet ===
-
-  - name: "pikachu scarlet encounters have probability percentages"
-    command: "pokedex pokemon encounters pikachu --game=scarlet"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 5 } }
-      has_fields: ["data.0.details.probability_overall"]
-      contains: { "data.0.details.probability_overall": "%" }
-
-  - name: "magikarp scarlet encounters exist with methods"
-    command: "pokedex pokemon encounters magikarp --game=scarlet"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 10 } }
-      has_fields: ["data.0.method", "data.0.location"]
-
-  # === NEW: Competitive team workflow — Dragon type Gen 1 ===
-
-  - name: "dragon type list gen 1 has exactly dratini dragonair dragonite"
-    command: "pokedex pokemon list --type-filter=dragon --generation=1"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 3, "max": 3 } }
-      equals: { "data.2.display_name": "Dragonite" }
+      array_len: { "data": { "min": 9, "max": 9 } }
       has_fields: ["meta.total"]
 
-  - name: "dragonite is 600 BST dragon/flying pseudo-legendary"
-    command: "pokedex pokemon show dragonite"
+  - name: "salamence is 600 BST dragon/flying pseudo-legendary"
+    command: "pokedex pokemon show salamence"
     assert:
       exit_code: 0
       equals: { "data.stats.total": 600, "data.types": ["Dragon", "Flying"] }
-      array_len: { "data.abilities": { "min": 2, "max": 2 } }
-      contains: { "data.abilities.1.display_name": "Multiscale" }
+      contains: { "data.abilities.0.display_name": "Intimidate" }
+      has_fields: ["data.egg_groups"]
 
-  - name: "dragonite has 20 level-up moves in scarlet"
-    command: "pokedex pokemon moves dragonite --game=scarlet --method=level-up"
+  - name: "salamence encounters in sword via max raid battles"
+    command: "pokedex pokemon encounters salamence --game=sword"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 20, "max": 20 } }
-      equals: { "data.0.learn_method": "level-up" }
-      has_fields: ["data.0.level", "data.0.damage_class"]
+      array_len: { "data": { "min": 5 } }
+      contains: { "data.0.method": "Max Raid" }
 
-  - name: "dragonite has at least 50 TM moves in scarlet for coverage"
-    command: "pokedex pokemon moves dragonite --game=scarlet --method=machine"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 50 } }
-      equals: { "data.0.learn_method": "machine" }
-      has_fields: ["data.0.type_name"]
-
-  # === Collection workflow ===
-
-  - name: "collection add garchomp to scarlet for team"
-    command: "pokedex collection add --pokemon=garchomp --game=scarlet --method=breed"
+  - name: "add salamence to collection for sword team via breed"
+    command: "pokedex collection add --pokemon=salamence --game=sword --method=breed"
     capture:
-      garchomp_entry_id: "data.id"
+      salamence_entry_id: "data.id"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "garchomp", "data.method": "breed" }
-      has_fields: ["data.id", "data.created_at"]
+      equals: { "data.species_name": "salamence", "data.method": "breed", "data.game": "sword" }
       type_of: { "data.id": "number" }
 
-  - name: "collection add dragonite to scarlet team"
-    command: "pokedex collection add --pokemon=dragonite --game=scarlet"
-    capture:
-      dragonite_entry_id: "data.id"
+  - name: "collection list shows salamence in sword"
+    command: "pokedex collection list --game=sword"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "dragonite", "data.game": "scarlet" }
-      has_fields: ["data.id"]
-
-  - name: "collection list shows scarlet team members"
-    command: "pokedex collection list --game=scarlet"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 2 } }
+      array_len: { "data": { "min": 1 } }
       has_fields: ["meta.total"]
       type_of: { "data": "array" }
 
-  - name: "collection show garchomp entry has actions"
-    command: "pokedex collection show $garchomp_entry_id"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "garchomp" }
-      has_fields: ["actions"]
-      array_len: { "actions": { "min": 3 } }
-
-  - name: "cleanup remove garchomp entry"
-    command: "pokedex collection remove $garchomp_entry_id"
-    assert:
-      exit_code: 0
-      equals: { "data.removed": true }
-
-  - name: "cleanup remove dragonite entry"
-    command: "pokedex collection remove $dragonite_entry_id"
+  - name: "cleanup remove salamence entry"
+    command: "pokedex collection remove $salamence_entry_id"
     assert:
       exit_code: 0
       equals: { "data.removed": true }

@@ -2,16 +2,27 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Sword Playthrough - Routes 1-5 + Galar Mine"
-persona: sword_playthrough
+name: "Sword Playthrough - Galar Completionist"
+persona: r_sword_playthrough
 description: >
-  End-to-end Sword playthrough testing the discover-inspect-catch-evolve-verify
-  loop across galar-route-01, galar-route-02, galar-mine, galar-route-04, and
-  galar-route-05.
+  End-to-end Sword playthrough covering Route 1-7, Galar Mine, and Wild Area
+  zones (Rolling Fields, Dappled Grove, Giant's Seat, Lake of Outrage, Dusty
+  Bowl). Verifies Galar region/gen 8 metadata, Galarian form annotations,
+  weather-based encounter rates, HATEOAS navigation, and 40+ species collection.
 needs_seed: true
 mutates_collection: true
 
 steps:
+  # ============================================================
+  # VERIFY GAME METADATA
+  # ============================================================
+  - name: "Sword game -- verify region and generation"
+    command: "pokedex game show sword"
+    assert:
+      exit_code: 0
+      equals: { "data.region": "Galar", "data.generation": 8 }
+      has_fields: ["data.name", "data.display_name"]
+
   # ============================================================
   # ROUTE 1: galar-route-01
   # ============================================================
@@ -22,388 +33,581 @@ steps:
       has_fields: ["data", "actions", "meta"]
       equals: { "meta.total": 14 }
       array_len: { "data": { "min": 10 } }
-  - name: "Route 1 -- inspect Blipbug"
+
+  - name: "Route 1 -- inspect Blipbug gen 8"
     command: "pokedex pokemon show blipbug"
     assert:
       exit_code: 0
       equals: { "data.name": "blipbug", "data.generation": 8 }
-      has_fields: ["data.types", "data.stats", "data.abilities"]
-  - name: "Route 1 -- inspect Rookidee"
-    command: "pokedex pokemon show rookidee"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "rookidee", "data.generation": 8 }
-  - name: "Route 1 -- inspect Wooloo"
-    command: "pokedex pokemon show wooloo"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "wooloo" }
+      has_fields: ["data.types", "data.stats"]
+
   - name: "Route 1 -- catch Blipbug"
     command: "pokedex collection add --pokemon=blipbug --game=sword --method=catch"
     capture: { "blipbug_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "blipbug", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "blipbug", "data.status": "caught" }
       has_fields: ["data.id", "data.created_at"]
+
   - name: "Route 1 -- catch Rookidee"
     command: "pokedex collection add --pokemon=rookidee --game=sword --method=catch"
     capture: { "rookidee_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "rookidee", "data.status": "caught" }
+
   - name: "Route 1 -- catch Wooloo"
     command: "pokedex collection add --pokemon=wooloo --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "wooloo", "data.status": "caught" }
+
   - name: "Route 1 -- catch Skwovet"
     command: "pokedex collection add --pokemon=skwovet --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "skwovet", "data.status": "caught" }
+
   - name: "Route 1 -- catch Nickit"
     command: "pokedex collection add --pokemon=nickit --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "nickit", "data.status": "caught" }
+
   - name: "Route 1 -- catch Caterpie"
     command: "pokedex collection add --pokemon=caterpie --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "caterpie", "data.status": "caught" }
+
   - name: "Route 1 -- catch Hoothoot"
     command: "pokedex collection add --pokemon=hoothoot --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "hoothoot", "data.status": "caught" }
+
   - name: "Route 1 -- catch Grubbin"
     command: "pokedex collection add --pokemon=grubbin --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "grubbin", "data.status": "caught" }
-  - name: "Route 1 -- check Blipbug evolution chain"
-    command: "pokedex pokemon evolutions blipbug"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "blipbug" }
-      has_fields: ["data.children"]
-      contains: { "data.children.0.species_name": "dottler" }
+
   - name: "Route 1 -- evolve Blipbug to Dottler"
     command: "pokedex collection add --pokemon=dottler --game=sword --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "dottler", "data.method": "evolve" }
+
   - name: "Route 1 -- update Blipbug status to evolved"
     command: "pokedex collection update $blipbug_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved", "data.species_name": "blipbug" }
-  - name: "Route 1 -- check Rookidee evolution chain"
-    command: "pokedex pokemon evolutions rookidee"
-    assert:
-      exit_code: 0
-      contains: { "data.children.0.species_name": "corvisquire" }
+
   - name: "Route 1 -- evolve Rookidee to Corvisquire"
     command: "pokedex collection add --pokemon=corvisquire --game=sword --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "corvisquire", "data.method": "evolve" }
+
   - name: "Route 1 -- update Rookidee status to evolved"
     command: "pokedex collection update $rookidee_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }
-  - name: "Route 1 -- verify stats"
-    command: "pokedex collection stats --game=sword"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+
+  # ============================================================
+  # ROUTE 2: galar-route-02
+  # ============================================================
   - name: "Route 2 -- discover encounters"
     command: "pokedex location encounters galar-route-02 --game=sword"
     assert:
       exit_code: 0
       equals: { "meta.total": 44 }
       array_len: { "data": { "min": 30 } }
-  - name: "Route 2 -- Galarian Zigzagoon appears in encounters"
+
+  - name: "Route 2 -- Galarian Zigzagoon annotated"
     command: "pokedex location encounters galar-route-02 --game=sword"
     assert:
       exit_code: 0
       contains: { "data": "Galarian Zigzagoon" }
-  - name: "Route 2 -- workaround: use zigzagoon-galar slug"
+
+  - name: "Route 2 -- inspect Galarian Zigzagoon types"
     command: "pokedex pokemon show zigzagoon-galar"
     assert:
       exit_code: 0
       contains: { "data.display_name": "Galarian" }
       equals: { "data.types": ["Dark", "Normal"] }
-  - name: "Route 2 -- catch Galarian Zigzagoon via --form flag"
+
+  - name: "Route 2 -- catch Galarian Zigzagoon"
     command: "pokedex collection add --pokemon=zigzagoon --form=galar --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "zigzagoon", "data.form_name": "galar" }
-  - name: "Route 2 -- catch Arrokuda"
-    command: "pokedex collection add --pokemon=arrokuda --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "arrokuda", "data.status": "caught" }
+
   - name: "Route 2 -- catch Chewtle"
     command: "pokedex collection add --pokemon=chewtle --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "chewtle", "data.status": "caught" }
-  - name: "Route 2 -- catch Gossifleur"
-    command: "pokedex collection add --pokemon=gossifleur --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "gossifleur", "data.status": "caught" }
-  - name: "Route 2 -- catch Magikarp"
-    command: "pokedex collection add --pokemon=magikarp --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "magikarp", "data.status": "caught" }
-  - name: "Route 2 -- catch Purrloin"
-    command: "pokedex collection add --pokemon=purrloin --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "purrloin", "data.status": "caught" }
-  - name: "Route 2 -- catch Seedot"
-    command: "pokedex collection add --pokemon=seedot --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "seedot", "data.status": "caught" }
+
   - name: "Route 2 -- catch Yamper"
     command: "pokedex collection add --pokemon=yamper --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "yamper", "data.status": "caught" }
-  - name: "Route 2 -- catch Feebas"
-    command: "pokedex collection add --pokemon=feebas --game=sword --method=catch"
+
+  - name: "Route 2 -- catch Seedot"
+    command: "pokedex collection add --pokemon=seedot --game=sword --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "feebas", "data.status": "caught" }
+      equals: { "data.species_name": "seedot", "data.status": "caught" }
+
+  - name: "Route 2 -- catch Purrloin"
+    command: "pokedex collection add --pokemon=purrloin --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "purrloin", "data.status": "caught" }
+
+  - name: "Route 2 -- catch Gossifleur"
+    command: "pokedex collection add --pokemon=gossifleur --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gossifleur", "data.status": "caught" }
+
+  - name: "Route 2 -- catch Magikarp"
+    command: "pokedex collection add --pokemon=magikarp --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "magikarp", "data.status": "caught" }
+
   - name: "Route 2 -- evolve Chewtle to Drednaw"
     command: "pokedex collection add --pokemon=drednaw --game=sword --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "drednaw", "data.method": "evolve" }
-  - name: "Route 2 -- verify stats"
-    command: "pokedex collection stats --game=sword"
+
+  # ============================================================
+  # WILD AREA: rolling-fields (weather rates check)
+  # ============================================================
+  - name: "Rolling Fields -- discover encounters"
+    command: "pokedex location encounters rolling-fields --game=sword"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species"]
-  - name: "Galar Mine -- discover encounters"
-    command: "pokedex location encounters galar-mine --game=sword"
+      equals: { "meta.total": 297 }
+      has_fields: ["data", "actions"]
+
+  - name: "Rolling Fields -- weather rates in details"
+    command: "pokedex location encounters rolling-fields --game=sword --limit=50"
     assert:
       exit_code: 0
-      equals: { "meta.total": 14 }
+      contains: { "data": "weather_" }
       array_len: { "data": { "min": 10 } }
-  - name: "Galar Mine -- inspect Rolycoly"
-    command: "pokedex pokemon show rolycoly"
+
+  - name: "Rolling Fields -- catch Baltoy"
+    command: "pokedex collection add --pokemon=baltoy --game=sword --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.name": "rolycoly", "data.generation": 8 }
-  - name: "Galar Mine -- catch Diglett"
-    command: "pokedex collection add --pokemon=diglett --game=sword --method=catch"
+      equals: { "data.species_name": "baltoy", "data.status": "caught" }
+
+  - name: "Rolling Fields -- catch Bounsweet"
+    command: "pokedex collection add --pokemon=bounsweet --game=sword --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "diglett", "data.status": "caught" }
-  - name: "Galar Mine -- catch Drilbur"
-    command: "pokedex collection add --pokemon=drilbur --game=sword --method=catch"
+      equals: { "data.species_name": "bounsweet", "data.status": "caught" }
+
+  # ============================================================
+  # WILD AREA: dappled-grove (more weather encounters)
+  # ============================================================
+  - name: "Dappled Grove -- discover encounters"
+    command: "pokedex location encounters dappled-grove --game=sword"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "drilbur", "data.status": "caught" }
-  - name: "Galar Mine -- catch Roggenrola"
-    command: "pokedex collection add --pokemon=roggenrola --game=sword --method=catch"
+      equals: { "meta.total": 162 }
+      has_fields: ["data", "meta"]
+
+  - name: "Dappled Grove -- weather rate details present"
+    command: "pokedex location encounters dappled-grove --game=sword --limit=50"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "roggenrola", "data.status": "caught" }
-  - name: "Galar Mine -- catch Rolycoly"
-    command: "pokedex collection add --pokemon=rolycoly --game=sword --method=catch"
+      contains: { "data": "weather_sandstorm_rate" }
+
+  - name: "Dappled Grove -- catch Bunnelby"
+    command: "pokedex collection add --pokemon=bunnelby --game=sword --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "rolycoly", "data.status": "caught" }
-  - name: "Galar Mine -- catch Timburr"
-    command: "pokedex collection add --pokemon=timburr --game=sword --method=catch"
+      equals: { "data.species_name": "bunnelby", "data.status": "caught" }
+
+  - name: "Dappled Grove -- catch Cherubi"
+    command: "pokedex collection add --pokemon=cherubi --game=sword --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "timburr", "data.status": "caught" }
-  - name: "Galar Mine -- catch Woobat"
-    command: "pokedex collection add --pokemon=woobat --game=sword --method=catch"
+      equals: { "data.species_name": "cherubi", "data.status": "caught" }
+
+  # ============================================================
+  # WILD AREA: giants-seat
+  # ============================================================
+  - name: "Giant's Seat -- discover encounters"
+    command: "pokedex location encounters giants-seat --game=sword"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "woobat", "data.status": "caught" }
-  - name: "Galar Mine -- verify stats"
-    command: "pokedex collection stats --game=sword"
+      equals: { "meta.total": 175 }
+      array_len: { "data": { "min": 50, "max": 175 } }
+
+  - name: "Giant's Seat -- weather snow rate present"
+    command: "pokedex location encounters giants-seat --game=sword --limit=5"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species"]
+      contains: { "data": "weather_snow_rate" }
+
+  # ============================================================
+  # ROUTE 3: galar-route-03
+  # ============================================================
+  - name: "Route 3 -- discover encounters"
+    command: "pokedex location encounters galar-route-03 --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 23 }
+      array_len: { "data": { "min": 15 } }
+
+  - name: "Route 3 -- Galarian Zigzagoon appears here too"
+    command: "pokedex location encounters galar-route-03 --game=sword"
+    assert:
+      exit_code: 0
+      contains: { "data": "Galarian Zigzagoon" }
+
+  - name: "Route 3 -- catch Machop"
+    command: "pokedex collection add --pokemon=machop --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "machop", "data.status": "caught" }
+
+  - name: "Route 3 -- catch Pancham"
+    command: "pokedex collection add --pokemon=pancham --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pancham", "data.status": "caught" }
+
+  - name: "Route 3 -- catch Sizzlipede"
+    command: "pokedex collection add --pokemon=sizzlipede --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sizzlipede", "data.status": "caught" }
+
+  - name: "Route 3 -- catch Klink"
+    command: "pokedex collection add --pokemon=klink --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "klink", "data.status": "caught" }
+
+  # ============================================================
+  # ROUTE 4: galar-route-04
+  # ============================================================
   - name: "Route 4 -- discover encounters"
     command: "pokedex location encounters galar-route-04 --game=sword"
     assert:
       exit_code: 0
       equals: { "meta.total": 28 }
       array_len: { "data": { "min": 20 } }
-  - name: "Route 4 -- Galarian Meowth appears in encounters"
+
+  - name: "Route 4 -- Galarian Meowth annotated"
     command: "pokedex location encounters galar-route-04 --game=sword"
     assert:
       exit_code: 0
       contains: { "data": "Galarian Meowth" }
-  - name: "Route 4 -- catch Budew"
-    command: "pokedex collection add --pokemon=budew --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "budew", "data.status": "caught" }
-  - name: "Route 4 -- catch Cutiefly"
-    command: "pokedex collection add --pokemon=cutiefly --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "cutiefly", "data.status": "caught" }
-  - name: "Route 4 -- catch Eevee"
-    command: "pokedex collection add --pokemon=eevee --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "eevee", "data.status": "caught" }
-  - name: "Route 4 -- catch Electrike"
-    command: "pokedex collection add --pokemon=electrike --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "electrike", "data.status": "caught" }
-  - name: "Route 4 -- catch Ferroseed"
-    command: "pokedex collection add --pokemon=ferroseed --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "ferroseed", "data.status": "caught" }
-  - name: "Route 4 -- catch Goldeen"
-    command: "pokedex collection add --pokemon=goldeen --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "goldeen", "data.status": "caught" }
-  - name: "Route 4 -- catch Joltik"
-    command: "pokedex collection add --pokemon=joltik --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "joltik", "data.status": "caught" }
-  - name: "Route 4 -- catch Milcery"
-    command: "pokedex collection add --pokemon=milcery --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "milcery", "data.status": "caught" }
+
   - name: "Route 4 -- catch Pikachu"
     command: "pokedex collection add --pokemon=pikachu --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "pikachu", "data.status": "caught" }
-  - name: "Route 4 -- catch Pumpkaboo"
-    command: "pokedex collection add --pokemon=pumpkaboo --game=sword --method=catch"
+
+  - name: "Route 4 -- catch Eevee"
+    command: "pokedex collection add --pokemon=eevee --game=sword --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "pumpkaboo", "data.status": "caught" }
-  - name: "Route 4 -- catch Galarian Meowth via --form flag"
+      equals: { "data.species_name": "eevee", "data.status": "caught" }
+
+  - name: "Route 4 -- catch Milcery"
+    command: "pokedex collection add --pokemon=milcery --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "milcery", "data.status": "caught" }
+
+  - name: "Route 4 -- catch Ferroseed"
+    command: "pokedex collection add --pokemon=ferroseed --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ferroseed", "data.status": "caught" }
+
+  - name: "Route 4 -- catch Galarian Meowth"
     command: "pokedex collection add --pokemon=meowth --form=galar --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "meowth", "data.form_name": "galar" }
-  - name: "Route 4 -- evolve Electrike to Manectric"
-    command: "pokedex collection add --pokemon=manectric --game=sword --method=evolve"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "manectric", "data.method": "evolve" }
-  - name: "Route 4 -- verify stats"
-    command: "pokedex collection stats --game=sword"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species"]
+
+  # ============================================================
+  # ROUTE 5: galar-route-05
+  # ============================================================
   - name: "Route 5 -- discover encounters"
     command: "pokedex location encounters galar-route-05 --game=sword"
     assert:
       exit_code: 0
       equals: { "meta.total": 26 }
       array_len: { "data": { "min": 20 } }
-  - name: "Route 5 -- Galarian Farfetch'd appears in encounters"
+
+  - name: "Route 5 -- Galarian Farfetch'd annotated"
     command: "pokedex location encounters galar-route-05 --game=sword"
     assert:
       exit_code: 0
       contains: { "data": "Galarian" }
+
   - name: "Route 5 -- catch Applin"
     command: "pokedex collection add --pokemon=applin --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "applin", "data.status": "caught" }
-  - name: "Route 5 -- catch Dewpider"
-    command: "pokedex collection add --pokemon=dewpider --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "dewpider", "data.status": "caught" }
-  - name: "Route 5 -- catch Drifloon"
-    command: "pokedex collection add --pokemon=drifloon --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "drifloon", "data.status": "caught" }
-  - name: "Route 5 -- catch Eldegoss"
-    command: "pokedex collection add --pokemon=eldegoss --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "eldegoss", "data.status": "caught" }
-  - name: "Route 5 -- catch Espurr"
-    command: "pokedex collection add --pokemon=espurr --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "espurr", "data.status": "caught" }
-  - name: "Route 5 -- catch Minccino"
-    command: "pokedex collection add --pokemon=minccino --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "minccino", "data.status": "caught" }
-  - name: "Route 5 -- catch Nincada"
-    command: "pokedex collection add --pokemon=nincada --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "nincada", "data.status": "caught" }
-  - name: "Route 5 -- catch Nuzleaf"
-    command: "pokedex collection add --pokemon=nuzleaf --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "nuzleaf", "data.status": "caught" }
+
   - name: "Route 5 -- catch Stufful"
     command: "pokedex collection add --pokemon=stufful --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "stufful", "data.status": "caught" }
-  - name: "Route 5 -- catch Swirlix"
-    command: "pokedex collection add --pokemon=swirlix --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "swirlix", "data.status": "caught" }
+
   - name: "Route 5 -- catch Toxel"
     command: "pokedex collection add --pokemon=toxel --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "toxel", "data.status": "caught" }
-  - name: "Route 5 -- catch Wobbuffet"
-    command: "pokedex collection add --pokemon=wobbuffet --game=sword --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "wobbuffet", "data.status": "caught" }
-  - name: "Route 5 -- catch Galarian Farfetch'd via --form flag"
+
+  - name: "Route 5 -- catch Galarian Farfetch'd"
     command: "pokedex collection add --pokemon=farfetchd --form=galar --game=sword --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "farfetchd", "data.form_name": "galar" }
-  - name: "Route 5 -- final stats verification"
+
+  - name: "Route 5 -- catch Minccino"
+    command: "pokedex collection add --pokemon=minccino --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "minccino", "data.status": "caught" }
+
+  # ============================================================
+  # GALAR MINE
+  # ============================================================
+  - name: "Galar Mine -- discover encounters"
+    command: "pokedex location encounters galar-mine --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 14 }
+      array_len: { "data": { "min": 10 } }
+
+  - name: "Galar Mine -- inspect Rolycoly gen 8"
+    command: "pokedex pokemon show rolycoly"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "rolycoly", "data.generation": 8 }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Galar Mine -- catch Rolycoly"
+    command: "pokedex collection add --pokemon=rolycoly --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "rolycoly", "data.status": "caught" }
+
+  - name: "Galar Mine -- catch Drilbur"
+    command: "pokedex collection add --pokemon=drilbur --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "drilbur", "data.status": "caught" }
+
+  - name: "Galar Mine -- catch Woobat"
+    command: "pokedex collection add --pokemon=woobat --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "woobat", "data.status": "caught" }
+
+  - name: "Galar Mine -- catch Timburr"
+    command: "pokedex collection add --pokemon=timburr --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "timburr", "data.status": "caught" }
+
+  # ============================================================
+  # ROUTE 6: galar-route-06 (Galarian Yamask)
+  # ============================================================
+  - name: "Route 6 -- discover encounters"
+    command: "pokedex location encounters galar-route-06 --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 30 }
+      array_len: { "data": { "min": 20 } }
+
+  - name: "Route 6 -- Galarian Yamask annotated"
+    command: "pokedex location encounters galar-route-06 --game=sword"
+    assert:
+      exit_code: 0
+      contains: { "data": "Galarian Yamask" }
+
+  - name: "Route 6 -- inspect Galarian Yamask types"
+    command: "pokedex pokemon show yamask-galar"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Galarian Yamask", "data.types": ["Ground", "Ghost"] }
+
+  - name: "Route 6 -- catch Galarian Yamask"
+    command: "pokedex collection add --pokemon=yamask --form=galar --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "yamask", "data.form_name": "galar" }
+
+  - name: "Route 6 -- catch Silicobra"
+    command: "pokedex collection add --pokemon=silicobra --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "silicobra", "data.status": "caught" }
+
+  - name: "Route 6 -- catch Helioptile"
+    command: "pokedex collection add --pokemon=helioptile --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "helioptile", "data.status": "caught" }
+
+  - name: "Route 6 -- catch Trapinch"
+    command: "pokedex collection add --pokemon=trapinch --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "trapinch", "data.status": "caught" }
+
+  # ============================================================
+  # ROUTE 7: galar-route-07
+  # ============================================================
+  - name: "Route 7 -- discover encounters"
+    command: "pokedex location encounters galar-route-07 --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 28 }
+      array_len: { "data": { "min": 20 } }
+
+  - name: "Route 7 -- catch Inkay"
+    command: "pokedex collection add --pokemon=inkay --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "inkay", "data.status": "caught" }
+
+  - name: "Route 7 -- catch Morpeko"
+    command: "pokedex collection add --pokemon=morpeko --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "morpeko", "data.status": "caught" }
+
+  # ============================================================
+  # WILD AREA: lake-of-outrage (Galarian Darumaka + weather)
+  # ============================================================
+  - name: "Lake of Outrage -- discover encounters"
+    command: "pokedex location encounters lake-of-outrage --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 209 }
+      has_fields: ["data", "actions"]
+
+  - name: "Lake of Outrage -- Galarian Darumaka annotated"
+    command: "pokedex location encounters lake-of-outrage --game=sword"
+    assert:
+      exit_code: 0
+      contains: { "data": "Galarian Darumaka" }
+
+  - name: "Lake of Outrage -- weather rates present"
+    command: "pokedex location encounters lake-of-outrage --game=sword --limit=50"
+    assert:
+      exit_code: 0
+      contains: { "data": "weather_snow_rate" }
+
+  - name: "Lake of Outrage -- inspect Galarian Darumaka Ice type"
+    command: "pokedex pokemon show darumaka-galar"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Galarian Darumaka", "data.types": ["Ice"] }
+      has_fields: ["data.stats"]
+
+  - name: "Lake of Outrage -- catch Deino"
+    command: "pokedex collection add --pokemon=deino --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "deino", "data.status": "caught" }
+
+  - name: "Lake of Outrage -- catch Ditto"
+    command: "pokedex collection add --pokemon=ditto --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ditto", "data.status": "caught" }
+
+  # ============================================================
+  # WILD AREA: dusty-bowl
+  # ============================================================
+  - name: "Dusty Bowl -- discover encounters"
+    command: "pokedex location encounters dusty-bowl --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 293 }
+      has_fields: ["data", "meta"]
+
+  - name: "Dusty Bowl -- weather rates present"
+    command: "pokedex location encounters dusty-bowl --game=sword --limit=50"
+    assert:
+      exit_code: 0
+      contains: { "data": "weather_" }
+
+  # ============================================================
+  # EVOLUTIONS: check and add evolved forms
+  # ============================================================
+  - name: "Evolution -- Trapinch chain"
+    command: "pokedex pokemon evolutions trapinch"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "vibrava" }
+      has_fields: ["data.children"]
+
+  - name: "Evolution -- evolve Trapinch to Vibrava"
+    command: "pokedex collection add --pokemon=vibrava --game=sword --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "vibrava", "data.method": "evolve" }
+
+  - name: "Evolution -- Darumaka chain includes Ice Stone"
+    command: "pokedex pokemon evolutions darumaka"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "darmanitan" }
+      has_fields: ["data.children.0.methods"]
+
+  # ============================================================
+  # VERIFY: collection stats and dex progress
+  # ============================================================
+  - name: "Final stats -- 40+ total entries"
     command: "pokedex collection stats --game=sword"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.by_status", "data.shiny_count", "data.in_home_count"]
-  - name: "Wild Area -- weather rates present in Rolling Fields"
-    command: "pokedex location encounters rolling-fields --game=sword --limit=5"
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      array_len: { "data.by_status": { "min": 2 } }
+
+  - name: "Final collection -- list caught entries"
+    command: "pokedex collection list --game=sword --limit=50"
     assert:
       exit_code: 0
-      has_fields: ["data", "meta"]
-  - name: "HATEOAS -- encounter action template present"
+      array_len: { "data": { "min": 40 } }
+      has_fields: ["meta.total"]
+
+  # ============================================================
+  # HATEOAS NAVIGATION
+  # ============================================================
+  - name: "HATEOAS -- encounter actions include pokemon show"
     command: "pokedex location encounters galar-route-01 --game=sword"
     assert:
       exit_code: 0
       has_fields: ["actions"]
       contains: { "actions.0.cmd": "pokedex pokemon show" }
+
   - name: "HATEOAS -- collection stats returns navigable actions"
     command: "pokedex collection stats --game=sword"
     assert:

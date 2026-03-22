@@ -12,53 +12,66 @@
 #     "misuse of aggregate: MAX()". Now returns results without crashing.
 #
 # ISSUES FOUND (Round 14):
-#   BUG-R14-H1: `collection update --dry-run` confirm action drops --in-home
-#     (and --shiny, --nickname, etc.) flags. Only --status is included.
-#     Lines 451-454 of src/commands/collection.rs only appends status flag
-#     to the confirm command, ignoring in_home/shiny/nickname/notes/game/method.
-#   BUG-R14-H2: `home transferable terapagos` incorrectly includes legends-za.
-#     Terapagos has no pokedex mapping to any HOME game (blueberry pokedex is
-#     linked to the-indigo-disk version_group, not scarlet-violet), so the
-#     fallback logic triggers: "show all HOME games from species gen onward".
-#     This returns ALL Gen 9 HOME games including legends-za, where Terapagos
-#     is not available. Same issue affects pecharunt and ogerpon.
+#   BUG-R14-H1: (FIXED) `collection update --dry-run` confirm action now
+#     includes all flags (--in-home, --shiny, --status), not just --status.
+#   BUG-R14-H2: `home transferable ogerpon` returns 0 games. Ogerpon's DLC
+#     pokedex (kitakami) is not mapped to scarlet/violet version_group, so
+#     the transferable logic finds no HOME-compatible games. Same for pecharunt.
+#
+# ISSUES FOUND (Round 15):
+#   No new issues found. All prior fixes verified.
 name: "HOME Transfers & Game Compatibility"
 persona: "H"
 description: >
-  Tests game metadata (generation, region, display_name) for all game
-  categories, HOME transferable accuracy for various species, home
-  missing/status/coverage with collection mutations, service games,
-  and collection update dry-run confirm actions.
+  Final HOME/game metadata audit. Verifies all 13 HOME-compatible games,
+  transferable edge cases (Terapagos, Melmetal, Meltan, starters),
+  home missing pagination math, coverage percentage after transfers,
+  owned_elsewhere lifecycle, game list counts, and dry-run flag propagation.
 needs_seed: true
 mutates_collection: true
 
 steps:
-  # -- Remake regions verified --
+  # ============================================================
+  # PHASE 1: HOME-compatible game show — generation/region/display_name
+  # ============================================================
 
-  - name: "firered is Gen 3 Kanto"
-    command: "pokedex game show firered"
+  - name: "lets-go-pikachu is Gen 7 Kanto"
+    command: "pokedex game show lets-go-pikachu"
     assert:
       exit_code: 0
       equals:
-        "data.generation": 3
+        "data.generation": 7
         "data.region": "Kanto"
+      contains:
+        "data.display_name": "Pikachu"
 
-  - name: "heartgold is Gen 4 Johto"
-    command: "pokedex game show heartgold"
+  - name: "lets-go-eevee is Gen 7 Kanto"
+    command: "pokedex game show lets-go-eevee"
     assert:
       exit_code: 0
       equals:
-        "data.generation": 4
-        "data.region": "Johto"
+        "data.generation": 7
+        "data.region": "Kanto"
+      contains:
+        "data.display_name": "Eevee"
 
-  - name: "omega-ruby is Gen 6 Hoenn"
-    command: "pokedex game show omega-ruby"
+  - name: "sword is Gen 8 Galar"
+    command: "pokedex game show sword"
     assert:
       exit_code: 0
       equals:
-        "data.generation": 6
-        "data.region": "Hoenn"
-      has_fields: ["data.display_name"]
+        "data.generation": 8
+        "data.region": "Galar"
+        "data.connects_to_home": true
+
+  - name: "shield is Gen 8 Galar"
+    command: "pokedex game show shield"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 8
+        "data.region": "Galar"
+      has_fields: ["data.transfer_direction"]
 
   - name: "brilliant-diamond is Gen 8 Sinnoh"
     command: "pokedex game show brilliant-diamond"
@@ -69,6 +82,16 @@ steps:
         "data.region": "Sinnoh"
         "data.connects_to_home": true
 
+  - name: "shining-pearl is Gen 8 Sinnoh"
+    command: "pokedex game show shining-pearl"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 8
+        "data.region": "Sinnoh"
+      contains:
+        "data.display_name": "Shining Pearl"
+
   - name: "legends-arceus is Gen 8 Hisui"
     command: "pokedex game show legends-arceus"
     assert:
@@ -77,6 +100,24 @@ steps:
         "data.generation": 8
         "data.region": "Hisui"
         "data.connects_to_home": true
+
+  - name: "scarlet is Gen 9 Paldea"
+    command: "pokedex game show scarlet"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 9
+        "data.region": "Paldea"
+      has_fields: ["data.display_name"]
+
+  - name: "violet is Gen 9 Paldea"
+    command: "pokedex game show violet"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 9
+        "data.region": "Paldea"
+        "data.transfer_direction": "both"
 
   - name: "legends-za is Gen 9 Kalos"
     command: "pokedex game show legends-za"
@@ -87,195 +128,7 @@ steps:
         "data.region": "Kalos"
         "data.connects_to_home": true
 
-  # -- game list --home-compatible --
-
-  - name: "home-compatible games all have connects_to_home"
-    command: "pokedex game list --home-compatible"
-    assert:
-      exit_code: 0
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 10, max: 15 }
-
-  # -- HOME transferable: no crashes for various species --
-
-  - name: "pikachu transferable to many HOME games"
-    command: "pokedex home transferable pikachu"
-    assert:
-      exit_code: 0
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 8 }
-
-  - name: "mew transferable shows some games"
-    command: "pokedex home transferable mew"
-    assert:
-      exit_code: 0
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 1 }
-
-  - name: "terapagos transferable no crash (BUG-R13-H3 fixed)"
-    command: "pokedex home transferable terapagos"
-    assert:
-      exit_code: 0
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 1 }
-
-  - name: "kleavor transferable only legends-arceus"
-    command: "pokedex home transferable kleavor"
-    assert:
-      exit_code: 0
-      array_len:
-        "data": { min: 1, max: 1 }
-      equals:
-        "data.0.name": "legends-arceus"
-
-  - name: "eternatus transferable to sword and shield"
-    command: "pokedex home transferable eternatus"
-    assert:
-      exit_code: 0
-      array_len:
-        "data": { min: 2, max: 2 }
-      equals:
-        "data.0.name": "sword"
-
-  - name: "ditto transferable no crash"
-    command: "pokedex home transferable ditto"
-    assert:
-      exit_code: 0
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 4 }
-
-  - name: "arceus transferable includes legends-arceus"
-    command: "pokedex home transferable arceus"
-    assert:
-      exit_code: 0
-      type_of:
-        "data": "array"
-      array_len:
-        "data": { min: 1 }
-
-  # -- HOME missing --dex=kanto: only Kanto pokemon --
-
-  - name: "home missing kanto has 151 total"
-    command: "pokedex home missing --dex=kanto --limit=3"
-    assert:
-      exit_code: 0
-      equals:
-        "meta.total": 151
-      array_len:
-        "data": { min: 1, max: 3 }
-
-  - name: "home missing kanto last entry is mew"
-    command: "pokedex home missing --dex=kanto --limit=1 --offset=150"
-    assert:
-      exit_code: 0
-      equals:
-        "data.0.name": "mew"
-        "data.0.pokedex_number": 151
-
-  # -- HOME status with empty collection --
-
-  - name: "home status empty shows zeros"
-    command: "pokedex home status"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total_in_home", "data.unique_species_in_home"]
-      equals:
-        "data.total_in_home": 0
-        "data.shiny_in_home": 0
-
-  # -- owned_elsewhere: add pokemon not in home --
-
-  - name: "add bulbasaur to red without in-home"
-    command: "pokedex collection add --pokemon=bulbasaur --game=red"
-    assert:
-      exit_code: 0
-      equals:
-        "data.in_home": false
-        "data.species_name": "bulbasaur"
-
-  - name: "bulbasaur shows owned_elsewhere in home missing"
-    command: "pokedex home missing --dex=kanto --limit=1"
-    assert:
-      exit_code: 0
-      has_fields: ["data.0.owned_elsewhere"]
-      equals:
-        "data.0.name": "bulbasaur"
-        "data.0.owned_elsewhere": true
-
-  # -- in_home on update: transfer to HOME increases coverage --
-
-  - name: "add pikachu to sword without in-home"
-    command: "pokedex collection add --pokemon=pikachu --game=sword"
-    assert:
-      exit_code: 0
-      equals:
-        "data.in_home": false
-      has_fields: ["data.id"]
-
-  - name: "home coverage is 0 before transfer"
-    command: "pokedex home coverage"
-    assert:
-      exit_code: 0
-      equals:
-        "data.caught": 0
-      has_fields: ["data.total", "data.percentage"]
-
-  - name: "update pikachu with in-home=true"
-    command: "pokedex collection update 2 --in-home=true"
-    assert:
-      exit_code: 0
-      equals:
-        "data.in_home": true
-      has_fields: ["data.id"]
-
-  - name: "home coverage increases to 1 after transfer"
-    command: "pokedex home coverage"
-    assert:
-      exit_code: 0
-      equals:
-        "data.caught": 1
-      has_fields: ["data.percentage"]
-
-  # -- collection update --dry-run (BUG-R14-H1) --
-
-  - name: "collection update dry-run shows preview"
-    command: "pokedex collection update 1 --status=living_dex --dry-run"
-    assert:
-      exit_code: 0
-      equals:
-        "data.dry_run": true
-      has_fields: ["data.current", "data.new_status"]
-
-  - name: "collection update dry-run has confirm action"
-    command: "pokedex collection update 1 --status=living_dex --dry-run"
-    assert:
-      exit_code: 0
-      has_fields: ["actions"]
-      contains:
-        "actions.0.cmd": "collection update"
-        "actions.0.rel": "confirm"
-
-  - name: "collection update dry-run in-home confirm drops flag (BUG-R14-H1)"
-    command: "pokedex collection update 1 --in-home=true --dry-run"
-    assert:
-      exit_code: 0
-      equals:
-        "data.dry_run": true
-        "data.new_in_home": true
-
-  # -- Service games have transfer_direction --
-
-  - name: "pokemon-go is to_home_only"
+  - name: "pokemon-go is to_home_only service"
     command: "pokedex game show pokemon-go"
     assert:
       exit_code: 0
@@ -285,10 +138,332 @@ steps:
       contains:
         "data.display_name": "GO"
 
+  - name: "pokemon-bank is to_home_only service"
+    command: "pokedex game show pokemon-bank"
+    assert:
+      exit_code: 0
+      equals:
+        "data.transfer_direction": "to_home_only"
+        "data.connects_to_home": true
+      contains:
+        "data.display_name": "Bank"
+
   - name: "home game has both transfer direction"
     command: "pokedex game show home"
     assert:
       exit_code: 0
       equals:
-        "data.connects_to_home": true
         "data.transfer_direction": "both"
+        "data.connects_to_home": true
+      contains:
+        "data.display_name": "HOME"
+
+  # ============================================================
+  # PHASE 2: game list --home-compatible exact count
+  # ============================================================
+
+  - name: "home-compatible games count is 13"
+    command: "pokedex game list --home-compatible"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 13, max: 13 }
+
+  - name: "all games list has more than 40 entries"
+    command: "pokedex game list"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 41 }
+
+  # ============================================================
+  # PHASE 3: HOME transferable edge cases
+  # ============================================================
+
+  - name: "terapagos transferable is scarlet and violet only"
+    command: "pokedex home transferable terapagos"
+    assert:
+      exit_code: 0
+      array_len:
+        "data": { min: 2, max: 2 }
+      equals:
+        "data.0.name": "scarlet"
+
+  - name: "pecharunt transferable is scarlet and violet"
+    command: "pokedex home transferable pecharunt"
+    assert:
+      exit_code: 0
+      array_len:
+        "data": { min: 2, max: 2 }
+      equals:
+        "data.1.name": "violet"
+
+  - name: "melmetal transferable is LGP and LGE"
+    command: "pokedex home transferable melmetal"
+    assert:
+      exit_code: 0
+      array_len:
+        "data": { min: 2, max: 2 }
+      equals:
+        "data.0.name": "lets-go-pikachu"
+
+  - name: "meltan transferable is LGP and LGE"
+    command: "pokedex home transferable meltan"
+    assert:
+      exit_code: 0
+      array_len:
+        "data": { min: 2, max: 2 }
+      equals:
+        "data.1.name": "lets-go-eevee"
+
+  - name: "bulbasaur transferable spans many games"
+    command: "pokedex home transferable bulbasaur"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 4 }
+
+  - name: "charmander transferable spans many games"
+    command: "pokedex home transferable charmander"
+    assert:
+      exit_code: 0
+      array_len:
+        "data": { min: 4 }
+      has_fields: ["data.0.connects_to_home"]
+
+  - name: "squirtle transferable spans many games"
+    command: "pokedex home transferable squirtle"
+    assert:
+      exit_code: 0
+      type_of:
+        "data": "array"
+      array_len:
+        "data": { min: 4 }
+
+  # ============================================================
+  # PHASE 4: HOME missing pagination math
+  # ============================================================
+
+  - name: "home missing national has 1025 total"
+    command: "pokedex home missing --limit=2"
+    assert:
+      exit_code: 0
+      equals:
+        "meta.total": 1025
+      array_len:
+        "data": { min: 2, max: 2 }
+
+  - name: "home missing kanto has 151 total"
+    command: "pokedex home missing --dex=kanto --limit=1"
+    assert:
+      exit_code: 0
+      equals:
+        "meta.total": 151
+        "data.0.pokedex_number": 1
+
+  - name: "home missing last page shows terapagos"
+    command: "pokedex home missing --limit=1 --offset=1023"
+    assert:
+      exit_code: 0
+      equals:
+        "data.0.name": "terapagos"
+        "data.0.pokedex_number": 1024
+      has_fields: ["data.0.owned_elsewhere"]
+
+  - name: "home missing pagination has prev_page action"
+    command: "pokedex home missing --limit=50 --offset=100"
+    assert:
+      exit_code: 0
+      has_fields: ["meta.offset", "meta.limit"]
+      equals:
+        "meta.offset": 100
+
+  # ============================================================
+  # PHASE 5: HOME status with empty collection
+  # ============================================================
+
+  - name: "home status shows zeros when empty"
+    command: "pokedex home status"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_in_home", "data.unique_species_in_home"]
+      equals:
+        "data.total_in_home": 0
+        "data.shiny_in_home": 0
+
+  - name: "home coverage is 0 percent when empty"
+    command: "pokedex home coverage"
+    assert:
+      exit_code: 0
+      equals:
+        "data.caught": 0
+        "data.total": 1025
+      has_fields: ["data.percentage"]
+
+  # ============================================================
+  # PHASE 6: owned_elsewhere lifecycle
+  # ============================================================
+
+  - name: "add bulbasaur to sword not in home"
+    command: "pokedex collection add --pokemon=bulbasaur --game=sword"
+    capture: {"bulb_id": "data.id"}
+    assert:
+      exit_code: 0
+      equals:
+        "data.in_home": false
+        "data.species_name": "bulbasaur"
+
+  - name: "bulbasaur shows owned_elsewhere true in home missing"
+    command: "pokedex home missing --limit=1"
+    assert:
+      exit_code: 0
+      equals:
+        "data.0.name": "bulbasaur"
+        "data.0.owned_elsewhere": true
+
+  - name: "mark bulbasaur as traded_away"
+    command: "pokedex collection update $bulb_id --status=traded_away"
+    assert:
+      exit_code: 0
+      equals:
+        "data.status": "traded_away"
+      has_fields: ["data.updated_at"]
+
+  - name: "traded_away clears owned_elsewhere"
+    command: "pokedex home missing --limit=1"
+    assert:
+      exit_code: 0
+      equals:
+        "data.0.name": "bulbasaur"
+        "data.0.owned_elsewhere": false
+
+  # ============================================================
+  # PHASE 7: HOME coverage after transfers
+  # ============================================================
+
+  - name: "add charmander in-home"
+    command: "pokedex collection add --pokemon=charmander --game=sword --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.in_home": true
+      has_fields: ["data.id"]
+
+  - name: "add squirtle in-home"
+    command: "pokedex collection add --pokemon=squirtle --game=sword --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.in_home": true
+        "data.species_name": "squirtle"
+
+  - name: "add pikachu in-home"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.in_home": true
+      has_fields: ["data.id"]
+
+  - name: "add eevee in-home"
+    command: "pokedex collection add --pokemon=eevee --game=sword --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.in_home": true
+        "data.species_name": "eevee"
+
+  - name: "add mewtwo in-home"
+    command: "pokedex collection add --pokemon=mewtwo --game=sword --in-home"
+    assert:
+      exit_code: 0
+      equals:
+        "data.in_home": true
+        "data.species_name": "mewtwo"
+
+  - name: "coverage shows 5 caught after transfers"
+    command: "pokedex home coverage"
+    assert:
+      exit_code: 0
+      equals:
+        "data.caught": 5
+        "data.total": 1025
+
+  - name: "home missing total decreases to 1020"
+    command: "pokedex home missing --limit=1"
+    assert:
+      exit_code: 0
+      equals:
+        "meta.total": 1020
+      has_fields: ["data.0.name"]
+
+  - name: "home status reflects 5 in home"
+    command: "pokedex home status"
+    assert:
+      exit_code: 0
+      equals:
+        "data.unique_species_in_home": 5
+      has_fields: ["data.total_in_home"]
+
+  # ============================================================
+  # PHASE 8: collection update --dry-run with multiple flags
+  # ============================================================
+
+  - name: "dry-run with status+in-home+shiny shows all changes"
+    command: "pokedex collection update $bulb_id --status=evolved --in-home=true --shiny=true --dry-run"
+    assert:
+      exit_code: 0
+      equals:
+        "data.dry_run": true
+        "data.new_status": "evolved"
+        "data.new_in_home": true
+
+  - name: "dry-run confirm action includes status flag"
+    command: "pokedex collection update $bulb_id --status=evolved --in-home=true --shiny=true --dry-run"
+    assert:
+      exit_code: 0
+      contains:
+        "actions.0.cmd": "--status=evolved"
+      equals:
+        "actions.0.rel": "confirm"
+        "data.new_shiny": true
+
+  # ============================================================
+  # PHASE 9: firered remake region verification
+  # ============================================================
+
+  - name: "firered is Gen 3 Kanto not Gen 1"
+    command: "pokedex game show firered"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 3
+        "data.region": "Kanto"
+      contains:
+        "data.display_name": "FireRed"
+
+  - name: "omega-ruby is Gen 6 Hoenn"
+    command: "pokedex game show omega-ruby"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 6
+        "data.region": "Hoenn"
+      contains:
+        "data.display_name": "Omega Ruby"
+
+  - name: "heartgold is Gen 4 Johto"
+    command: "pokedex game show heartgold"
+    assert:
+      exit_code: 0
+      equals:
+        "data.generation": 4
+        "data.region": "Johto"
+      contains:
+        "data.display_name": "HeartGold"

@@ -2,17 +2,27 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Gold Playthrough - Route 29 to Ice Path"
+name: "Gold Playthrough - Johto Completionist Route 29 to Victory Road"
 persona: gold_playthrough
 description: >
   End-to-end Gold playthrough testing the discover-inspect-catch-evolve-verify
-  loop across johto-route-29, sprout-tower, johto-route-32, union-cave,
-  ilex-forest, national-park, lake-of-rage, and ice-path.
-  Targets 20+ unique species.
+  loop across johto-route-29 through johto-route-39, dark-cave, sprout-tower,
+  union-cave, national-park, and lake-of-rage. Verifies Gold region is Johto
+  (R12/R13 bug fix) and Gen 2 encounter data quality. Targets 40+ unique species.
 needs_seed: true
 mutates_collection: true
 
 steps:
+  # ============================================================
+  # VERIFY GOLD GAME METADATA (region = Johto, R12/R13 fix)
+  # ============================================================
+  - name: "Game metadata -- Gold shows Johto region"
+    command: "pokedex game show gold"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "gold", "data.region": "Johto", "data.generation": 2 }
+      has_fields: ["data.display_name"]
+
   # ============================================================
   # LOCATION 1: johto-route-29
   # ============================================================
@@ -23,41 +33,31 @@ steps:
       has_fields: ["data", "actions", "meta"]
       equals: { "meta.total": 13 }
       array_len: { "data": { "min": 5 } }
-  - name: "Route 29 -- inspect Pidgey"
-    command: "pokedex pokemon show pidgey"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "pidgey", "data.generation": 1 }
-      has_fields: ["data.types", "data.stats", "data.abilities"]
-  - name: "Route 29 -- inspect Sentret"
+  - name: "Route 29 -- inspect Sentret (Gen 2 normal)"
     command: "pokedex pokemon show sentret"
     assert:
       exit_code: 0
       equals: { "data.name": "sentret", "data.generation": 2 }
       has_fields: ["data.types", "data.stats"]
-  - name: "Route 29 -- inspect Hoothoot"
-    command: "pokedex pokemon show hoothoot"
+  - name: "Route 29 -- inspect Pidgey"
+    command: "pokedex pokemon show pidgey"
     assert:
       exit_code: 0
-      equals: { "data.name": "hoothoot", "data.generation": 2 }
-  - name: "Route 29 -- inspect Rattata"
-    command: "pokedex pokemon show rattata"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "rattata", "data.generation": 1 }
-  - name: "Route 29 -- catch Pidgey"
-    command: "pokedex collection add --pokemon=pidgey --game=gold --method=catch"
-    capture: { "pidgey_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "pidgey", "data.status": "caught", "data.method": "catch", "data.game": "gold" }
-      has_fields: ["data.id", "data.created_at"]
+      equals: { "data.name": "pidgey", "data.generation": 1 }
+      has_fields: ["data.types", "data.abilities"]
   - name: "Route 29 -- catch Sentret"
     command: "pokedex collection add --pokemon=sentret --game=gold --method=catch"
     capture: { "sentret_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "sentret", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "sentret", "data.status": "caught", "data.method": "catch", "data.game": "gold" }
+  - name: "Route 29 -- catch Pidgey"
+    command: "pokedex collection add --pokemon=pidgey --game=gold --method=catch"
+    capture: { "pidgey_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pidgey", "data.status": "caught", "data.method": "catch" }
+      has_fields: ["data.id", "data.created_at"]
   - name: "Route 29 -- catch Hoothoot"
     command: "pokedex collection add --pokemon=hoothoot --game=gold --method=catch"
     capture: { "hoothoot_id": "data.id" }
@@ -69,32 +69,93 @@ steps:
     capture: { "rattata_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "rattata", "data.status": "caught", "data.method": "catch" }
-  - name: "Route 29 -- evolve Pidgey to Pidgeotto"
-    command: "pokedex collection add --pokemon=pidgeotto --game=gold --method=evolve"
-    capture: { "pidgeotto_id": "data.id" }
+      equals: { "data.species_name": "rattata", "data.status": "caught" }
+  - name: "Route 29 -- catch Spearow"
+    command: "pokedex collection add --pokemon=spearow --game=gold --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "pidgeotto", "data.method": "evolve" }
-  - name: "Route 29 -- update Pidgey status to evolved"
-    command: "pokedex collection update $pidgey_id --status=evolved"
-    assert:
-      exit_code: 0
-      equals: { "data.status": "evolved", "data.species_name": "pidgey" }
-  - name: "Route 29 -- evolve Hoothoot to Noctowl"
-    command: "pokedex collection add --pokemon=noctowl --game=gold --method=evolve"
-    capture: { "noctowl_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "noctowl", "data.method": "evolve" }
-  - name: "Route 29 -- update Hoothoot status to evolved"
-    command: "pokedex collection update $hoothoot_id --status=evolved"
-    assert:
-      exit_code: 0
-      equals: { "data.status": "evolved", "data.species_name": "hoothoot" }
+      equals: { "data.species_name": "spearow", "data.status": "caught" }
 
   # ============================================================
-  # LOCATION 2: sprout-tower
+  # LOCATION 2: johto-route-30
+  # ============================================================
+  - name: "Route 30 -- discover encounters"
+    command: "pokedex location encounters johto-route-30 --game=gold"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 22 }
+      array_len: { "data": { "min": 10 } }
+  - name: "Route 30 -- catch Caterpie"
+    command: "pokedex collection add --pokemon=caterpie --game=gold --method=catch"
+    capture: { "caterpie_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "caterpie", "data.status": "caught", "data.method": "catch" }
+  - name: "Route 30 -- catch Spinarak"
+    command: "pokedex collection add --pokemon=spinarak --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "spinarak", "data.status": "caught" }
+      has_fields: ["data.id"]
+  - name: "Route 30 -- catch Poliwag"
+    command: "pokedex collection add --pokemon=poliwag --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "poliwag", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 3: johto-route-31
+  # ============================================================
+  - name: "Route 31 -- discover encounters"
+    command: "pokedex location encounters johto-route-31 --game=gold"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 22 }
+      array_len: { "data": { "min": 10 } }
+  - name: "Route 31 -- catch Bellsprout"
+    command: "pokedex collection add --pokemon=bellsprout --game=gold --method=catch"
+    capture: { "bellsprout_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bellsprout", "data.status": "caught", "data.method": "catch" }
+
+  # ============================================================
+  # LOCATION 4: dark-cave
+  # ============================================================
+  - name: "Dark Cave -- discover encounters"
+    command: "pokedex location encounters dark-cave --game=gold"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 37 }
+      array_len: { "data": { "min": 15 } }
+  - name: "Dark Cave -- inspect Geodude"
+    command: "pokedex pokemon show geodude"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "geodude", "data.generation": 1 }
+      has_fields: ["data.types", "data.stats"]
+  - name: "Dark Cave -- catch Geodude"
+    command: "pokedex collection add --pokemon=geodude --game=gold --method=catch"
+    capture: { "geodude_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "geodude", "data.status": "caught", "data.method": "catch" }
+  - name: "Dark Cave -- catch Zubat"
+    command: "pokedex collection add --pokemon=zubat --game=gold --method=catch"
+    capture: { "zubat_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zubat", "data.status": "caught" }
+  - name: "Dark Cave -- catch Dunsparce"
+    command: "pokedex collection add --pokemon=dunsparce --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dunsparce", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # LOCATION 5: sprout-tower
   # ============================================================
   - name: "Sprout Tower -- discover encounters"
     command: "pokedex location encounters sprout-tower --game=gold"
@@ -102,7 +163,6 @@ steps:
       exit_code: 0
       has_fields: ["data", "actions", "meta"]
       equals: { "meta.total": 16 }
-      array_len: { "data": { "min": 8 } }
   - name: "Sprout Tower -- inspect Gastly"
     command: "pokedex pokemon show gastly"
     assert:
@@ -116,9 +176,14 @@ steps:
       exit_code: 0
       equals: { "data.species_name": "gastly", "data.status": "caught", "data.method": "catch" }
       has_fields: ["data.id", "data.created_at"]
+  - name: "Sprout Tower -- evolve Gastly to Haunter"
+    command: "pokedex collection add --pokemon=haunter --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "haunter", "data.method": "evolve" }
 
   # ============================================================
-  # LOCATION 3: johto-route-32
+  # LOCATION 6: johto-route-32
   # ============================================================
   - name: "Route 32 -- discover encounters"
     command: "pokedex location encounters johto-route-32 --game=gold"
@@ -132,18 +197,14 @@ steps:
     assert:
       exit_code: 0
       equals: { "data.name": "mareep", "data.generation": 2 }
-      has_fields: ["data.types", "data.stats"]
-  - name: "Route 32 -- inspect Bellsprout"
-    command: "pokedex pokemon show bellsprout"
+      contains: { "data.types.0": "Electric" }
+  - name: "Route 32 -- check Mareep evolution chain"
+    command: "pokedex pokemon evolutions mareep"
     assert:
       exit_code: 0
-      equals: { "data.name": "bellsprout", "data.generation": 1 }
-  - name: "Route 32 -- catch Bellsprout"
-    command: "pokedex collection add --pokemon=bellsprout --game=gold --method=catch"
-    capture: { "bellsprout_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "bellsprout", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "mareep" }
+      has_fields: ["data.children"]
+      contains: { "data.children.0.species_name": "flaaffy" }
   - name: "Route 32 -- catch Mareep"
     command: "pokedex collection add --pokemon=mareep --game=gold --method=catch"
     capture: { "mareep_id": "data.id" }
@@ -155,16 +216,19 @@ steps:
     capture: { "wooper_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "wooper", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "wooper", "data.status": "caught" }
   - name: "Route 32 -- catch Hoppip"
     command: "pokedex collection add --pokemon=hoppip --game=gold --method=catch"
-    capture: { "hoppip_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "hoppip", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "hoppip", "data.status": "caught" }
+  - name: "Route 32 -- catch Tentacool"
+    command: "pokedex collection add --pokemon=tentacool --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tentacool", "data.status": "caught" }
   - name: "Route 32 -- evolve Mareep to Flaaffy"
     command: "pokedex collection add --pokemon=flaaffy --game=gold --method=evolve"
-    capture: { "flaaffy_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "flaaffy", "data.method": "evolve" }
@@ -175,7 +239,7 @@ steps:
       equals: { "data.status": "evolved", "data.species_name": "mareep" }
 
   # ============================================================
-  # LOCATION 4: union-cave
+  # LOCATION 7: union-cave
   # ============================================================
   - name: "Union Cave -- discover encounters"
     command: "pokedex location encounters union-cave --game=gold"
@@ -184,44 +248,34 @@ steps:
       has_fields: ["data", "actions", "meta"]
       equals: { "meta.total": 52 }
       array_len: { "data": { "min": 20 } }
-  - name: "Union Cave -- inspect Geodude"
-    command: "pokedex pokemon show geodude"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "geodude", "data.generation": 1 }
-      has_fields: ["data.types", "data.stats"]
-  - name: "Union Cave -- inspect Onix"
-    command: "pokedex pokemon show onix"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "onix", "data.generation": 1 }
-  - name: "Union Cave -- catch Geodude"
-    command: "pokedex collection add --pokemon=geodude --game=gold --method=catch"
-    capture: { "geodude_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "geodude", "data.status": "caught", "data.method": "catch" }
   - name: "Union Cave -- catch Sandshrew"
     command: "pokedex collection add --pokemon=sandshrew --game=gold --method=catch"
-    capture: { "sandshrew_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "sandshrew", "data.status": "caught", "data.method": "catch" }
   - name: "Union Cave -- catch Onix"
     command: "pokedex collection add --pokemon=onix --game=gold --method=catch"
-    capture: { "onix_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "onix", "data.status": "caught", "data.method": "catch" }
-  - name: "Union Cave -- catch Zubat"
-    command: "pokedex collection add --pokemon=zubat --game=gold --method=catch"
-    capture: { "zubat_id": "data.id" }
+      equals: { "data.species_name": "onix", "data.status": "caught" }
+      has_fields: ["data.id"]
+  - name: "Union Cave -- catch Lapras"
+    command: "pokedex collection add --pokemon=lapras --game=gold --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "zubat", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "lapras", "data.status": "caught" }
+  - name: "Union Cave -- evolve Wooper to Quagsire"
+    command: "pokedex collection add --pokemon=quagsire --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "quagsire", "data.method": "evolve" }
+  - name: "Union Cave -- update Wooper status to evolved"
+    command: "pokedex collection update $wooper_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "wooper" }
   - name: "Union Cave -- evolve Geodude to Graveler"
     command: "pokedex collection add --pokemon=graveler --game=gold --method=evolve"
-    capture: { "graveler_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "graveler", "data.method": "evolve" }
@@ -232,47 +286,89 @@ steps:
       equals: { "data.status": "evolved", "data.species_name": "geodude" }
 
   # ============================================================
-  # LOCATION 5: ilex-forest
+  # MID-GAME CHECKPOINT
   # ============================================================
-  - name: "Ilex Forest -- discover encounters"
-    command: "pokedex location encounters ilex-forest --game=gold"
+  - name: "Mid-game stats -- verify progress"
+    command: "pokedex collection stats --game=gold"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta"]
-      equals: { "meta.total": 24 }
-      array_len: { "data": { "min": 10 } }
-  - name: "Ilex Forest -- inspect Oddish"
-    command: "pokedex pokemon show oddish"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "oddish", "data.generation": 1 }
-      has_fields: ["data.types", "data.stats"]
-  - name: "Ilex Forest -- inspect Psyduck"
-    command: "pokedex pokemon show psyduck"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "psyduck", "data.generation": 1 }
-  - name: "Ilex Forest -- catch Oddish"
-    command: "pokedex collection add --pokemon=oddish --game=gold --method=catch"
-    capture: { "oddish_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "oddish", "data.status": "caught", "data.method": "catch" }
-  - name: "Ilex Forest -- catch Paras"
-    command: "pokedex collection add --pokemon=paras --game=gold --method=catch"
-    capture: { "paras_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "paras", "data.status": "caught", "data.method": "catch" }
-  - name: "Ilex Forest -- catch Psyduck"
-    command: "pokedex collection add --pokemon=psyduck --game=gold --method=catch"
-    capture: { "psyduck_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "psyduck", "data.status": "caught", "data.method": "catch" }
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.total_entries": "number" }
 
   # ============================================================
-  # LOCATION 6: national-park
+  # LOCATION 8: johto-route-34
+  # ============================================================
+  - name: "Route 34 -- discover encounters"
+    command: "pokedex location encounters johto-route-34 --game=gold"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 24 }
+      array_len: { "data": { "min": 10 } }
+  - name: "Route 34 -- inspect Drowzee"
+    command: "pokedex pokemon show drowzee"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "drowzee", "data.generation": 1 }
+      contains: { "data.types.0": "Psychic" }
+  - name: "Route 34 -- catch Drowzee"
+    command: "pokedex collection add --pokemon=drowzee --game=gold --method=catch"
+    capture: { "drowzee_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "drowzee", "data.status": "caught", "data.method": "catch" }
+  - name: "Route 34 -- catch Abra"
+    command: "pokedex collection add --pokemon=abra --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "abra", "data.status": "caught" }
+  - name: "Route 34 -- catch Ditto"
+    command: "pokedex collection add --pokemon=ditto --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ditto", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 9: johto-route-35
+  # ============================================================
+  - name: "Route 35 -- discover encounters"
+    command: "pokedex location encounters johto-route-35 --game=gold"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 23 }
+      array_len: { "data": { "min": 10 } }
+  - name: "Route 35 -- catch Nidoran-f"
+    command: "pokedex collection add --pokemon=nidoran-f --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "nidoran-f", "data.status": "caught" }
+  - name: "Route 35 -- catch Nidoran-m"
+    command: "pokedex collection add --pokemon=nidoran-m --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "nidoran-m", "data.status": "caught" }
+  - name: "Route 35 -- catch Yanma"
+    command: "pokedex collection add --pokemon=yanma --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "yanma", "data.status": "caught" }
+  - name: "Route 35 -- catch Psyduck"
+    command: "pokedex collection add --pokemon=psyduck --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "psyduck", "data.status": "caught" }
+  - name: "Route 35 -- evolve Drowzee to Hypno"
+    command: "pokedex collection add --pokemon=hypno --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "hypno", "data.method": "evolve" }
+  - name: "Route 35 -- update Drowzee status to evolved"
+    command: "pokedex collection update $drowzee_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "drowzee" }
+
+  # ============================================================
+  # LOCATION 10: national-park
   # ============================================================
   - name: "National Park -- discover encounters"
     command: "pokedex location encounters national-park --game=gold"
@@ -280,8 +376,7 @@ steps:
       exit_code: 0
       has_fields: ["data", "actions", "meta"]
       equals: { "meta.total": 11 }
-      array_len: { "data": { "min": 5 } }
-  - name: "National Park -- inspect Sunkern"
+  - name: "National Park -- inspect Sunkern (Gen 2 grass)"
     command: "pokedex pokemon show sunkern"
     assert:
       exit_code: 0
@@ -289,13 +384,139 @@ steps:
       has_fields: ["data.types", "data.stats"]
   - name: "National Park -- catch Sunkern"
     command: "pokedex collection add --pokemon=sunkern --game=gold --method=catch"
-    capture: { "sunkern_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "sunkern", "data.status": "caught", "data.method": "catch" }
 
   # ============================================================
-  # LOCATION 7: lake-of-rage
+  # LOCATION 11: johto-route-36
+  # ============================================================
+  - name: "Route 36 -- discover encounters"
+    command: "pokedex location encounters johto-route-36 --game=gold"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 16 }
+      array_len: { "data": { "min": 8 } }
+  - name: "Route 36 -- inspect Stantler (Gen 2 exclusive)"
+    command: "pokedex pokemon show stantler"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "stantler", "data.generation": 2 }
+      contains: { "data.types.0": "Normal" }
+  - name: "Route 36 -- catch Stantler"
+    command: "pokedex collection add --pokemon=stantler --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "stantler", "data.status": "caught" }
+  - name: "Route 36 -- catch Growlithe"
+    command: "pokedex collection add --pokemon=growlithe --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "growlithe", "data.status": "caught" }
+  - name: "Route 36 -- catch Sudowoodo"
+    command: "pokedex collection add --pokemon=sudowoodo --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sudowoodo", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # LOCATION 12: johto-route-38 and johto-route-39
+  # ============================================================
+  - name: "Route 38 -- discover encounters"
+    command: "pokedex location encounters johto-route-38 --game=gold"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 13 }
+      array_len: { "data": { "min": 8 } }
+  - name: "Route 38 -- catch Snubbull"
+    command: "pokedex collection add --pokemon=snubbull --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "snubbull", "data.status": "caught" }
+  - name: "Route 38 -- catch Tauros"
+    command: "pokedex collection add --pokemon=tauros --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tauros", "data.status": "caught" }
+  - name: "Route 38 -- catch Farfetchd"
+    command: "pokedex collection add --pokemon=farfetchd --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "farfetchd", "data.status": "caught" }
+  - name: "Route 38 -- catch Magnemite"
+    command: "pokedex collection add --pokemon=magnemite --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "magnemite", "data.status": "caught" }
+  - name: "Route 39 -- discover encounters"
+    command: "pokedex location encounters johto-route-39 --game=gold"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 11 }
+      array_len: { "data": { "min": 8 } }
+  - name: "Route 39 -- catch Miltank"
+    command: "pokedex collection add --pokemon=miltank --game=gold --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "miltank", "data.status": "caught" }
+
+  # ============================================================
+  # EVOLUTION BATCH -- Pidgey and Sentret lines
+  # ============================================================
+  - name: "Evolve Pidgey to Pidgeotto"
+    command: "pokedex collection add --pokemon=pidgeotto --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pidgeotto", "data.method": "evolve" }
+  - name: "Update Pidgey status to evolved"
+    command: "pokedex collection update $pidgey_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "pidgey" }
+  - name: "Evolve Sentret to Furret"
+    command: "pokedex collection add --pokemon=furret --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "furret", "data.method": "evolve" }
+  - name: "Update Sentret status to evolved"
+    command: "pokedex collection update $sentret_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "sentret" }
+  - name: "Evolve Hoothoot to Noctowl"
+    command: "pokedex collection add --pokemon=noctowl --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "noctowl", "data.method": "evolve" }
+  - name: "Update Hoothoot status to evolved"
+    command: "pokedex collection update $hoothoot_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "hoothoot" }
+  - name: "Evolve Zubat to Golbat"
+    command: "pokedex collection add --pokemon=golbat --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "golbat", "data.method": "evolve" }
+  - name: "Evolve Bellsprout to Weepinbell"
+    command: "pokedex collection add --pokemon=weepinbell --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "weepinbell", "data.method": "evolve" }
+  - name: "Evolve Caterpie to Metapod"
+    command: "pokedex collection add --pokemon=metapod --game=gold --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "metapod", "data.method": "evolve" }
+  - name: "Update Caterpie status to evolved"
+    command: "pokedex collection update $caterpie_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "caterpie" }
+
+  # ============================================================
+  # LOCATION 13: lake-of-rage
   # ============================================================
   - name: "Lake of Rage -- discover encounters"
     command: "pokedex location encounters lake-of-rage --game=gold"
@@ -309,78 +530,52 @@ steps:
     assert:
       exit_code: 0
       equals: { "data.name": "gyarados", "data.generation": 1 }
-      has_fields: ["data.types", "data.stats"]
       type_of: { "data.stats.attack": "number" }
-  - name: "Lake of Rage -- inspect Magikarp"
-    command: "pokedex pokemon show magikarp"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "magikarp", "data.generation": 1 }
   - name: "Lake of Rage -- catch Magikarp"
     command: "pokedex collection add --pokemon=magikarp --game=gold --method=catch"
-    capture: { "magikarp_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "magikarp", "data.status": "caught", "data.method": "catch" }
   - name: "Lake of Rage -- catch Gyarados (Red Gyarados)"
     command: "pokedex collection add --pokemon=gyarados --game=gold --method=catch"
-    capture: { "gyarados_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "gyarados", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "gyarados", "data.status": "caught" }
+      has_fields: ["data.id"]
 
   # ============================================================
-  # LOCATION 8: ice-path
+  # LOCATION 14: victory-road (no Gold encounters expected)
   # ============================================================
-  - name: "Ice Path -- discover encounters"
-    command: "pokedex location encounters ice-path --game=gold"
+  - name: "Victory Road -- no Gold encounters (expected NOT_FOUND)"
+    command: "pokedex location encounters victory-road --game=gold"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "victory-road" }
+
+  # ============================================================
+  # DEX PROGRESS CHECK
+  # ============================================================
+  - name: "Johto dex progress -- verify partial completion"
+    command: "pokedex dex progress original-johto --game=gold"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta"]
-      equals: { "meta.total": 24 }
-      array_len: { "data": { "min": 10 } }
-  - name: "Ice Path -- inspect Swinub"
-    command: "pokedex pokemon show swinub"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "swinub", "data.generation": 2 }
-      has_fields: ["data.types", "data.stats"]
-      contains: { "data.types": "Ice" }
-  - name: "Ice Path -- inspect Jynx"
-    command: "pokedex pokemon show jynx"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "jynx", "data.generation": 1 }
-  - name: "Ice Path -- catch Swinub"
-    command: "pokedex collection add --pokemon=swinub --game=gold --method=catch"
-    capture: { "swinub_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "swinub", "data.status": "caught", "data.method": "catch" }
-  - name: "Ice Path -- catch Jynx"
-    command: "pokedex collection add --pokemon=jynx --game=gold --method=catch"
-    capture: { "jynx_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "jynx", "data.status": "caught", "data.method": "catch" }
-  - name: "Ice Path -- evolve Swinub to Piloswine"
-    command: "pokedex collection add --pokemon=piloswine --game=gold --method=evolve"
-    capture: { "piloswine_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "piloswine", "data.method": "evolve" }
-  - name: "Ice Path -- update Swinub status to evolved"
-    command: "pokedex collection update $swinub_id --status=evolved"
-    assert:
-      exit_code: 0
-      equals: { "data.status": "evolved", "data.species_name": "swinub" }
+      has_fields: ["data.dex_name", "data.total", "data.caught", "data.percentage"]
+      equals: { "data.dex_name": "original-johto" }
+      type_of: { "data.percentage": "number" }
 
   # ============================================================
   # FINAL VERIFICATION
   # ============================================================
-  - name: "Final stats -- verify Gold playthrough collection"
+  - name: "Final stats -- verify Gold playthrough 40+ species"
     command: "pokedex collection stats --game=gold"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.by_status", "data.shiny_count"]
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
       type_of: { "data.total_entries": "number", "data.unique_species": "number" }
+  - name: "Final collection list -- verify Gold entries exist"
+    command: "pokedex collection list --game=gold --limit=50"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 40 } }

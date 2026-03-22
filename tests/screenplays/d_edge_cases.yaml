@@ -1113,3 +1113,173 @@ steps:
     assert:
       exit_code: 0
       has_fields: ["data", "actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: POKEMON ID 1026 (beyond last species)
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "pokemon ID 1026 (one past last) returns NOT_FOUND"
+    command: "pokedex pokemon show 1026"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: MAGIKARP MASSIVE ENCOUNTER LIST (no pagination)
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "magikarp encounters returns 3000+ rows in one response"
+    command: "pokedex pokemon encounters magikarp"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 3000 } }
+      has_fields: ["actions", "meta.command"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: HOME TRANSFERABLE FOR MYTHICALS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "mew is HOME transferable via LGP/LGE"
+    command: "pokedex home transferable mew"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+      contains: { "data.0.name": "lets-go" }
+
+  - name: "deoxys is not HOME transferable from any game"
+    command: "pokedex home transferable deoxys"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      type_of: { "data": "array" }
+
+  - name: "manaphy is HOME transferable via BDSP and PLA"
+    command: "pokedex home transferable manaphy"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+      type_of: { "data": "array" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: STELLAR TYPE (Gen 9 new type)
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "stellar type matchups exist with empty effectiveness lists"
+    command: "pokedex type matchups stellar"
+    assert:
+      exit_code: 0
+      equals: { "data.type_name": "stellar", "data.display_name": "Stellar" }
+      array_len: { "data.attacking.super_effective": { "min": 0, "max": 0 } }
+
+  - name: "stellar type has zero pokemon assigned"
+    command: "pokedex type pokemon stellar"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 0 }
+      array_len: { "data": { "min": 0, "max": 0 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: COLLECTION SORT VALIDATION
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "collection list --sort=name is invalid (valid: id, dex)"
+    command: "pokedex collection list --sort=name"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "id, dex" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: DEX PROGRESS WITH --caught AND --missing TOGETHER
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "dex progress with --caught and --missing combined is accepted"
+    command: "pokedex dex progress national --caught --missing --limit=5"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 1025 }
+      has_fields: ["data.entries", "data.caught"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: MOVES WITH TUTOR METHOD + GAME COMBINED
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "pikachu tutor moves in scarlet returns empty (no tutor data)"
+    command: "pokedex pokemon moves pikachu --method=tutor --game=scarlet"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 0 }
+      array_len: { "data": { "min": 0, "max": 0 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: --format FLAG ACCEPTS UNKNOWN VALUES SILENTLY
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "format=json produces valid JSON output"
+    command: "pokedex pokemon show pikachu --format=json"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "pikachu" }
+      has_fields: ["data", "actions", "meta"]
+
+  - name: "format=yaml still produces JSON output (unrecognized format ignored)"
+    command: "pokedex pokemon show pikachu --format=yaml"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "pikachu" }
+      has_fields: ["data", "actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: DOUBLE ADD — same pokemon same game yields two entries
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "add pikachu to red (first entry)"
+    command: "pokedex collection add --pokemon=pikachu --game=red"
+    capture:
+      first_id: "data.id"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "red" }
+      has_fields: ["data.id"]
+
+  - name: "add pikachu to red (second entry)"
+    command: "pokedex collection add --pokemon=pikachu --game=red"
+    capture:
+      second_id: "data.id"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "red" }
+      has_fields: ["data.id"]
+
+  - name: "both pikachu entries exist independently"
+    command: "pokedex collection list --sort=id"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 2 } }
+      type_of: { "data": "array" }
+
+  - name: "clean up first pikachu entry"
+    command: "pokedex collection remove $first_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+      has_fields: ["actions"]
+
+  - name: "clean up second pikachu entry"
+    command: "pokedex collection remove $second_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 15: COLLECTION UPDATE WITH NO UPDATE FLAGS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "collection update with no flags on non-existent ID returns NOT_FOUND"
+    command: "pokedex collection update 99999999"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]

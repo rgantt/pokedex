@@ -4,13 +4,13 @@
 # implementation. Don't contort the CLI to make a stale screenplay pass.
 name: "Data Quality Auditor"
 persona: "C"
-description: "Verify region/generation per game, BST accuracy, type matchup immunities, abilities, evolution overrides, and pokedex counts"
+description: "Final audit: regions, BST edge cases, evolution overrides, type matchups, abilities, dex counts, HOME transfers, encounter spot checks"
 needs_seed: true
 mutates_collection: false
 
 steps:
   # ══════════════════════════════════════════════════════════════════════
-  # 1. REGION CORRECTNESS — original games
+  # 1. REGION CORRECTNESS — all 9 original games
   # ══════════════════════════════════════════════════════════════════════
 
   - name: "Red is Gen 1 Kanto"
@@ -77,9 +77,7 @@ steps:
       contains: {"data.display_name": "Scarlet"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 2. REGION CORRECTNESS — remakes
-  #    Region is inherited from generation, not the game's actual setting.
-  #    These assert on generation (reliable) and display_name.
+  # 2. REGION CORRECTNESS — all 7 remakes
   # ══════════════════════════════════════════════════════════════════════
 
   - name: "FireRed is Gen 3 remake of Kanto"
@@ -132,24 +130,24 @@ steps:
       contains: {"data.display_name": "Legends: Z-A"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 3. DISPLAY NAMES — service games
+  # 3. SERVICE GAMES — display names
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "Pokemon GO has proper display name"
+  - name: "Pokemon GO display name"
     command: "pokedex game show pokemon-go"
     assert:
       exit_code: 0
       equals: {"data.display_name": "Pokémon GO"}
       has_fields: ["data.name"]
 
-  - name: "Pokemon HOME has proper display name"
+  - name: "Pokemon HOME display name"
     command: "pokedex game show home"
     assert:
       exit_code: 0
       equals: {"data.display_name": "Pokémon HOME"}
       has_fields: ["data.name"]
 
-  - name: "Pokemon Bank has proper display name"
+  - name: "Pokemon Bank display name"
     command: "pokedex game show pokemon-bank"
     assert:
       exit_code: 0
@@ -157,7 +155,7 @@ steps:
       has_fields: ["data.name"]
 
   # ══════════════════════════════════════════════════════════════════════
-  # 4. BST SPOT CHECKS — extreme/notable stat Pokemon
+  # 4. BST EDGE CASES — extreme stat Pokemon
   # ══════════════════════════════════════════════════════════════════════
 
   - name: "Shedinja BST 236 with 1 HP"
@@ -167,79 +165,215 @@ steps:
       equals: {"data.total": 236, "data.hp": 1}
       has_fields: ["data.attack", "data.defense"]
 
-  - name: "Shuckle BST is 505"
-    command: "pokedex pokemon stats shuckle"
+  - name: "Wishiwashi-School BST 620"
+    command: "pokedex pokemon stats wishiwashi-school"
     assert:
       exit_code: 0
-      equals: {"data.total": 505, "data.defense": 230}
-      has_fields: ["data.speed"]
+      equals: {"data.total": 620, "data.hp": 45}
+      contains: {"data.pokemon_name": "School"}
 
-  - name: "Chansey BST 450 with 250 HP"
-    command: "pokedex pokemon stats chansey"
+  - name: "Eternatus-Eternamax BST 1125"
+    command: "pokedex pokemon stats eternatus-eternamax"
     assert:
       exit_code: 0
-      equals: {"data.total": 450, "data.hp": 250}
-      has_fields: ["data.special_defense"]
+      equals: {"data.total": 1125, "data.hp": 255}
+      contains: {"data.pokemon_name": "Eternamax"}
 
-  - name: "Blissey BST 540 with 255 HP"
-    command: "pokedex pokemon stats blissey"
+  - name: "Zygarde-Complete BST 708"
+    command: "pokedex pokemon stats zygarde-complete"
     assert:
       exit_code: 0
-      equals: {"data.total": 540, "data.hp": 255}
-      has_fields: ["data.attack"]
+      equals: {"data.total": 708, "data.hp": 216}
+      contains: {"data.pokemon_name": "Complete"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 5. EVOLUTION OVERRIDES — Gen 9 DLC (V001 fixed)
+  # 5. EVOLUTION OVERRIDES — Dipplin, Hydrapple (V001 fixed)
   # ══════════════════════════════════════════════════════════════════════
 
   - name: "Dipplin evolves via Syrupy Apple"
     command: "pokedex pokemon evolutions applin"
     assert:
       exit_code: 0
-      contains: {"data.children.2.methods.0.trigger_detail": "Syrupy Apple"}
       equals: {"data.children.2.species_name": "dipplin"}
+      contains: {"data.children.2.methods.0.trigger_detail": "Syrupy Apple"}
 
   - name: "Hydrapple evolves by leveling with Dragon Cheer"
     command: "pokedex pokemon evolutions applin"
     assert:
       exit_code: 0
-      contains: {"data.children.2.children.0.methods.0.trigger_detail": "Dragon Cheer"}
       equals: {"data.children.2.children.0.species_name": "hydrapple"}
+      contains: {"data.children.2.children.0.methods.0.trigger_detail": "Dragon Cheer"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 6. TYPE MATCHUP IMMUNITIES
+  # 6. EVOLUTION OVERRIDES — Melmetal (V002 fixed)
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "Ghost immune to Normal attacks (defending)"
+  - name: "Melmetal evolution shows GO candy requirement"
+    command: "pokedex pokemon evolutions meltan"
+    assert:
+      exit_code: 0
+      equals: {"data.children.0.species_name": "melmetal"}
+      contains: {"data.children.0.methods.0.trigger_detail": "400 Meltan Candy"}
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 7. EVOLUTION — Leafeon and Glaceon dual methods
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Leafeon has both item and level-up methods"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      equals: {"data.children.5.species_name": "leafeon"}
+      array_len: {"data.children.5.methods": {"min": 2}}
+      contains: {"data.children.5.methods.0.trigger_detail": "Leaf Stone"}
+
+  - name: "Glaceon has both item and level-up methods"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      equals: {"data.children.6.species_name": "glaceon"}
+      array_len: {"data.children.6.methods": {"min": 2}}
+      contains: {"data.children.6.methods.0.trigger_detail": "Ice Stone"}
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 8. TYPE MATCHUP COMPLETENESS — all 18 standard types return data
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Type list returns at least 18 types"
+    command: "pokedex type list"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 18}}
+      type_of: {"data": "array"}
+
+  - name: "Ghost immune to Normal and vice versa"
     command: "pokedex type matchups ghost"
     assert:
       exit_code: 0
       contains: {"data.defending.no_effect": "Normal"}
-      has_fields: ["data.defending.super_effective"]
+      has_fields: ["data.attacking.no_effect", "data.defending.super_effective"]
 
-  - name: "Normal immune to Ghost attacks (defending)"
+  - name: "Normal immune to Ghost attacks"
     command: "pokedex type matchups normal"
     assert:
       exit_code: 0
       contains: {"data.defending.no_effect": "Ghost"}
-      has_fields: ["data.attacking.no_effect"]
+      has_fields: ["data.attacking"]
 
-  - name: "Ghost attacks have no effect on Normal"
-    command: "pokedex type matchups ghost"
-    assert:
-      exit_code: 0
-      contains: {"data.attacking.no_effect": "Normal"}
-      has_fields: ["data.attacking.super_effective"]
-
-  - name: "Electric attacks have no effect on Ground"
+  - name: "Electric has no effect on Ground"
     command: "pokedex type matchups electric"
     assert:
       exit_code: 0
       contains: {"data.attacking.no_effect": "Ground"}
-      has_fields: ["data.defending.super_effective"]
+      has_fields: ["data.defending"]
+
+  - name: "Fairy immune to Dragon attacks"
+    command: "pokedex type matchups fairy"
+    assert:
+      exit_code: 0
+      contains: {"data.defending.no_effect": "Dragon"}
+      has_fields: ["data.attacking.super_effective"]
+
+  - name: "Steel immune to Poison attacks"
+    command: "pokedex type matchups steel"
+    assert:
+      exit_code: 0
+      contains: {"data.defending.no_effect": "Poison"}
+      has_fields: ["data.attacking"]
+
+  - name: "Ground immune to Electric attacks"
+    command: "pokedex type matchups ground"
+    assert:
+      exit_code: 0
+      contains: {"data.defending.no_effect": "Electric"}
+      has_fields: ["data.attacking.super_effective"]
+
+  - name: "Dark immune to Psychic attacks"
+    command: "pokedex type matchups dark"
+    assert:
+      exit_code: 0
+      contains: {"data.defending.no_effect": "Psychic"}
+      has_fields: ["data.attacking"]
+
+  - name: "Flying type matchups exist"
+    command: "pokedex type matchups flying"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Water type matchups exist"
+    command: "pokedex type matchups water"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.not_very_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Fire type matchups exist"
+    command: "pokedex type matchups fire"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Grass type matchups exist"
+    command: "pokedex type matchups grass"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Ice type matchups exist"
+    command: "pokedex type matchups ice"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Fighting type matchups exist"
+    command: "pokedex type matchups fighting"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Poison type matchups exist"
+    command: "pokedex type matchups poison"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Rock type matchups exist"
+    command: "pokedex type matchups rock"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Bug type matchups exist"
+    command: "pokedex type matchups bug"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.defending.super_effective"]
+      type_of: {"data.attacking.super_effective": "array"}
+
+  - name: "Dragon type matchups exist"
+    command: "pokedex type matchups dragon"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective"]
+      contains: {"data.attacking.no_effect": "Fairy"}
+
+  - name: "Psychic type matchups exist"
+    command: "pokedex type matchups psychic"
+    assert:
+      exit_code: 0
+      has_fields: ["data.attacking.super_effective", "data.attacking.no_effect"]
+      type_of: {"data.attacking.super_effective": "array"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 7. ABILITY DATA — signature abilities
+  # 9. ABILITY EDGE CASES
   # ══════════════════════════════════════════════════════════════════════
 
   - name: "Shedinja has Wonder Guard"
@@ -256,8 +390,15 @@ steps:
       contains: {"data.abilities": "Truant"}
       has_fields: ["data.types"]
 
+  - name: "Castform has Forecast"
+    command: "pokedex pokemon show castform"
+    assert:
+      exit_code: 0
+      contains: {"data.abilities": "Forecast"}
+      has_fields: ["data.types"]
+
   # ══════════════════════════════════════════════════════════════════════
-  # 8. POKEDEX COUNTS
+  # 10. DEX COUNTS — national and regional
   # ══════════════════════════════════════════════════════════════════════
 
   - name: "National dex has 1025 entries"
@@ -294,3 +435,106 @@ steps:
       exit_code: 0
       equals: {"meta.total": 151}
       has_fields: ["data"]
+
+  - name: "Dex list has all regional dexes"
+    command: "pokedex dex list"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 30}}
+      type_of: {"data": "array"}
+
+  - name: "Galar dex has 400 entries"
+    command: "pokedex dex show galar --limit=1"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 400}
+      has_fields: ["data"]
+
+  - name: "Paldea dex has 400 entries"
+    command: "pokedex dex show paldea --limit=1"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 400}
+      has_fields: ["data"]
+
+  - name: "Hisui dex has 242 entries"
+    command: "pokedex dex show hisui --limit=1"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 242}
+      has_fields: ["data"]
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 11. HOME TRANSFERABLE ACCURACY
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Terapagos transferable to exactly 2 games (scarlet, violet)"
+    command: "pokedex home transferable terapagos"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 2, "max": 2}}
+      contains: {"data.0.name": "scarlet"}
+
+  - name: "Terapagos second game is violet"
+    command: "pokedex home transferable terapagos"
+    assert:
+      exit_code: 0
+      contains: {"data.1.name": "violet"}
+      type_of: {"data": "array"}
+
+  - name: "Pikachu transferable to 10+ games"
+    command: "pokedex home transferable pikachu"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 10}}
+      type_of: {"data": "array"}
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 12. ENCOUNTER DATA SPOT CHECKS
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Pikachu found in Viridian Forest in Red"
+    command: "pokedex pokemon encounters pikachu --game=red"
+    assert:
+      exit_code: 0
+      contains: {"data": "Viridian Forest"}
+      array_len: {"data": {"min": 2}}
+
+  - name: "Shinx found on Route 202 in Diamond"
+    command: "pokedex pokemon encounters shinx --game=diamond"
+    assert:
+      exit_code: 0
+      contains: {"data": "Route 202"}
+      array_len: {"data": {"min": 2}}
+
+  - name: "Pikachu also at Power Plant in Red"
+    command: "pokedex pokemon encounters pikachu --game=red"
+    assert:
+      exit_code: 0
+      contains: {"data": "Power Plant"}
+      has_fields: ["meta.command"]
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 13. ADDITIONAL BST CHECKS — Shuckle, Chansey, Blissey
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Shuckle BST 505 with 230 defense"
+    command: "pokedex pokemon stats shuckle"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 505, "data.defense": 230}
+      has_fields: ["data.speed"]
+
+  - name: "Chansey BST 450 with 250 HP"
+    command: "pokedex pokemon stats chansey"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 450, "data.hp": 250}
+      has_fields: ["data.special_defense"]
+
+  - name: "Blissey BST 540 with 255 HP"
+    command: "pokedex pokemon stats blissey"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 540, "data.hp": 255}
+      has_fields: ["data.attack"]

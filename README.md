@@ -50,7 +50,8 @@ Run `pokedex --discover` for the full machine-readable command tree. Run any com
 ```bash
 pokedex pokemon list --type-filter=fire --generation=1
 pokedex pokemon show charizard           # types, egg groups, stats, abilities
-pokedex pokemon show growlithe-hisui     # form-specific types (Fire/Rock)
+pokedex pokemon show growlithe-hisui     # form-specific types (Fire/Rock), gen 8
+pokedex pokemon show meowth-alola       # Alolan form shows gen 7 (not gen 1)
 pokedex pokemon search bulbsaur          # fuzzy search (handles typos)
 pokedex pokemon evolutions eevee         # full chain with all game-era methods
 pokedex pokemon forms charizard          # base, mega-x, mega-y, gmax
@@ -90,6 +91,7 @@ pokedex collection add --pokemon=charizard --game=scarlet --shiny --in-home --me
 pokedex collection add --pokemon=pikachu --game=sword --status=living_dex
 pokedex collection add --pokemon=charmander --game=scarlet --status=evolved --notes="evolved into charmeleon"
 pokedex collection update 1 --status=transferred --in-home=true
+pokedex collection update 1 --status=evolved --dry-run  # preview before updating
 pokedex collection list --game=scarlet --shiny-only
 pokedex collection show 1
 pokedex collection stats
@@ -117,8 +119,10 @@ pokedex home transferable pikachu        # which games can pikachu go to/from
 ### Games
 
 ```bash
-pokedex game list --home-only
-pokedex game show scarlet
+pokedex game list --home-compatible
+pokedex game show scarlet                # gen 9, Paldea
+pokedex game show firered                # gen 3, Kanto (not Hoenn — remakes show correct region)
+pokedex game show heartgold              # gen 4, Johto
 ```
 
 ### Database
@@ -196,6 +200,30 @@ Modern games have richer encounter metadata than a simple rarity percentage. The
 | Database location | `~/.pokedex/db.sqlite` | `POKEDEX_DB_PATH` env var |
 | Download cache | `~/.pokedex/cache/` | cleaned after seed unless `--keep-cache` |
 | Output format | `json` | `--format=table` (currently same as json) |
+
+## Testing
+
+```bash
+cargo test --test run_screenplays        # 2000+ regression steps across 26 screenplays
+cargo test --test validate_encounters    # encounter data integrity checks
+```
+
+The screenplay tests replay recorded CLI interactions with assertions on exit codes, field presence, value equality, and array bounds. Each screenplay represents a different testing perspective — game playthroughs (Red through Scarlet), edge cases, competitive analysis, form variants, HOME transfers, and more. New screenplays accumulate over time with timestamped filenames.
+
+### Screenplay Recorder
+
+Agents use `scripts/screenplay.py` to record test steps instead of hand-writing YAML:
+
+```bash
+python3 scripts/screenplay.py --session D init "Edge Cases" D "Test error handling"
+python3 scripts/screenplay.py --session D step "Show pikachu" "pokedex pokemon show pikachu" \
+  --exit-code 0 --equals "data.name=pikachu" --has-fields "data.types,data.stats"
+python3 scripts/screenplay.py --session D done
+```
+
+### Data Quality
+
+Known upstream data issues are tracked in `data/known_issues.md`. The curated override system in `data/overrides/` fixes issues we can correct locally (evolution methods, form defaults, encounter version-exclusive swaps).
 
 ## Install
 

@@ -32,15 +32,15 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Build instrumented binary
+      - name: Run test_seed (builds instrumented binary)
         run: |
           cargo llvm-cov clean --workspace
-          cargo llvm-cov test --no-report --test validate_encounters --no-run
+          cargo llvm-cov test --no-report --test test_seed
 
       - name: Install instrumented binary and seed database
         run: |
-          cp target/llvm-cov-target/debug/pokedex /usr/local/bin/pokedex
-          chmod +x /usr/local/bin/pokedex
+          sudo cp target/llvm-cov-target/debug/pokedex /usr/local/bin/pokedex
+          sudo chmod +x /usr/local/bin/pokedex
           pokedex db seed
 
       - name: Run validate_encounters tests

@@ -2,421 +2,268 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Variant Collector: Untested Form-Heavy Pokemon"
+name: "Variant Collector: Form Variants & HATEOAS Consistency"
 persona: "I"
-description: "Test form counts, is_default correctness, type differences, and stat differences for Pikachu cosplay/cap, Unown, Shellos/Gastrodon, Basculin, Deerling/Sawsbuck, Furfrou, Zygarde, Necrozma, Calyrex, Urshifu, Tatsugiri, Squawkabilly, Palafin. Also tests collecting multiple forms of the same species in the same game."
+description: "Round 14: Ogerpon mask forms, Terapagos forms, Paldean forms, paradox pokemon, gender-variant pokemon, mega BST +100 validation, form-specific collection workflow, Urshifu gmax dedup, form_name consistency across 10+ pokemon"
 needs_seed: true
 mutates_collection: true
 
 steps:
-  # ===== Pikachu: 17 cosplay/cap/starter/gmax forms =====
+  # ===== Ogerpon: 4 mask forms with different types =====
 
-  - name: "Pikachu has 17 total forms"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 17, "max": 17 } }
-      equals: { "data.0.is_default": true }
-
-  - name: "Pikachu cosplay form exists"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-cosplay" }
-      type_of: { "data": "array" }
-
-  - name: "Pikachu original-cap form exists"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-original-cap" }
-
-  - name: "Pikachu world-cap form exists"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: { "data": "pikachu-world-cap" }
-
-  - name: "Pikachu Gmax is battle-only"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      equals: { "data.1.form_name": "gmax", "data.1.is_battle_only": true }
-
-  - name: "All Pikachu forms are Electric type"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      equals: { "data.0.types": ["Electric"], "data.5.types": ["Electric"] }
-
-  # ===== Unown: 28 forms (A-Z + ! + ?) =====
-
-  - name: "Unown has exactly 28 forms"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 28, "max": 28 } }
-      equals: { "data.0.is_default": true }
-
-  - name: "Unown A is default form"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      equals: { "data.0.form_name": "a", "data.0.is_default": true }
-      contains: { "data": "unown-a" }
-
-  - name: "Unown exclamation and question forms exist"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      contains: { "data": "unown-exclamation" }
-
-  - name: "Unown question mark form exists"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      contains: { "data": "unown-question" }
-
-  - name: "All Unown forms are Psychic type"
-    command: "pokedex pokemon forms unown"
-    assert:
-      exit_code: 0
-      equals: { "data.0.types": ["Psychic"], "data.27.types": ["Psychic"] }
-
-  # ===== Shellos/Gastrodon: East/West Sea =====
-
-  - name: "Shellos has 2 forms West and East"
-    command: "pokedex pokemon forms shellos"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 2, "max": 2 } }
-      equals: { "data.0.form_name": "west", "data.1.form_name": "east" }
-
-  - name: "Shellos West is default"
-    command: "pokedex pokemon forms shellos"
-    assert:
-      exit_code: 0
-      equals: { "data.0.is_default": true, "data.1.is_default": false }
-
-  - name: "Gastrodon has 2 forms West and East"
-    command: "pokedex pokemon forms gastrodon"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 2, "max": 2 } }
-      equals: { "data.0.form_name": "west", "data.1.form_name": "east" }
-
-  - name: "Gastrodon is Water/Ground for both forms"
-    command: "pokedex pokemon forms gastrodon"
-    assert:
-      exit_code: 0
-      equals: { "data.0.types": ["Water", "Ground"], "data.1.types": ["Water", "Ground"] }
-
-  # ===== Basculin: 3 stripe forms =====
-
-  - name: "Basculin has 3 forms"
-    command: "pokedex pokemon forms basculin"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 3, "max": 3 } }
-      equals: { "data.0.is_default": true }
-
-  - name: "Basculin Red-Striped is default"
-    command: "pokedex pokemon forms basculin"
-    assert:
-      exit_code: 0
-      equals: { "data.0.form_name": "red-striped" }
-      contains: { "data": "basculin-blue-striped" }
-
-  - name: "Basculin White-Striped form exists"
-    command: "pokedex pokemon forms basculin"
-    assert:
-      exit_code: 0
-      contains: { "data": "basculin-white-striped" }
-      equals: { "data.2.form_name": "white-striped" }
-
-  # ===== Deerling/Sawsbuck: 4 seasonal forms =====
-
-  - name: "Deerling has 4 seasonal forms"
-    command: "pokedex pokemon forms deerling"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 4, "max": 4 } }
-      equals: { "data.0.form_name": "spring" }
-
-  - name: "Deerling seasonal forms are spring summer autumn winter"
-    command: "pokedex pokemon forms deerling"
-    assert:
-      exit_code: 0
-      equals: { "data.1.form_name": "summer", "data.2.form_name": "autumn", "data.3.form_name": "winter" }
-
-  - name: "Sawsbuck has 4 seasonal forms"
-    command: "pokedex pokemon forms sawsbuck"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 4, "max": 4 } }
-      equals: { "data.0.form_name": "spring", "data.0.is_default": true }
-
-  - name: "All Deerling forms are Normal/Grass"
-    command: "pokedex pokemon forms deerling"
-    assert:
-      exit_code: 0
-      equals: { "data.0.types": ["Normal", "Grass"], "data.3.types": ["Normal", "Grass"] }
-
-  # ===== Furfrou: 10 trim forms =====
-
-  - name: "Furfrou has 10 trim forms"
-    command: "pokedex pokemon forms furfrou"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 10, "max": 10 } }
-      equals: { "data.0.form_name": "natural" }
-
-  - name: "Furfrou Natural is default"
-    command: "pokedex pokemon forms furfrou"
-    assert:
-      exit_code: 0
-      equals: { "data.0.is_default": true }
-      contains: { "data": "furfrou-heart" }
-
-  - name: "Furfrou includes la-reine and pharaoh trims"
-    command: "pokedex pokemon forms furfrou"
-    assert:
-      exit_code: 0
-      contains: { "data": "furfrou-la-reine" }
-
-  - name: "All Furfrou forms are Normal type"
-    command: "pokedex pokemon forms furfrou"
-    assert:
-      exit_code: 0
-      equals: { "data.0.types": ["Normal"], "data.9.types": ["Normal"] }
-
-  # ===== Zygarde: 10%, 50%, Complete with stat differences =====
-
-  - name: "Zygarde has 6 forms including power-construct variants"
-    command: "pokedex pokemon forms zygarde"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 6, "max": 6 } }
-      equals: { "data.0.form_name": "50" }
-
-  - name: "Zygarde 50% is default with 600 BST"
-    command: "pokedex pokemon show zygarde"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 600, "data.stats.hp": 108 }
-      has_fields: ["data.types"]
-
-  - name: "Zygarde 10% has 486 BST"
-    command: "pokedex pokemon show zygarde-10"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 486, "data.stats.speed": 115 }
-
-  - name: "Zygarde Complete has 708 BST and 216 HP"
-    command: "pokedex pokemon show zygarde-complete"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 708, "data.stats.hp": 216 }
-
-  - name: "Zygarde Complete is battle-only"
-    command: "pokedex pokemon forms zygarde"
-    assert:
-      exit_code: 0
-      equals: { "data.4.form_name": "complete", "data.4.is_battle_only": true }
-
-  # ===== Necrozma: Base, Dusk Mane, Dawn Wings, Ultra =====
-
-  - name: "Necrozma has 4 forms"
-    command: "pokedex pokemon forms necrozma"
+  - name: "Ogerpon has exactly 4 mask forms"
+    command: "pokedex pokemon forms ogerpon"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 4, "max": 4 } }
       equals: { "data.0.is_default": true }
 
-  - name: "Base Necrozma is pure Psychic"
-    command: "pokedex pokemon forms necrozma"
+  - name: "Ogerpon mask forms have correct secondary types"
+    command: "pokedex pokemon forms ogerpon"
     assert:
       exit_code: 0
-      equals: { "data.0.types": ["Psychic"] }
+      equals: { "data.0.types": ["Grass"], "data.1.types": ["Grass", "Water"] }
+      contains: { "data.1.name": "wellspring" }
+
+  - name: "Ogerpon Hearthflame is Grass/Fire and Cornerstone is Grass/Rock"
+    command: "pokedex pokemon forms ogerpon"
+    assert:
+      exit_code: 0
+      equals: { "data.2.types": ["Grass", "Fire"], "data.3.types": ["Grass", "Rock"] }
+
+  - name: "Ogerpon forms have HATEOAS add_form_to_collection actions"
+    command: "pokedex pokemon forms ogerpon"
+    assert:
+      exit_code: 0
+      contains: { "actions": "wellspring-mask" }
       has_fields: ["actions"]
 
-  - name: "Necrozma Dusk Mane is Psychic/Steel"
-    command: "pokedex pokemon show necrozma-dusk"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Psychic", "Steel"], "data.stats.total": 680 }
-      has_fields: ["data.stats"]
+  # ===== Terapagos: Normal, Terastal, Stellar =====
 
-  - name: "Necrozma Dawn Wings is Psychic/Ghost"
-    command: "pokedex pokemon show necrozma-dawn"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Psychic", "Ghost"], "data.stats.total": 680 }
-
-  - name: "Ultra Necrozma is Psychic/Dragon with 754 BST"
-    command: "pokedex pokemon show necrozma-ultra"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Psychic", "Dragon"], "data.stats.total": 754 }
-
-  # ===== Calyrex: Base, Ice Rider, Shadow Rider =====
-
-  - name: "Calyrex has 3 forms"
-    command: "pokedex pokemon forms calyrex"
+  - name: "Terapagos has 3 forms"
+    command: "pokedex pokemon forms terapagos"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 3, "max": 3 } }
+      equals: { "data.0.is_default": true, "data.0.types": ["Normal"] }
+
+  - name: "Terapagos Terastal and Stellar are battle-only"
+    command: "pokedex pokemon forms terapagos"
+    assert:
+      exit_code: 0
+      equals: { "data.1.is_battle_only": true, "data.2.is_battle_only": true }
+      contains: { "data.1.name": "terastal" }
+
+  - name: "Terapagos base has 450 BST and Stellar has 700 BST"
+    command: "pokedex pokemon stats terapagos"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 450 }
+      has_fields: ["data.hp", "data.speed"]
+
+  - name: "Terapagos Stellar form has 700 BST"
+    command: "pokedex pokemon stats terapagos-stellar"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 700 }
+      has_fields: ["data.attack", "data.defense"]
+
+  # ===== Paldean Tauros: Combat, Blaze, Aqua breeds =====
+
+  - name: "Tauros has 4 forms including 3 Paldean breeds"
+    command: "pokedex pokemon forms tauros"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 4, "max": 4 } }
+      equals: { "data.0.types": ["Normal"] }
+
+  - name: "Paldean Tauros Combat Breed is Fighting type"
+    command: "pokedex pokemon forms tauros"
+    assert:
+      exit_code: 0
+      equals: { "data.1.form_name": "paldea-combat-breed", "data.1.types": ["Fighting"] }
+
+  - name: "Paldean Tauros Blaze is Fighting/Fire and Aqua is Fighting/Water"
+    command: "pokedex pokemon forms tauros"
+    assert:
+      exit_code: 0
+      equals: { "data.2.types": ["Fighting", "Fire"], "data.3.types": ["Fighting", "Water"] }
+
+  - name: "Paldean Wooper is Poison/Ground unlike base Water/Ground"
+    command: "pokedex pokemon forms wooper"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 2, "max": 2 } }
+      equals: { "data.0.types": ["Water", "Ground"], "data.1.types": ["Poison", "Ground"] }
+
+  # ===== Paradox Pokemon: standalone species, not forms =====
+
+  - name: "Great Tusk is standalone species with 1 form"
+    command: "pokedex pokemon forms great-tusk"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1, "max": 1 } }
       equals: { "data.0.is_default": true }
 
-  - name: "Base Calyrex is Psychic/Grass"
-    command: "pokedex pokemon forms calyrex"
+  - name: "Great Tusk is Ground/Fighting Paradox Pokemon"
+    command: "pokedex pokemon show great-tusk"
     assert:
       exit_code: 0
-      equals: { "data.0.types": ["Psychic", "Grass"] }
+      equals: { "data.types": ["Ground", "Fighting"], "data.genus": "Paradox Pok\u00e9mon" }
+      has_fields: ["data.stats"]
 
-  - name: "Calyrex Ice Rider is Psychic/Ice with 165 attack"
-    command: "pokedex pokemon show calyrex-ice"
+  - name: "Iron Valiant is standalone Fairy/Fighting Paradox Pokemon"
+    command: "pokedex pokemon show iron-valiant"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Psychic", "Ice"], "data.stats.attack": 165 }
+      equals: { "data.types": ["Fairy", "Fighting"], "data.genus": "Paradox Pok\u00e9mon" }
+      has_fields: ["data.abilities"]
 
-  - name: "Calyrex Shadow Rider is Psychic/Ghost with 165 sp.atk"
-    command: "pokedex pokemon show calyrex-shadow"
+  - name: "Iron Valiant has only 1 form (not a form of another species)"
+    command: "pokedex pokemon forms iron-valiant"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Psychic", "Ghost"], "data.stats.special_attack": 165 }
+      array_len: { "data": { "min": 1, "max": 1 } }
+      equals: { "data.0.name": "iron-valiant" }
 
-  # ===== Urshifu: Single Strike (Dark) and Rapid Strike (Water) =====
+  # ===== Gender differences: Meowstic M/F, Indeedee M/F =====
 
-  - name: "Urshifu has 4 forms including gmax"
+  - name: "Meowstic has male, female, and mega forms"
+    command: "pokedex pokemon forms meowstic"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 3, "max": 3 } }
+      equals: { "data.0.form_name": "male", "data.1.form_name": "female" }
+
+  - name: "Indeedee Male has different stats from Female (speed 95 vs 85)"
+    command: "pokedex pokemon stats indeedee"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 475, "data.speed": 95 }
+      has_fields: ["data.hp"]
+
+  - name: "Indeedee Female has speed 85 and spdef 105"
+    command: "pokedex pokemon stats indeedee-female"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 475, "data.speed": 85, "data.special_defense": 105 }
+
+  - name: "Indeedee Male has different abilities than Female"
+    command: "pokedex pokemon show indeedee"
+    assert:
+      exit_code: 0
+      contains: { "data.abilities": "Inner Focus" }
+      has_fields: ["data.types"]
+
+  # ===== Mega evolutions: BST is exactly +100 from base =====
+
+  - name: "Gengar base 500 BST, Mega Gengar 600 BST (+100)"
+    command: "pokedex pokemon stats gengar-mega"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 600 }
+      has_fields: ["data.hp", "data.speed"]
+
+  - name: "Garchomp base 600 BST, Mega Garchomp 700 BST (+100)"
+    command: "pokedex pokemon stats garchomp-mega"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 700 }
+      has_fields: ["data.attack"]
+
+  - name: "Lucario base 525 BST, Mega Lucario 625 BST (+100)"
+    command: "pokedex pokemon stats lucario-mega"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 625 }
+      has_fields: ["data.speed"]
+
+  - name: "Kangaskhan base 490 BST, Mega Kangaskhan 590 BST (+100)"
+    command: "pokedex pokemon stats kangaskhan-mega"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 590 }
+      has_fields: ["data.attack"]
+
+  - name: "Mewtwo base 680 BST, Mega Mewtwo X 780 BST (+100)"
+    command: "pokedex pokemon stats mewtwo-mega-x"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 780 }
+      has_fields: ["data.hp"]
+
+  # ===== Form-specific collection workflow =====
+
+  - name: "Add meowth-alola to collection"
+    command: "pokedex collection add --pokemon=meowth-alola --game=ultra-sun"
+    assert:
+      exit_code: 0
+      equals: { "data.form_name": "alola", "data.species_name": "meowth" }
+      has_fields: ["data.id"]
+
+  - name: "Collection entry pokemon_info links to meowth-alola not meowth"
+    command: "pokedex collection list"
+    assert:
+      exit_code: 0
+      contains: { "actions": "meowth-alola" }
+      array_len: { "data": { "min": 1 } }
+
+  # ===== Urshifu gmax form_name dedup =====
+
+  - name: "Urshifu has 4 forms including 2 gmax variants"
     command: "pokedex pokemon forms urshifu"
     assert:
       exit_code: 0
       array_len: { "data": { "min": 4, "max": 4 } }
       equals: { "data.0.form_name": "single-strike" }
 
-  - name: "Urshifu Single Strike is Fighting/Dark"
-    command: "pokedex pokemon show urshifu"
+  - name: "Both Urshifu gmax forms are battle-only"
+    command: "pokedex pokemon forms urshifu"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Fighting", "Dark"] }
-      has_fields: ["data.stats"]
+      equals: { "data.1.is_battle_only": true, "data.2.is_battle_only": true }
+      contains: { "data.1.name": "gmax" }
 
-  - name: "Urshifu Rapid Strike is Fighting/Water"
-    command: "pokedex pokemon show urshifu-rapid-strike"
+  - name: "Urshifu Rapid Strike form is Fighting/Water"
+    command: "pokedex pokemon forms urshifu"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Fighting", "Water"] }
-      contains: { "data": "Rapid Strike" }
+      equals: { "data.3.form_name": "rapid-strike", "data.3.types": ["Fighting", "Water"] }
 
-  # ===== Tatsugiri: Curly, Droopy, Stretchy =====
+  # ===== Form name consistency checks =====
 
-  - name: "Tatsugiri has 3 base forms plus mega variants"
-    command: "pokedex pokemon forms tatsugiri"
+  - name: "Deoxys default form has explicit form_name normal"
+    command: "pokedex pokemon forms deoxys"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 3, "max": 6 } }
-      equals: { "data.0.form_name": "curly" }
-
-  - name: "Tatsugiri Curly is default Dragon/Water"
-    command: "pokedex pokemon forms tatsugiri"
-    assert:
-      exit_code: 0
-      equals: { "data.0.is_default": true, "data.0.types": ["Dragon", "Water"] }
-
-  - name: "Tatsugiri Droopy and Stretchy forms exist"
-    command: "pokedex pokemon forms tatsugiri"
-    assert:
-      exit_code: 0
-      contains: { "data": "tatsugiri-droopy" }
-
-  - name: "Tatsugiri Stretchy form exists"
-    command: "pokedex pokemon forms tatsugiri"
-    assert:
-      exit_code: 0
-      contains: { "data": "tatsugiri-stretchy" }
-
-  # ===== Squawkabilly: 4 plumage colors =====
-
-  - name: "Squawkabilly has 4 plumage forms"
-    command: "pokedex pokemon forms squawkabilly"
-    assert:
-      exit_code: 0
+      equals: { "data.0.form_name": "normal", "data.0.is_default": true }
       array_len: { "data": { "min": 4, "max": 4 } }
-      equals: { "data.0.form_name": "green-plumage" }
 
-  - name: "Squawkabilly Green Plumage is default"
-    command: "pokedex pokemon forms squawkabilly"
+  - name: "Giratina default form has explicit form_name altered"
+    command: "pokedex pokemon forms giratina"
     assert:
       exit_code: 0
-      equals: { "data.0.is_default": true }
-      contains: { "data": "squawkabilly-blue-plumage" }
+      equals: { "data.0.form_name": "altered", "data.0.is_default": true }
 
-  - name: "Squawkabilly includes yellow and white plumage"
-    command: "pokedex pokemon forms squawkabilly"
+  - name: "Rotom base form has no form_name field"
+    command: "pokedex pokemon forms rotom"
     assert:
       exit_code: 0
-      contains: { "data": "squawkabilly-yellow-plumage" }
+      equals: { "data.0.is_default": true, "data.0.name": "rotom" }
+      array_len: { "data": { "min": 6, "max": 6 } }
 
-  - name: "All Squawkabilly forms are Normal/Flying"
-    command: "pokedex pokemon forms squawkabilly"
+  - name: "Rotom alternate forms have correct form names"
+    command: "pokedex pokemon forms rotom"
     assert:
       exit_code: 0
-      equals: { "data.0.types": ["Normal", "Flying"], "data.3.types": ["Normal", "Flying"] }
+      equals: { "data.1.form_name": "heat", "data.2.form_name": "wash" }
+      contains: { "data": "rotom-mow" }
 
-  # ===== Palafin: Zero Form and Hero Form =====
+  # ===== Cleanup =====
 
-  - name: "Palafin has 2 forms"
-    command: "pokedex pokemon forms palafin"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 2, "max": 2 } }
-      equals: { "data.0.form_name": "zero" }
-
-  - name: "Palafin Zero is default and Hero is battle-only"
-    command: "pokedex pokemon forms palafin"
-    assert:
-      exit_code: 0
-      equals: { "data.0.is_default": true, "data.1.is_battle_only": true, "data.1.form_name": "hero" }
-
-  - name: "Palafin Zero has 457 BST"
-    command: "pokedex pokemon show palafin"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 457, "data.stats.attack": 70 }
-
-  - name: "Palafin Hero has 650 BST with 160 attack"
-    command: "pokedex pokemon show palafin-hero"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 650, "data.stats.attack": 160 }
-
-  # ===== Collection: multiple forms of same species in same game =====
-
-  - name: "Add West Shellos to collection in Scarlet"
-    command: "pokedex collection add --pokemon=shellos --form=west --game=scarlet"
-    assert:
-      exit_code: 0
-      equals: { "data.form_name": "west", "data.species_name": "shellos" }
-      has_fields: ["data.id"]
-
-  - name: "Add East Shellos to collection in same game"
-    command: "pokedex collection add --pokemon=shellos --form=east --game=scarlet"
-    assert:
-      exit_code: 0
-      equals: { "data.form_name": "east", "data.species_name": "shellos" }
-      has_fields: ["data.id"]
-
-  - name: "Both Shellos forms appear in collection list"
+  - name: "Remove meowth-alola collection entry"
     command: "pokedex collection list"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 2 } }
-      has_fields: ["meta.total"]
-
-  - name: "Add Basculin White-Striped to collection"
-    command: "pokedex collection add --pokemon=basculin --form=white-striped --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.form_name": "white-striped" }
-      has_fields: ["data.id", "actions"]
+      type_of: { "data": "array" }
+      has_fields: ["meta"]

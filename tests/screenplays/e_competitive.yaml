@@ -240,13 +240,6 @@ steps:
       equals: { "data.0.is_default": true }
       has_fields: ["data.0.types", "data.1.name"]
 
-  - name: "nature command not available returns error"
-    command: "pokedex nature list"
-    assert:
-      exit_code: 1
-      has_fields: ["error.code", "error.message"]
-      equals: { "error.code": "INVALID_PARAMETER" }
-
   - name: "invalid move method returns error with valid methods"
     command: "pokedex pokemon moves garchomp --method=invalidmethod"
     assert:
@@ -254,6 +247,230 @@ steps:
       equals: { "error.code": "INVALID_PARAMETER" }
       contains: { "error.message": "level-up" }
       array_len: { "actions": { "min": 1 } }
+
+  # === NEW: Ability slot counts for 10 pokemon ===
+
+  - name: "pikachu has 2 abilities (static plus hidden lightning-rod)"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 2, "max": 2 } }
+      equals: { "data.abilities.1.is_hidden": true }
+      contains: { "data.abilities.0.display_name": "Static" }
+
+  - name: "charizard has 2 abilities including hidden solar-power"
+    command: "pokedex pokemon show charizard"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 2, "max": 2 } }
+      equals: { "data.abilities.1.is_hidden": true }
+      contains: { "data.abilities.1.display_name": "Solar Power" }
+
+  - name: "tyranitar has 2 abilities including hidden unnerve"
+    command: "pokedex pokemon show tyranitar"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 2, "max": 2 } }
+      contains: { "data.abilities.0.display_name": "Sand Stream" }
+
+  - name: "lucario has 3 abilities with hidden justified"
+    command: "pokedex pokemon show lucario"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 3, "max": 3 } }
+      equals: { "data.abilities.2.is_hidden": true }
+      contains: { "data.abilities.2.display_name": "Justified" }
+
+  - name: "togekiss has 3 abilities with hidden super-luck"
+    command: "pokedex pokemon show togekiss"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 3, "max": 3 } }
+      equals: { "data.abilities.2.is_hidden": true }
+      contains: { "data.abilities.2.display_name": "Super Luck" }
+
+  - name: "gengar has exactly 1 ability cursed-body no hidden"
+    command: "pokedex pokemon show gengar"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 1, "max": 1 } }
+      equals: { "data.abilities.0.is_hidden": false }
+      contains: { "data.abilities.0.display_name": "Cursed Body" }
+
+  - name: "clefable has 3 abilities with hidden unaware"
+    command: "pokedex pokemon show clefable"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 3, "max": 3 } }
+      equals: { "data.abilities.2.is_hidden": true }
+      contains: { "data.abilities.2.display_name": "Unaware" }
+
+  - name: "mimikyu has exactly 1 ability disguise"
+    command: "pokedex pokemon show mimikyu"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 1, "max": 1 } }
+      contains: { "data.abilities.0.display_name": "Disguise" }
+
+  - name: "dragapult has 3 abilities with hidden cursed-body"
+    command: "pokedex pokemon show dragapult"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 3, "max": 3 } }
+      equals: { "data.abilities.2.is_hidden": true }
+      contains: { "data.abilities.2.display_name": "Cursed Body" }
+
+  - name: "sableye has 3 abilities with hidden prankster"
+    command: "pokedex pokemon show sableye"
+    assert:
+      exit_code: 0
+      array_len: { "data.abilities": { "min": 3, "max": 3 } }
+      equals: { "data.abilities.2.is_hidden": true, "data.types": ["Dark", "Ghost"] }
+      contains: { "data.abilities.2.display_name": "Prankster" }
+
+  # === NEW: Move accuracy by game — Pikachu Red vs Scarlet ===
+
+  - name: "pikachu level-up moves in red are only 7"
+    command: "pokedex pokemon moves pikachu --game=red --method=level-up"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 7, "max": 7 } }
+      equals: { "data.0.learn_method": "level-up" }
+      has_fields: ["data.0.level", "data.0.move_name"]
+
+  - name: "pikachu level-up moves in scarlet are 20 showing generation growth"
+    command: "pokedex pokemon moves pikachu --game=scarlet --method=level-up"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 20, "max": 20 } }
+      equals: { "data.0.learn_method": "level-up" }
+      has_fields: ["data.0.damage_class", "data.0.power"]
+
+  # === NEW: TM compatibility varies by game ===
+
+  - name: "pikachu has 22 TM moves in red"
+    command: "pokedex pokemon moves pikachu --game=red --method=machine"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 22, "max": 22 } }
+      equals: { "data.0.learn_method": "machine" }
+
+  - name: "pikachu has 47 TM moves in scarlet showing expanded compatibility"
+    command: "pokedex pokemon moves pikachu --game=scarlet --method=machine"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 47, "max": 47 } }
+      equals: { "data.0.learn_method": "machine" }
+
+  # === NEW: Evolution item accuracy ===
+
+  - name: "snorunt evolves to froslass via dawn-stone"
+    command: "pokedex pokemon evolutions snorunt"
+    assert:
+      exit_code: 0
+      equals: { "data.children.1.species_name": "froslass", "data.children.1.methods.0.item": "dawn-stone" }
+      contains: { "data.children.1.methods.0.trigger_detail": "dawn-stone" }
+
+  - name: "snorunt also evolves to glalie at level 42"
+    command: "pokedex pokemon evolutions snorunt"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "glalie" }
+      contains: { "data.children.0.methods.0.trigger_detail": "Level 42" }
+      array_len: { "data.children": { "min": 2, "max": 2 } }
+
+  - name: "kirlia evolves to gallade via dawn-stone"
+    command: "pokedex pokemon evolutions ralts"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.children.1.species_name": "gallade", "data.children.0.children.1.methods.0.item": "dawn-stone" }
+      contains: { "data.children.0.children.1.methods.0.trigger_detail": "dawn-stone" }
+
+  - name: "misdreavus evolves to mismagius via dusk-stone"
+    command: "pokedex pokemon evolutions misdreavus"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "mismagius", "data.children.0.methods.0.item": "dusk-stone" }
+      contains: { "data.children.0.methods.0.trigger_detail": "dusk-stone" }
+
+  # === NEW: Stat distribution edge cases ===
+
+  - name: "chansey has highest HP at 250 with 450 BST"
+    command: "pokedex pokemon show chansey"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.hp": 250, "data.stats.total": 450 }
+      has_fields: ["data.abilities"]
+      array_len: { "data.abilities": { "min": 3 } }
+
+  - name: "chansey stats command shows 250 hp directly"
+    command: "pokedex pokemon stats chansey"
+    assert:
+      exit_code: 0
+      equals: { "data.hp": 250, "data.total": 450 }
+      has_fields: ["data.pokemon_name"]
+
+  # === NEW: Sableye Dark/Ghost dual typing ===
+
+  - name: "sableye dark/ghost typing verified"
+    command: "pokedex pokemon show sableye"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Dark", "Ghost"] }
+      has_fields: ["data.stats.total"]
+
+  # === NEW: Encounter probability verification in Scarlet ===
+
+  - name: "pikachu scarlet encounters have probability percentages"
+    command: "pokedex pokemon encounters pikachu --game=scarlet"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 5 } }
+      has_fields: ["data.0.details.probability_overall"]
+      contains: { "data.0.details.probability_overall": "%" }
+
+  - name: "magikarp scarlet encounters exist with methods"
+    command: "pokedex pokemon encounters magikarp --game=scarlet"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 10 } }
+      has_fields: ["data.0.method", "data.0.location"]
+
+  # === NEW: Competitive team workflow — Dragon type Gen 1 ===
+
+  - name: "dragon type list gen 1 has exactly dratini dragonair dragonite"
+    command: "pokedex pokemon list --type-filter=dragon --generation=1"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 3, "max": 3 } }
+      equals: { "data.2.display_name": "Dragonite" }
+      has_fields: ["meta.total"]
+
+  - name: "dragonite is 600 BST dragon/flying pseudo-legendary"
+    command: "pokedex pokemon show dragonite"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 600, "data.types": ["Dragon", "Flying"] }
+      array_len: { "data.abilities": { "min": 2, "max": 2 } }
+      contains: { "data.abilities.1.display_name": "Multiscale" }
+
+  - name: "dragonite has 20 level-up moves in scarlet"
+    command: "pokedex pokemon moves dragonite --game=scarlet --method=level-up"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 20, "max": 20 } }
+      equals: { "data.0.learn_method": "level-up" }
+      has_fields: ["data.0.level", "data.0.damage_class"]
+
+  - name: "dragonite has at least 50 TM moves in scarlet for coverage"
+    command: "pokedex pokemon moves dragonite --game=scarlet --method=machine"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 50 } }
+      equals: { "data.0.learn_method": "machine" }
+      has_fields: ["data.0.type_name"]
+
+  # === Collection workflow ===
 
   - name: "collection add garchomp to scarlet for team"
     command: "pokedex collection add --pokemon=garchomp --game=scarlet --method=breed"

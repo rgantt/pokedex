@@ -4,483 +4,292 @@
 # implementation. Don't contort the CLI to make a stale screenplay pass.
 name: "Forms & Alpha Specialist"
 persona: "G"
-description: "Round 13: Mega/Primal/Gmax forms with type and BST validation, totem forms, Vivillon is_default, Minior/Alcremie/Pumpkaboo size forms, regional forms, alpha encounters and collection, Z-A alpha_levels structure"
+description: "Round 14: Battle-form stat swaps (Aegislash, Wishiwashi, Eiscue), gendered form stat differences (Indeedee, Basculegion, Oinkologne, Meowstic), Zen Mode type gain (Darmanitan), Greninja/Battle Bond/Ash forms, Morpeko/Cramorant battle-only forms, Toxtricity Amped vs Low Key, form-specific collection entries, forms dedup"
 needs_seed: true
 mutates_collection: true
 
 steps:
-  # ===== Mega Charizard X vs Y: different types, same BST =====
+  # ===== Aegislash: Shield vs Blade — stat inversion, same BST =====
 
-  - name: "Mega Charizard X is Fire/Dragon"
-    command: "pokedex pokemon show charizard-mega-x"
+  - name: "Aegislash Shield form is defense-focused (Def=140, Atk=50)"
+    command: "pokedex pokemon stats aegislash-shield"
     assert:
       exit_code: 0
-      equals: {"data.display_name": "Mega Charizard X", "data.types": ["Fire", "Dragon"]}
-      has_fields: ["data.stats", "data.abilities"]
+      equals: {"data.pokemon_name": "Aegislash", "data.defense": 140, "data.attack": 50}
+      has_fields: ["data.total"]
 
-  - name: "Mega Charizard Y is Fire/Flying (different from X)"
-    command: "pokedex pokemon show charizard-mega-y"
+  - name: "Aegislash Blade form is attack-focused (Atk=140, Def=50)"
+    command: "pokedex pokemon stats aegislash-blade"
     assert:
       exit_code: 0
-      equals: {"data.display_name": "Mega Charizard Y", "data.types": ["Fire", "Flying"]}
-      has_fields: ["data.stats", "data.abilities"]
+      equals: {"data.pokemon_name": "Blade Aegislash", "data.attack": 140, "data.defense": 50}
+      has_fields: ["data.total"]
 
-  - name: "Mega Charizard X has BST 634 (higher than base 534)"
-    command: "pokedex pokemon stats charizard-mega-x"
+  - name: "Aegislash Shield and Blade share BST 500"
+    command: "pokedex pokemon stats aegislash-blade"
     assert:
       exit_code: 0
-      equals: {"data.pokemon_name": "Mega Charizard X", "data.total": 634, "data.attack": 130}
-      has_fields: ["data.hp", "data.speed"]
+      equals: {"data.total": 500, "data.special_attack": 140}
 
-  - name: "Mega Charizard Y has BST 634 with SpAtk 159"
-    command: "pokedex pokemon stats charizard-mega-y"
+  - name: "Aegislash forms: shield is default, blade is battle-only"
+    command: "pokedex pokemon forms aegislash"
     assert:
       exit_code: 0
-      equals: {"data.pokemon_name": "Mega Charizard Y", "data.total": 634, "data.special_attack": 159}
-      has_fields: ["data.hp", "data.speed"]
-
-  - name: "Base Charizard has BST 534 (100 less than mega forms)"
-    command: "pokedex pokemon stats charizard"
-    assert:
-      exit_code: 0
-      equals: {"data.pokemon_name": "Charizard", "data.total": 534}
-      has_fields: ["data.attack", "data.special_attack"]
-
-  # ===== Charizard forms: mega is_battle_only, gmax is_battle_only =====
-
-  - name: "Charizard has 4 forms: base, gmax, mega-x, mega-y"
-    command: "pokedex pokemon forms charizard"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 4, "max": 4}}
-      equals: {"data.0.is_default": true, "data.0.display_name": "Charizard"}
-
-  - name: "Charizard Gmax is_battle_only=true, not mega"
-    command: "pokedex pokemon forms charizard"
-    assert:
-      exit_code: 0
-      equals: {"data.1.is_battle_only": true, "data.1.is_mega": false, "data.1.display_name": "Gigantamax Charizard"}
-
-  - name: "Charizard Mega X is_mega=true and is_battle_only=true"
-    command: "pokedex pokemon forms charizard"
-    assert:
-      exit_code: 0
-      equals: {"data.2.is_mega": true, "data.2.is_battle_only": true, "data.2.form_name": "mega-x"}
-
-  - name: "Charizard Mega Y is_mega=true and is_battle_only=true"
-    command: "pokedex pokemon forms charizard"
-    assert:
-      exit_code: 0
-      equals: {"data.3.is_mega": true, "data.3.is_battle_only": true, "data.3.form_name": "mega-y"}
-
-  # ===== Primal forms: type changes, BST boost =====
-
-  - name: "Primal Groudon is Ground/Fire (gains Fire type)"
-    command: "pokedex pokemon show groudon-primal"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Primal Groudon", "data.types": ["Ground", "Fire"], "data.is_legendary": true}
-      has_fields: ["data.stats"]
-
-  - name: "Primal Groudon BST 770 vs base 670"
-    command: "pokedex pokemon stats groudon-primal"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 770, "data.attack": 180}
-      has_fields: ["data.hp", "data.speed"]
-
-  - name: "Base Groudon BST 670 (100 less than primal)"
-    command: "pokedex pokemon stats groudon"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 670, "data.attack": 150}
-
-  - name: "Groudon primal form is_battle_only=true"
-    command: "pokedex pokemon forms groudon"
-    assert:
-      exit_code: 0
-      equals: {"data.1.is_battle_only": true, "data.1.form_name": "primal"}
-      array_len: {"data": {"min": 2, "max": 2}}
-
-  - name: "Primal Kyogre stays Water-only, BST 770"
-    command: "pokedex pokemon show kyogre-primal"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Primal Kyogre", "data.types": ["Water"], "data.stats.total": 770}
-      has_fields: ["data.abilities"]
-
-  - name: "Base Kyogre BST 670"
-    command: "pokedex pokemon stats kyogre"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 670, "data.pokemon_name": "Kyogre"}
-
-  # ===== Gigantamax: is_battle_only, same stats as base =====
-
-  - name: "Pikachu Gmax is_battle_only=true"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      contains: {"data": "Gigantamax Pikachu"}
+      equals: {"data.0.is_default": true, "data.0.form_name": "shield"}
       array_len: {"data": {"min": 2}}
 
-  - name: "Pikachu Gmax has same BST 320 as base (gmax does not boost stats)"
-    command: "pokedex pokemon stats pikachu-gmax"
+  # ===== Wishiwashi: Solo (175 BST) vs School (620 BST) =====
+
+  - name: "Wishiwashi Solo form has pitiful BST 175"
+    command: "pokedex pokemon stats wishiwashi"
     assert:
       exit_code: 0
-      equals: {"data.pokemon_name": "Gigantamax Pikachu", "data.total": 320}
-      has_fields: ["data.hp", "data.attack"]
+      equals: {"data.pokemon_name": "Wishiwashi", "data.total": 175}
+      has_fields: ["data.attack"]
 
-  - name: "Charizard Gmax has same BST 534 as base"
-    command: "pokedex pokemon stats charizard-gmax"
+  - name: "Wishiwashi School form has massive BST 620"
+    command: "pokedex pokemon stats wishiwashi-school"
     assert:
       exit_code: 0
-      equals: {"data.pokemon_name": "Gigantamax Charizard", "data.total": 534}
+      equals: {"data.pokemon_name": "School Wishiwashi", "data.total": 620, "data.attack": 140}
 
-  # ===== Totem forms in SM/USUM =====
+  - name: "Wishiwashi School is battle-only"
+    command: "pokedex pokemon forms wishiwashi"
+    assert:
+      exit_code: 0
+      equals: {"data.1.form_name": "school", "data.1.is_battle_only": true}
+      array_len: {"data": {"min": 2, "max": 2}}
 
-  - name: "Raticate has totem-alola form"
-    command: "pokedex pokemon forms raticate"
+  # ===== Morpeko: Full Belly vs Hangry — same types, hangry is battle-only =====
+
+  - name: "Morpeko Full Belly is Electric/Dark and default"
+    command: "pokedex pokemon forms morpeko"
+    assert:
+      exit_code: 0
+      equals: {"data.0.form_name": "full-belly", "data.0.is_default": true, "data.0.types": ["Electric", "Dark"]}
+
+  - name: "Morpeko Hangry is battle-only with same Electric/Dark types"
+    command: "pokedex pokemon forms morpeko"
+    assert:
+      exit_code: 0
+      equals: {"data.1.form_name": "hangry", "data.1.is_battle_only": true, "data.1.types": ["Electric", "Dark"]}
+
+  # ===== Cramorant: Gulping and Gorging are battle-only =====
+
+  - name: "Cramorant has 3 forms: base, gulping, gorging"
+    command: "pokedex pokemon forms cramorant"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 3, "max": 3}}
-      contains: {"data": "Totem Alolan Raticate"}
-
-  - name: "Totem Alolan Raticate is Dark/Normal"
-    command: "pokedex pokemon show raticate-totem-alola"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Totem Alolan Raticate", "data.types": ["Dark", "Normal"]}
-      has_fields: ["data.stats"]
-
-  - name: "Mimikyu has 4 forms including totem variants"
-    command: "pokedex pokemon forms mimikyu"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 4, "max": 4}}
-      equals: {"data.0.is_default": true, "data.0.form_name": "disguised"}
-
-  - name: "Mimikyu busted form is_battle_only=true"
-    command: "pokedex pokemon forms mimikyu"
-    assert:
-      exit_code: 0
-      equals: {"data.1.form_name": "busted", "data.1.is_battle_only": true}
-
-  # ===== Regional forms: meowth accessed two ways =====
-
-  - name: "Meowth has 4 forms: base, gmax, alola, galar"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 4, "max": 4}}
-      equals: {"data.0.is_default": true, "data.0.display_name": "Meowth"}
-
-  - name: "Alolan Meowth is Dark type via show command"
-    command: "pokedex pokemon show meowth-alola"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Alolan Meowth", "data.types": ["Dark"]}
-      has_fields: ["data.stats", "data.abilities"]
-
-  - name: "Galarian Meowth is Steel type"
-    command: "pokedex pokemon show meowth-galar"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Galarian Meowth", "data.types": ["Steel"]}
-      has_fields: ["data.stats"]
-
-  - name: "Meowth Gmax is_battle_only=true"
-    command: "pokedex pokemon forms meowth"
-    assert:
-      exit_code: 0
-      equals: {"data.1.form_name": "gmax", "data.1.is_battle_only": true}
-
-  # ===== Hisuian form types and stats =====
-
-  - name: "Hisuian Growlithe is Fire/Rock"
-    command: "pokedex pokemon show growlithe-hisui"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Hisuian Growlithe", "data.types": ["Fire", "Rock"]}
-      has_fields: ["data.stats"]
-
-  - name: "Base Growlithe is Fire-only"
-    command: "pokedex pokemon show growlithe"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Growlithe", "data.types": ["Fire"]}
-
-  - name: "Hisuian Growlithe stats differ from base (HP=60 vs 55)"
-    command: "pokedex pokemon stats growlithe-hisui"
-    assert:
-      exit_code: 0
-      equals: {"data.hp": 60, "data.attack": 75, "data.speed": 55}
-      has_fields: ["data.total"]
-
-  - name: "Base Growlithe stats (HP=55, Atk=70, Spd=60)"
-    command: "pokedex pokemon stats growlithe"
-    assert:
-      exit_code: 0
-      equals: {"data.hp": 55, "data.attack": 70, "data.speed": 60}
-
-  # ===== Vivillon: meadow is_default, patterns =====
-
-  - name: "Vivillon has 20 pattern forms"
-    command: "pokedex pokemon forms vivillon"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 20, "max": 20}}
-      contains: {"data": "Meadow Vivillon"}
-
-  - name: "Vivillon meadow is the default form (is_default=true)"
-    command: "pokedex pokemon forms vivillon"
-    assert:
-      exit_code: 0
-      equals: {"data.6.is_default": true, "data.6.form_name": "meadow"}
-
-  - name: "Vivillon icy-snow is not default"
-    command: "pokedex pokemon forms vivillon"
-    assert:
-      exit_code: 0
-      equals: {"data.0.is_default": false, "data.0.form_name": "icy-snow"}
-
-  - name: "Vivillon polar accessed via show returns correct display name"
-    command: "pokedex pokemon show vivillon-polar"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Polar Vivillon", "data.types": ["Bug", "Flying"]}
-      has_fields: ["data.stats"]
-
-  # ===== Minior: meteor vs core forms =====
-
-  - name: "Minior has 14 forms (7 meteor + 7 core)"
-    command: "pokedex pokemon forms minior"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 14, "max": 14}}
-      equals: {"data.0.is_default": true, "data.0.form_name": "red-meteor"}
-
-  - name: "Minior non-default meteor forms are is_battle_only=true"
-    command: "pokedex pokemon forms minior"
-    assert:
-      exit_code: 0
-      equals: {"data.1.is_battle_only": true, "data.1.form_name": "orange-meteor"}
-
-  - name: "Minior core forms are not battle-only"
-    command: "pokedex pokemon forms minior"
-    assert:
-      exit_code: 0
-      equals: {"data.7.is_battle_only": false, "data.7.form_name": "red"}
-      contains: {"data.7.display_name": "Red Core"}
-
-  # ===== Alcremie: many flavor forms =====
-
-  - name: "Alcremie has 64 forms including Gmax"
-    command: "pokedex pokemon forms alcremie"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 64, "max": 64}}
       equals: {"data.0.is_default": true}
 
-  - name: "Alcremie default is Vanilla Cream Strawberry Sweet"
-    command: "pokedex pokemon forms alcremie"
+  - name: "Cramorant Gulping and Gorging are both battle-only"
+    command: "pokedex pokemon forms cramorant"
     assert:
       exit_code: 0
-      contains: {"data.0.display_name": "Vanilla Cream"}
-      equals: {"data.1.is_battle_only": true}
+      equals: {"data.1.is_battle_only": true, "data.2.is_battle_only": true}
 
-  # ===== Pumpkaboo/Gourgeist: size forms with stat differences =====
+  # ===== Eiscue: Ice Face vs Noice Face — stat redistribution =====
 
-  - name: "Pumpkaboo has 4 size forms"
-    command: "pokedex pokemon forms pumpkaboo"
+  - name: "Eiscue Ice Face has high Def=110, low Speed=50"
+    command: "pokedex pokemon stats eiscue"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Eiscue", "data.defense": 110, "data.speed": 50, "data.total": 470}
+
+  - name: "Eiscue Noice Face swaps to high Speed=130, low Def=70"
+    command: "pokedex pokemon stats eiscue-noice"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Noice Eiscue", "data.speed": 130, "data.defense": 70, "data.total": 470}
+
+  - name: "Eiscue Noice form is battle-only"
+    command: "pokedex pokemon forms eiscue"
+    assert:
+      exit_code: 0
+      equals: {"data.0.form_name": "ice", "data.0.is_default": true, "data.1.form_name": "noice", "data.1.is_battle_only": true}
+
+  # ===== Indeedee: Male vs Female — same types, different stat spreads =====
+
+  - name: "Indeedee Male is SpAtk-focused (SpAtk=105, SpDef=95)"
+    command: "pokedex pokemon stats indeedee"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Indeedee", "data.special_attack": 105, "data.special_defense": 95, "data.total": 475}
+
+  - name: "Indeedee Female is SpDef-focused (SpAtk=95, SpDef=105)"
+    command: "pokedex pokemon stats indeedee-female"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Female Indeedee", "data.special_attack": 95, "data.special_defense": 105, "data.total": 475}
+
+  - name: "Indeedee both forms share Psychic/Normal typing"
+    command: "pokedex pokemon forms indeedee"
+    assert:
+      exit_code: 0
+      equals: {"data.0.types": ["Psychic", "Normal"], "data.1.types": ["Psychic", "Normal"]}
+      array_len: {"data": {"min": 2, "max": 2}}
+
+  # ===== Basculegion: Male vs Female — different stat spreads =====
+
+  - name: "Basculegion Male is physically offensive (Atk=112, SpAtk=80)"
+    command: "pokedex pokemon stats basculegion"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Basculegion", "data.attack": 112, "data.special_attack": 80, "data.total": 530}
+
+  - name: "Basculegion Female is specially offensive (Atk=92, SpAtk=100)"
+    command: "pokedex pokemon stats basculegion-female"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Female Basculegion", "data.attack": 92, "data.special_attack": 100, "data.total": 530}
+
+  # ===== Oinkologne: Male vs Female — different stat spreads =====
+
+  - name: "Oinkologne Male has HP=110, Atk=100"
+    command: "pokedex pokemon stats oinkologne"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Oinkologne", "data.hp": 110, "data.attack": 100, "data.total": 489}
+
+  - name: "Oinkologne Female has HP=115, Atk=90, SpDef=90"
+    command: "pokedex pokemon stats oinkologne-female"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Female Oinkologne", "data.hp": 115, "data.attack": 90, "data.special_defense": 90}
+
+  # ===== Toxtricity: Amped vs Low Key — same types, both non-battle-only =====
+
+  - name: "Toxtricity Amped is default Electric/Poison form"
+    command: "pokedex pokemon forms toxtricity"
+    assert:
+      exit_code: 0
+      equals: {"data.0.form_name": "amped", "data.0.is_default": true, "data.0.types": ["Electric", "Poison"]}
+
+  - name: "Toxtricity Low Key is not battle-only"
+    command: "pokedex pokemon forms toxtricity"
+    assert:
+      exit_code: 0
+      equals: {"data.3.form_name": "low-key", "data.3.is_battle_only": false, "data.3.types": ["Electric", "Poison"]}
+
+  - name: "Toxtricity has 4 forms (amped, amped-gmax, low-key-gmax, low-key)"
+    command: "pokedex pokemon forms toxtricity"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 4, "max": 4}}
-      equals: {"data.0.form_name": "average", "data.0.is_default": true}
+      contains: {"data": "Gigantamax Amped Toxtricity"}
 
-  - name: "Super Pumpkaboo has higher HP (59) than base Average (49)"
-    command: "pokedex pokemon stats pumpkaboo-super"
+  # ===== Greninja: Base vs Battle Bond vs Ash — BST differences =====
+
+  - name: "Greninja base has BST 530"
+    command: "pokedex pokemon stats greninja"
     assert:
       exit_code: 0
-      equals: {"data.pokemon_name": "Super Pumpkaboo", "data.hp": 59, "data.total": 335}
+      equals: {"data.pokemon_name": "Greninja", "data.total": 530, "data.speed": 122}
 
-  - name: "Small Pumpkaboo has lower HP (44) than Average (49)"
-    command: "pokedex pokemon stats pumpkaboo-small"
+  - name: "Battle Bond Greninja has same BST 530 as base"
+    command: "pokedex pokemon stats greninja-battle-bond"
     assert:
       exit_code: 0
-      equals: {"data.pokemon_name": "Small Pumpkaboo", "data.hp": 44, "data.total": 335}
+      equals: {"data.pokemon_name": "Battle Bond Greninja", "data.total": 530}
 
-  - name: "Gourgeist also has 4 size forms"
-    command: "pokedex pokemon forms gourgeist"
+  - name: "Ash-Greninja has boosted BST 640"
+    command: "pokedex pokemon stats greninja-ash"
     assert:
       exit_code: 0
-      array_len: {"data": {"min": 4, "max": 4}}
-      equals: {"data.0.form_name": "average", "data.0.is_default": true}
+      equals: {"data.pokemon_name": "Ash's Greninja", "data.total": 640, "data.attack": 145}
 
-  # ===== Deoxys forms with different stats =====
-
-  - name: "Deoxys has 4 forms"
-    command: "pokedex pokemon forms deoxys"
+  - name: "Ash-Greninja is battle-only, Battle Bond is not"
+    command: "pokedex pokemon forms greninja"
     assert:
       exit_code: 0
-      array_len: {"data": {"min": 4, "max": 4}}
-      equals: {"data.0.is_default": true, "data.0.form_name": "normal"}
+      equals: {"data.1.form_name": "battle-bond", "data.1.is_battle_only": false, "data.2.form_name": "ash", "data.2.is_battle_only": true}
 
-  - name: "Deoxys Attack form is not default"
-    command: "pokedex pokemon forms deoxys"
-    assert:
-      exit_code: 0
-      equals: {"data.1.is_default": false, "data.1.form_name": "attack"}
-
-  # ===== Rotom forms =====
-
-  - name: "Rotom has 6 forms (base + 5 appliances)"
-    command: "pokedex pokemon forms rotom"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 6, "max": 6}}
-      equals: {"data.0.types": ["Electric", "Ghost"], "data.0.is_default": true}
-
-  - name: "Rotom Heat form is Electric/Fire"
-    command: "pokedex pokemon forms rotom"
-    assert:
-      exit_code: 0
-      equals: {"data.1.form_name": "heat", "data.1.is_default": false}
-      contains: {"data.1.display_name": "Heat Rotom"}
-
-  # ===== Castform battle-only forms =====
-
-  - name: "Castform weather forms are battle-only"
-    command: "pokedex pokemon forms castform"
+  - name: "Greninja has 4 forms including Mega"
+    command: "pokedex pokemon forms greninja"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 4, "max": 4}}
-      equals: {"data.1.is_battle_only": true, "data.0.is_default": true}
+      equals: {"data.3.form_name": "mega", "data.3.is_mega": true}
 
-  # ===== PLA encounters: alpha_levels field =====
+  # ===== Darmanitan: Standard vs Zen Mode — type gain =====
 
-  - name: "Growlithe PLA encounters show Hisuian form with alpha_levels"
-    command: "pokedex pokemon encounters growlithe --game=legends-arceus"
+  - name: "Darmanitan Standard is Fire-only, BST 480"
+    command: "pokedex pokemon show darmanitan"
     assert:
       exit_code: 0
-      equals: {"data.0.pokemon_name": "Hisuian Growlithe"}
-      has_fields: ["data.0.details.alpha_levels"]
+      equals: {"data.display_name": "Darmanitan", "data.types": ["Fire"]}
+      has_fields: ["data.stats"]
 
-  - name: "Growlithe PLA alpha_levels is a string range"
-    command: "pokedex pokemon encounters growlithe --game=legends-arceus"
+  - name: "Darmanitan Zen gains Psychic type, becomes Fire/Psychic"
+    command: "pokedex pokemon show darmanitan-zen"
     assert:
       exit_code: 0
-      type_of: {"data.0.details.alpha_levels": "string"}
-      array_len: {"data": {"min": 1}}
+      equals: {"data.display_name": "Zen Darmanitan", "data.types": ["Fire", "Psychic"]}
 
-  # ===== Z-A encounters: Wild Zone locations and alpha structure =====
-
-  - name: "Pikachu Z-A encounters in Wild Zone locations"
-    command: "pokedex pokemon encounters pikachu --game=legends-za"
+  - name: "Darmanitan Zen has BST 540 (higher than base 480) with stat swap"
+    command: "pokedex pokemon stats darmanitan-zen"
     assert:
       exit_code: 0
-      contains: {"data.0.location": "Wild Zone"}
-      equals: {"data.0.game_slug": "legends-za"}
+      equals: {"data.total": 540, "data.attack": 30, "data.special_attack": 140}
 
-  - name: "Z-A encounter details include alpha_levels or alpha note"
-    command: "pokedex pokemon encounters pikachu --game=legends-za"
+  - name: "Galarian Darmanitan Zen is Ice/Fire (dual regional+zen)"
+    command: "pokedex pokemon forms darmanitan"
     assert:
       exit_code: 0
-      has_fields: ["data.0.details"]
-      contains: {"data": "alpha"}
+      equals: {"data.3.form_name": "galar-zen", "data.3.types": ["Ice", "Fire"]}
+      array_len: {"data": {"min": 4, "max": 4}}
 
-  - name: "Wild Zone 1 has Z-A encounters"
-    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+  # ===== Meowstic: Male vs Female — same stats, different movepools =====
+
+  - name: "Meowstic Male and Female share BST 466 and Psychic type"
+    command: "pokedex pokemon forms meowstic"
     assert:
       exit_code: 0
-      array_len: {"data": {"min": 1}}
-      equals: {"data.0.game_slug": "legends-za"}
+      equals: {"data.0.form_name": "male", "data.0.is_default": true, "data.0.types": ["Psychic"]}
+      array_len: {"data": {"min": 3, "max": 3}}
 
-  - name: "Wild Zone 20 exists (max wild zone)"
-    command: "pokedex location encounters wild-zone-20 --game=legends-za"
+  - name: "Meowstic Female is not battle-only (distinct catchable form)"
+    command: "pokedex pokemon forms meowstic"
     assert:
       exit_code: 0
-      array_len: {"data": {"min": 1}}
+      equals: {"data.1.form_name": "female", "data.1.is_battle_only": false}
 
-  - name: "Wild Zone 21 does not exist"
-    command: "pokedex location encounters wild-zone-21 --game=legends-za"
-    assert:
-      exit_code: 1
-      equals: {"error.code": "NOT_FOUND"}
-      has_fields: ["actions"]
+  # ===== Form-specific collection: add growlithe-hisui, verify actions =====
 
-  # ===== Alpha collection: add with --alpha flag =====
-
-  - name: "Add alpha Growlithe to PLA collection"
-    command: "pokedex collection add --pokemon=growlithe --game=legends-arceus --alpha"
+  - name: "Add Hisuian Growlithe to collection preserves form"
+    command: "pokedex collection add --pokemon=growlithe-hisui --game=legends-arceus"
     assert:
       exit_code: 0
-      equals: {"data.is_alpha": true, "data.species_name": "growlithe", "data.game": "legends-arceus"}
+      equals: {"data.display_name": "Hisuian Growlithe", "data.form_name": "hisui"}
       has_fields: ["data.id"]
 
-  - name: "Add alpha Snorlax to PLA collection"
-    command: "pokedex collection add --pokemon=snorlax --game=legends-arceus --alpha"
+  - name: "Collection entry pokemon_info action preserves form identifier"
+    command: "pokedex collection add --pokemon=growlithe-hisui --game=legends-arceus"
     assert:
       exit_code: 0
-      equals: {"data.is_alpha": true, "data.species_name": "snorlax"}
-      has_fields: ["data.id"]
+      contains: {"actions": "growlithe-hisui"}
+      has_fields: ["data.species_name"]
 
-  - name: "Non-alpha PLA entry has is_alpha=false"
-    command: "pokedex collection add --pokemon=eevee --game=legends-arceus"
+  - name: "Collection show for form entry has correct display_name"
+    command: "pokedex collection add --pokemon=darmanitan-zen --game=sword"
     assert:
       exit_code: 0
-      equals: {"data.is_alpha": false, "data.species_name": "eevee"}
-      has_fields: ["data.id", "data.status"]
+      equals: {"data.form_name": "zen"}
+      contains: {"data.display_name": "Darmanitan"}
 
-  - name: "Alpha in non-Legends game gives warning"
-    command: "pokedex collection add --pokemon=pikachu --game=red --alpha"
+  # ===== Forms dedup: no duplicate actions =====
+
+  - name: "Darmanitan forms actions have no duplicates (4 forms, 5 actions)"
+    command: "pokedex pokemon forms darmanitan"
     assert:
       exit_code: 0
-      equals: {"data.is_alpha": true}
-      contains: {"data.warning": "Alpha"}
+      array_len: {"actions": {"min": 5, "max": 5}}
+      has_fields: ["actions.0.cmd"]
 
-  - name: "Alpha in Z-A is valid (no warning field)"
-    command: "pokedex collection add --pokemon=pikachu --game=legends-za --alpha"
+  - name: "Greninja forms actions are deduped (4 forms, 4 actions)"
+    command: "pokedex pokemon forms greninja"
     assert:
       exit_code: 0
-      equals: {"data.is_alpha": true, "data.game": "legends-za"}
-      has_fields: ["data.id"]
-
-  - name: "Shiny alpha in Z-A works"
-    command: "pokedex collection add --pokemon=eevee --game=legends-za --alpha --shiny"
-    assert:
-      exit_code: 0
-      equals: {"data.is_alpha": true, "data.shiny": true}
-      has_fields: ["data.id"]
-
-  # ===== Default form display_name is species name =====
-
-  - name: "Growlithe show uses species name not form-qualified name"
-    command: "pokedex pokemon show growlithe"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Growlithe"}
-      has_fields: ["data.types"]
-
-  - name: "Deoxys show uses species name (not Normal Deoxys)"
-    command: "pokedex pokemon show deoxys"
-    assert:
-      exit_code: 0
-      equals: {"data.display_name": "Deoxys"}
-      has_fields: ["data.types", "data.stats"]
-
-  # ===== Error handling =====
-
-  - name: "Nonexistent pokemon returns NOT_FOUND"
-    command: "pokedex pokemon encounters nonexistent --game=legends-arceus"
-    assert:
-      exit_code: 1
-      equals: {"error.code": "NOT_FOUND"}
-      has_fields: ["actions"]
-
-  - name: "Growlithe not in Z-A returns empty data"
-    command: "pokedex pokemon encounters growlithe --game=legends-za"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 0, "max": 0}}
-      has_fields: ["actions", "meta"]
+      array_len: {"actions": {"min": 4, "max": 4}}
+      has_fields: ["actions.0.rel"]

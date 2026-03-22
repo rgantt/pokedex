@@ -1920,56 +1920,49 @@ pub fn get_home_transferable(conn: &Connection, species_id: i64) -> Result<Vec<G
         .filter_map(|r| r.ok())
         .collect();
 
-    // Fallback: if no dex mapping exists, filter by generation
-    // A pokemon introduced in gen N can only appear in games from gen N onward
+    // Fallback: if no dex mapping exists, check which HOME games have encounter data for this species
     if results.is_empty() {
-        let species_gen: Option<i64> = conn.query_row(
-            "SELECT generation_id FROM species WHERE id = ?1",
-            params![species_id],
-            |row| row.get(0),
-        ).ok();
-
-        if let Some(gen_id) = species_gen {
-            let mut stmt = conn.prepare(
-                "SELECT g.id, g.name, g.connects_to_home, g.transfer_direction, \
-                 gen.id as generation, \
-                 COALESCE(rn.name, r.name) as region, \
-                 COALESCE(vn.name, \
-                   CASE g.name \
-                     WHEN 'pokemon-go' THEN 'Pokémon GO' \
-                     WHEN 'pokemon-bank' THEN 'Pokémon Bank' \
-                     WHEN 'home' THEN 'Pokémon HOME' \
-                     WHEN 'legends-za' THEN 'Legends: Z-A' \
-                     ELSE g.name \
-                   END \
-                 ) as display_name \
-                 FROM games g \
-                 LEFT JOIN version_groups vg ON vg.id = g.version_group_id \
-                 LEFT JOIN generations gen ON gen.id = vg.generation_id \
-                 LEFT JOIN (SELECT version_group_id, MAX(region_id) as region_id FROM version_group_regions GROUP BY version_group_id) vgr ON vgr.version_group_id = vg.id \
-                 LEFT JOIN regions r ON r.id = vgr.region_id \
-                 LEFT JOIN region_names rn ON rn.region_id = r.id \
-                 LEFT JOIN versions v ON v.version_group_id = vg.id AND LOWER(v.name) = LOWER(g.name) \
-                 LEFT JOIN version_names vn ON vn.version_id = v.id \
-                 WHERE g.connects_to_home = 1 AND gen.id >= ?1 \
-                 GROUP BY g.id ORDER BY g.id"
-            )?;
-            let fallback = stmt
-                .query_map(params![gen_id], |row| {
-                    Ok(GameInfo {
-                        id: row.get(0)?,
-                        name: row.get(1)?,
-                        connects_to_home: true,
-                        transfer_direction: row.get(3)?,
-                        generation: row.get(4)?,
-                        region: row.get(5)?,
-                        display_name: row.get(6)?,
-                    })
-                })?
-                .filter_map(|r| r.ok())
-                .collect();
-            return Ok(fallback);
-        }
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT g.id, g.name, g.connects_to_home, g.transfer_direction, \
+             gen.id as generation, \
+             COALESCE(rn.name, r.name) as region, \
+             COALESCE(vn.name, \
+               CASE g.name \
+                 WHEN 'pokemon-go' THEN 'Pokémon GO' \
+                 WHEN 'pokemon-bank' THEN 'Pokémon Bank' \
+                 WHEN 'home' THEN 'Pokémon HOME' \
+                 WHEN 'legends-za' THEN 'Legends: Z-A' \
+                 ELSE g.name \
+               END \
+             ) as display_name \
+             FROM games g \
+             JOIN versions v ON LOWER(v.name) = LOWER(g.name) \
+             JOIN encounters e ON e.version_id = v.id \
+             JOIN pokemon p ON p.id = e.pokemon_id \
+             LEFT JOIN version_groups vg ON vg.id = g.version_group_id \
+             LEFT JOIN generations gen ON gen.id = vg.generation_id \
+             LEFT JOIN (SELECT version_group_id, MAX(region_id) as region_id FROM version_group_regions GROUP BY version_group_id) vgr ON vgr.version_group_id = vg.id \
+             LEFT JOIN regions r ON r.id = vgr.region_id \
+             LEFT JOIN region_names rn ON rn.region_id = r.id \
+             LEFT JOIN version_names vn ON vn.version_id = v.id \
+             WHERE g.connects_to_home = 1 AND p.species_id = ?1 \
+             GROUP BY g.id ORDER BY g.id"
+        )?;
+        let fallback = stmt
+            .query_map(params![species_id], |row| {
+                Ok(GameInfo {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    connects_to_home: true,
+                    transfer_direction: row.get(3)?,
+                    generation: row.get(4)?,
+                    region: row.get(5)?,
+                    display_name: row.get(6)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        return Ok(fallback);
     }
 
     Ok(results)

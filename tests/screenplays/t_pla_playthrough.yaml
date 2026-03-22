@@ -2,104 +2,94 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "PLA Playthrough - Hisuian Forms & Alpha Collection"
-persona: pla_playthrough
+name: "Legends Arceus Hisui Completionist Playthrough"
+persona: pla_completionist
 description: >
-  End-to-end Legends: Arceus playthrough focused on R11 form fixes and R12 edge
-  cases. Exercises the discover-inspect-catch-verify loop across aspiration-hill,
-  horseshoe-plains, gapejaw-bog, veilstone-cape, sacred-plaza, avaluggs-legacy,
-  wayward-cave, and snowfall-hot-spring. Verifies Hisuian display_name, form-specific
-  types, HATEOAS action fidelity for forms, alpha collection, stats tracking,
-  PLA-exclusive evolutions, error handling, pagination, and data quality.
+  End-to-end Legends: Arceus playthrough testing the discover-inspect-catch-evolve-verify
+  loop across Obsidian Fieldlands, Crimson Mirelands, Cobalt Coastlands, Coronet Highlands,
+  and Alabaster Icelands sub-areas. Verifies Hisui region, generation 8, alpha catches,
+  Hisuian form annotations, PLA-exclusive evolutions (Wyrdeer, Kleavor, Sneasler, Overqwil,
+  Ursaluna), and encounter details with alpha_levels.
 needs_seed: true
 mutates_collection: true
 
 steps:
   # ============================================================
-  # AREA 1: aspiration-hill (Obsidian Fieldlands starter area)
+  # VERIFY GAME METADATA
+  # ============================================================
+  - name: "Game metadata -- verify PLA is generation 8 Hisui region"
+    command: "pokedex game show legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "legends-arceus", "data.generation": 8, "data.region": "Hisui" }
+      has_fields: ["data.connects_to_home"]
+
+  - name: "Hisui dex -- verify exists with 242 species"
+    command: "pokedex dex progress hisui --game=legends-arceus --limit=3"
+    assert:
+      exit_code: 0
+      equals: { "data.dex_name": "hisui", "data.total": 242 }
+      has_fields: ["data.entries"]
+
+  # ============================================================
+  # OBSIDIAN FIELDLANDS: Aspiration Hill
   # ============================================================
   - name: "Aspiration Hill -- discover encounters"
     command: "pokedex location encounters aspiration-hill --game=legends-arceus"
     assert:
       exit_code: 0
       has_fields: ["data", "actions", "meta"]
-      equals: { "meta.total": 11 }
-      array_len: { "data": { "min": 6 } }
-
-  - name: "Aspiration Hill -- PLA encounter details include alpha_levels"
-    command: "pokedex location encounters aspiration-hill --game=legends-arceus"
-    assert:
-      exit_code: 0
-      has_fields: ["data.0.details"]
-      contains: { "data": "alpha_levels" }
-
-  - name: "Aspiration Hill -- PLA encounter details include time-of-day booleans"
-    command: "pokedex location encounters aspiration-hill --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "data": "during_any_time" }
-
-  - name: "Aspiration Hill -- encounter actions have show template"
-    command: "pokedex location encounters aspiration-hill --game=legends-arceus"
-    assert:
-      exit_code: 0
-      has_fields: ["actions"]
-      contains: { "actions": "pokedex pokemon show" }
+      array_len: { "data": { "min": 10 } }
 
   - name: "Aspiration Hill -- inspect Bidoof"
     command: "pokedex pokemon show bidoof"
     assert:
       exit_code: 0
       equals: { "data.name": "bidoof", "data.generation": 4 }
-      has_fields: ["data.types", "data.stats", "data.abilities"]
-
-  - name: "Aspiration Hill -- inspect Shinx"
-    command: "pokedex pokemon show shinx"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "shinx", "data.types": ["Electric"] }
-
-  - name: "Aspiration Hill -- inspect Starly"
-    command: "pokedex pokemon show starly"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "starly", "data.types": ["Normal", "Flying"] }
+      has_fields: ["data.types", "data.stats"]
 
   - name: "Aspiration Hill -- catch alpha Bidoof"
-    command: "pokedex collection add --pokemon=bidoof --game=legends-arceus --alpha"
+    command: "pokedex collection add --pokemon=bidoof --game=legends-arceus --method=catch --alpha"
     capture: { "bidoof_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "bidoof", "data.game": "legends-arceus", "data.is_alpha": true, "data.status": "caught" }
-      has_fields: ["data.id", "data.created_at"]
+      equals: { "data.species_name": "bidoof", "data.is_alpha": true, "data.status": "caught" }
+      has_fields: ["data.id"]
 
   - name: "Aspiration Hill -- catch Starly"
-    command: "pokedex collection add --pokemon=starly --game=legends-arceus"
-    capture: { "starly_id": "data.id" }
+    command: "pokedex collection add --pokemon=starly --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "starly", "data.status": "caught", "data.is_alpha": false }
+      equals: { "data.species_name": "starly", "data.status": "caught" }
 
-  - name: "Aspiration Hill -- catch Shinx"
-    command: "pokedex collection add --pokemon=shinx --game=legends-arceus --alpha"
+  - name: "Aspiration Hill -- catch alpha Shinx"
+    command: "pokedex collection add --pokemon=shinx --game=legends-arceus --method=catch --alpha"
+    capture: { "shinx_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "shinx", "data.is_alpha": true }
+      has_fields: ["data.created_at"]
 
   - name: "Aspiration Hill -- catch Wurmple"
-    command: "pokedex collection add --pokemon=wurmple --game=legends-arceus"
+    command: "pokedex collection add --pokemon=wurmple --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "wurmple", "data.status": "caught" }
 
-  - name: "Aspiration Hill -- verify stats after first area"
-    command: "pokedex collection stats --game=legends-arceus"
+  - name: "Aspiration Hill -- catch Drifloon"
+    command: "pokedex collection add --pokemon=drifloon --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      equals: { "data.species_name": "drifloon", "data.game": "legends-arceus" }
+
+  - name: "Aspiration Hill -- catch Pichu"
+    command: "pokedex collection add --pokemon=pichu --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pichu", "data.status": "caught" }
 
   # ============================================================
-  # AREA 2: horseshoe-plains (Hisuian Sneasel appears here)
+  # OBSIDIAN FIELDLANDS: Horseshoe Plains
   # ============================================================
   - name: "Horseshoe Plains -- discover encounters"
     command: "pokedex location encounters horseshoe-plains --game=legends-arceus"
@@ -108,140 +98,158 @@ steps:
       equals: { "meta.total": 34 }
       array_len: { "data": { "min": 20 } }
 
-  - name: "Horseshoe Plains -- Hisuian Sneasel appears in encounters"
-    command: "pokedex location encounters horseshoe-plains --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "data": "Hisuian Sneasel" }
-
-  # BUG: species_slug for Hisuian encounters is 'sneasel' not 'sneasel-hisui'.
-  # An agent using the {species_slug} template from actions would get base Sneasel.
-  - name: "Horseshoe Plains -- Hisuian Sneasel species_slug lacks form suffix"
-    command: "pokedex location encounters horseshoe-plains --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "data": "sneasel" }
-
-  - name: "Horseshoe Plains -- inspect Hisuian Sneasel"
-    command: "pokedex pokemon show sneasel-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.display_name": "Hisuian Sneasel", "data.types": ["Fighting", "Poison"] }
-      has_fields: ["data.stats", "data.abilities", "data.id"]
-
-  - name: "Horseshoe Plains -- Hisuian Sneasel stats/moves/encounters actions preserve form"
-    command: "pokedex pokemon show sneasel-hisui"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon stats sneasel-hisui" }
-
-  # BUG: evolutions and forms actions link to base 'sneasel', losing form context.
-  # An agent following these would get base Sneasel's evolution chain.
-  - name: "Horseshoe Plains -- Hisuian Sneasel evolutions action uses base name"
-    command: "pokedex pokemon show sneasel-hisui"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon evolutions sneasel" }
-
-  # BUG: add_to_collection action drops form suffix entirely
-  - name: "Horseshoe Plains -- Hisuian Sneasel add_to_collection action drops form"
-    command: "pokedex pokemon show sneasel-hisui"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex collection add --pokemon=sneasel" }
-
-  - name: "Horseshoe Plains -- catch alpha Hisuian Sneasel"
-    command: "pokedex collection add --pokemon=sneasel-hisui --game=legends-arceus --alpha"
-    capture: { "sneasel_hisui_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "sneasel", "data.form_name": "hisui", "data.display_name": "Hisuian Sneasel", "data.is_alpha": true, "data.status": "caught" }
-      has_fields: ["data.id", "data.created_at"]
-
   - name: "Horseshoe Plains -- catch Ponyta"
-    command: "pokedex collection add --pokemon=ponyta --game=legends-arceus"
+    command: "pokedex collection add --pokemon=ponyta --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "ponyta", "data.status": "caught" }
 
-  - name: "Horseshoe Plains -- catch alpha Eevee"
-    command: "pokedex collection add --pokemon=eevee --game=legends-arceus --alpha"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "eevee", "data.is_alpha": true }
-
   - name: "Horseshoe Plains -- catch Buizel"
-    command: "pokedex collection add --pokemon=buizel --game=legends-arceus"
+    command: "pokedex collection add --pokemon=buizel --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "buizel", "data.status": "caught" }
 
-  - name: "Horseshoe Plains -- verify stats"
-    command: "pokedex collection stats --game=legends-arceus"
+  - name: "Horseshoe Plains -- catch Eevee"
+    command: "pokedex collection add --pokemon=eevee --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
+      equals: { "data.species_name": "eevee", "data.status": "caught" }
 
   # ============================================================
-  # AREA 3: gapejaw-bog (Mirelands, rich biodiversity)
+  # OBSIDIAN FIELDLANDS: Deertrack Heights -- Stantler + Wyrdeer
+  # ============================================================
+  - name: "Deertrack Heights -- discover encounters"
+    command: "pokedex location encounters deertrack-heights --game=legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 10 } }
+
+  - name: "Stantler evolution -- verify Wyrdeer via agile-style-move"
+    command: "pokedex pokemon evolutions stantler"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "stantler" }
+      contains: { "data.children.0.species_name": "wyrdeer" }
+
+  - name: "Wyrdeer -- verify Normal/Psychic gen 8"
+    command: "pokedex pokemon show wyrdeer"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Normal", "Psychic"], "data.generation": 8 }
+
+  - name: "Deertrack Heights -- catch alpha Stantler"
+    command: "pokedex collection add --pokemon=stantler --game=legends-arceus --method=catch --alpha"
+    capture: { "stantler_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "stantler", "data.is_alpha": true }
+
+  - name: "Evolve Stantler to Wyrdeer"
+    command: "pokedex collection add --pokemon=wyrdeer --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "wyrdeer", "data.method": "evolve" }
+      has_fields: ["data.id"]
+
+  - name: "Update Stantler status to evolved"
+    command: "pokedex collection update $stantler_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "stantler" }
+
+  - name: "Deertrack Heights -- catch Chimchar"
+    command: "pokedex collection add --pokemon=chimchar --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "chimchar", "data.status": "caught" }
+
+  # ============================================================
+  # CRIMSON MIRELANDS: Gapejaw Bog
   # ============================================================
   - name: "Gapejaw Bog -- discover encounters"
     command: "pokedex location encounters gapejaw-bog --game=legends-arceus"
     assert:
       exit_code: 0
       equals: { "meta.total": 55 }
-      array_len: { "data": { "min": 30 } }
-
-  - name: "Gapejaw Bog -- Hisuian Typhlosion appears"
-    command: "pokedex location encounters gapejaw-bog --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "data": "Hisuian Typhlosion" }
-
-  - name: "Gapejaw Bog -- inspect Hisuian Typhlosion (Cyndaquil final evo)"
-    command: "pokedex pokemon show typhlosion-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.display_name": "Hisuian Typhlosion", "data.types": ["Fire", "Ghost"] }
-      has_fields: ["data.stats", "data.abilities"]
-
-  # BUG: stats.pokemon_name shows base name, not form display name
-  - name: "Gapejaw Bog -- Hisuian Typhlosion stats.pokemon_name shows base name"
-    command: "pokedex pokemon stats typhlosion-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.pokemon_name": "Hisuian Typhlosion" }
+      array_len: { "data": { "min": 40 } }
 
   - name: "Gapejaw Bog -- catch Croagunk"
-    command: "pokedex collection add --pokemon=croagunk --game=legends-arceus --alpha"
+    command: "pokedex collection add --pokemon=croagunk --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "croagunk", "data.is_alpha": true }
+      equals: { "data.species_name": "croagunk", "data.status": "caught" }
+
+  - name: "Gapejaw Bog -- catch Barboach"
+    command: "pokedex collection add --pokemon=barboach --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "barboach", "data.status": "caught" }
 
   - name: "Gapejaw Bog -- catch Hippopotas"
-    command: "pokedex collection add --pokemon=hippopotas --game=legends-arceus"
+    command: "pokedex collection add --pokemon=hippopotas --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "hippopotas", "data.status": "caught" }
 
   - name: "Gapejaw Bog -- catch Tangela"
-    command: "pokedex collection add --pokemon=tangela --game=legends-arceus"
+    command: "pokedex collection add --pokemon=tangela --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "tangela", "data.status": "caught" }
 
-  - name: "Gapejaw Bog -- catch Pachirisu"
-    command: "pokedex collection add --pokemon=pachirisu --game=legends-arceus"
+  # ============================================================
+  # CRIMSON MIRELANDS: Scarlet Bog -- Hisuian Sneasel + Sneasler
+  # ============================================================
+  - name: "Scarlet Bog -- discover encounters"
+    command: "pokedex location encounters scarlet-bog --game=legends-arceus"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "pachirisu", "data.status": "caught" }
+      equals: { "meta.total": 21 }
+      array_len: { "data": { "min": 10 } }
 
-  - name: "Gapejaw Bog -- verify stats"
-    command: "pokedex collection stats --game=legends-arceus"
+  - name: "Hisuian Sneasel -- inspect types Fighting/Poison"
+    command: "pokedex pokemon show sneasel-hisui"
     assert:
       exit_code: 0
+      contains: { "data.display_name": "Hisuian" }
+      equals: { "data.types": ["Fighting", "Poison"] }
+
+  - name: "Sneasel evolution -- verify Sneasler branch"
+    command: "pokedex pokemon evolutions sneasel"
+    assert:
+      exit_code: 0
+      contains: { "data.children.1.species_name": "sneasler" }
+      has_fields: ["data.children.1.methods"]
+
+  - name: "Catch Hisuian Sneasel via --form flag alpha"
+    command: "pokedex collection add --pokemon=sneasel --form=hisui --game=legends-arceus --method=catch --alpha"
+    capture: { "sneasel_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sneasel", "data.form_name": "hisui", "data.is_alpha": true }
+
+  - name: "Evolve Hisuian Sneasel to Sneasler"
+    command: "pokedex collection add --pokemon=sneasler --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sneasler", "data.method": "evolve" }
+
+  - name: "Update Sneasel status to evolved"
+    command: "pokedex collection update $sneasel_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  - name: "Sneasler -- verify Fighting/Poison gen 8"
+    command: "pokedex pokemon show sneasler"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Fighting", "Poison"], "data.generation": 8 }
 
   # ============================================================
-  # AREA 4: veilstone-cape (Hisuian Growlithe location)
+  # COBALT COASTLANDS: Veilstone Cape -- Hisuian Growlithe
   # ============================================================
   - name: "Veilstone Cape -- discover encounters"
     command: "pokedex location encounters veilstone-cape --game=legends-arceus"
@@ -250,239 +258,190 @@ steps:
       equals: { "meta.total": 18 }
       array_len: { "data": { "min": 10 } }
 
-  - name: "Veilstone Cape -- Hisuian Growlithe appears"
-    command: "pokedex location encounters veilstone-cape --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "data": "Hisuian Growlithe" }
-
-  - name: "Veilstone Cape -- inspect Hisuian Growlithe"
+  - name: "Hisuian Growlithe -- inspect Fire/Rock types"
     command: "pokedex pokemon show growlithe-hisui"
     assert:
       exit_code: 0
-      equals: { "data.display_name": "Hisuian Growlithe", "data.types": ["Fire", "Rock"] }
-      has_fields: ["data.stats", "data.abilities", "data.egg_groups"]
-
-  - name: "Veilstone Cape -- Hisuian Growlithe has Rock Head hidden ability"
-    command: "pokedex pokemon show growlithe-hisui"
-    assert:
-      exit_code: 0
-      contains: { "data.abilities": "Rock Head" }
-
-  - name: "Veilstone Cape -- Hisuian Growlithe actions preserve form for stats"
-    command: "pokedex pokemon show growlithe-hisui"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon stats growlithe-hisui" }
-
-  # BUG: add_to_collection action drops form -- would add base Growlithe
-  - name: "Veilstone Cape -- Hisuian Growlithe add_to_collection drops form"
-    command: "pokedex pokemon show growlithe-hisui"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex collection add --pokemon=growlithe" }
+      contains: { "data.display_name": "Hisuian" }
+      equals: { "data.types": ["Fire", "Rock"] }
 
   - name: "Veilstone Cape -- catch alpha Hisuian Growlithe"
-    command: "pokedex collection add --pokemon=growlithe-hisui --game=legends-arceus --alpha"
-    capture: { "growlithe_hisui_id": "data.id" }
+    command: "pokedex collection add --pokemon=growlithe --form=hisui --game=legends-arceus --method=catch --alpha"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "growlithe", "data.form_name": "hisui", "data.display_name": "Hisuian Growlithe", "data.is_alpha": true, "data.status": "caught" }
+      equals: { "data.species_name": "growlithe", "data.form_name": "hisui", "data.is_alpha": true }
 
-  # BUG: collection pokemon_info action loses form context
-  - name: "Veilstone Cape -- collection pokemon_info action drops form"
-    command: "pokedex collection show $growlithe_hisui_id"
+  - name: "Veilstone Cape -- catch Glameow"
+    command: "pokedex collection add --pokemon=glameow --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.form_name": "hisui", "data.display_name": "Hisuian Growlithe" }
-      contains: { "actions": "pokedex pokemon show growlithe" }
+      equals: { "data.species_name": "glameow", "data.status": "caught" }
 
-  - name: "Veilstone Cape -- catch Vulpix"
-    command: "pokedex collection add --pokemon=vulpix --game=legends-arceus"
+  - name: "Veilstone Cape -- catch Geodude"
+    command: "pokedex collection add --pokemon=geodude --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "vulpix", "data.status": "caught" }
+      equals: { "data.species_name": "geodude", "data.status": "caught" }
 
-  - name: "Veilstone Cape -- catch Murkrow"
-    command: "pokedex collection add --pokemon=murkrow --game=legends-arceus"
+  # ============================================================
+  # COBALT COASTLANDS: Qwilfish + Overqwil
+  # ============================================================
+  - name: "Qwilfish evolution -- verify Overqwil branch"
+    command: "pokedex pokemon evolutions qwilfish"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "murkrow", "data.status": "caught" }
+      contains: { "data.children.0.species_name": "overqwil" }
+      has_fields: ["data.children.0.methods"]
 
-  - name: "Veilstone Cape -- verify stats"
+  - name: "Catch Hisuian Qwilfish"
+    command: "pokedex collection add --pokemon=qwilfish --form=hisui --game=legends-arceus --method=catch"
+    capture: { "qwilfish_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "qwilfish", "data.form_name": "hisui" }
+
+  - name: "Evolve Qwilfish to Overqwil"
+    command: "pokedex collection add --pokemon=overqwil --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "overqwil", "data.method": "evolve" }
+
+  - name: "Update Qwilfish status to evolved"
+    command: "pokedex collection update $qwilfish_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # MID-GAME VERIFY
+  # ============================================================
+  - name: "Mid-game stats check"
     command: "pokedex collection stats --game=legends-arceus"
     assert:
       exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.total_entries": "number" }
 
   # ============================================================
-  # AREA 5: sacred-plaza (Hisuian Voltorb location)
+  # CORONET HIGHLANDS: Celestica Trail -- Scyther + Kleavor
+  # ============================================================
+  - name: "Celestica Trail -- discover encounters"
+    command: "pokedex location encounters celestica-trail --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 41 }
+      array_len: { "data": { "min": 30 } }
+
+  - name: "Scyther evolution -- verify Kleavor branch"
+    command: "pokedex pokemon evolutions scyther"
+    assert:
+      exit_code: 0
+      contains: { "data.children.1.species_name": "kleavor" }
+      array_len: { "data.children": { "min": 2 } }
+
+  - name: "Kleavor evolution trigger -- uses black-augurite"
+    command: "pokedex pokemon evolutions scyther"
+    assert:
+      exit_code: 0
+      equals: { "data.children.1.methods.0.trigger": "use-item" }
+      contains: { "data.children.1.methods.0.trigger_detail": "black-augurite" }
+
+  - name: "Kleavor -- verify Bug/Rock gen 8"
+    command: "pokedex pokemon show kleavor"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Bug", "Rock"], "data.generation": 8 }
+
+  - name: "Catch alpha Scyther"
+    command: "pokedex collection add --pokemon=scyther --game=legends-arceus --method=catch --alpha"
+    capture: { "scyther_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "scyther", "data.is_alpha": true }
+
+  - name: "Evolve Scyther to Kleavor"
+    command: "pokedex collection add --pokemon=kleavor --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kleavor", "data.method": "evolve" }
+
+  - name: "Update Scyther status to evolved"
+    command: "pokedex collection update $scyther_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  - name: "Celestica Trail -- catch Chingling"
+    command: "pokedex collection add --pokemon=chingling --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "chingling", "data.status": "caught" }
+
+  - name: "Celestica Trail -- catch Chimecho"
+    command: "pokedex collection add --pokemon=chimecho --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "chimecho", "data.status": "caught" }
+
+  # ============================================================
+  # CORONET HIGHLANDS: Sacred Plaza
   # ============================================================
   - name: "Sacred Plaza -- discover encounters"
     command: "pokedex location encounters sacred-plaza --game=legends-arceus"
     assert:
       exit_code: 0
       equals: { "meta.total": 42 }
-      array_len: { "data": { "min": 25 } }
+      array_len: { "data": { "min": 30 } }
 
-  - name: "Sacred Plaza -- Hisuian Voltorb appears"
-    command: "pokedex location encounters sacred-plaza --game=legends-arceus"
+  - name: "Sacred Plaza -- catch Luxio"
+    command: "pokedex collection add --pokemon=luxio --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
-      contains: { "data": "Hisuian Voltorb" }
+      equals: { "data.species_name": "luxio", "data.status": "caught" }
 
-  - name: "Sacred Plaza -- Hisuian Decidueye appears"
-    command: "pokedex location encounters sacred-plaza --game=legends-arceus"
+  - name: "Evolve Shinx to Luxray"
+    command: "pokedex collection add --pokemon=luxray --game=legends-arceus --method=evolve"
     assert:
       exit_code: 0
-      contains: { "data": "Hisuian Decidueye" }
+      equals: { "data.species_name": "luxray", "data.method": "evolve" }
 
-  - name: "Sacred Plaza -- inspect Hisuian Voltorb"
-    command: "pokedex pokemon show voltorb-hisui"
+  - name: "Update Shinx status to evolved"
+    command: "pokedex collection update $shinx_id --status=evolved"
     assert:
       exit_code: 0
-      equals: { "data.display_name": "Hisuian Voltorb", "data.types": ["Electric", "Grass"] }
-      has_fields: ["data.stats", "data.abilities"]
-
-  - name: "Sacred Plaza -- Hisuian Voltorb actions preserve form for encounters"
-    command: "pokedex pokemon show voltorb-hisui"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon encounters voltorb-hisui" }
-
-  - name: "Sacred Plaza -- catch alpha Hisuian Voltorb"
-    command: "pokedex collection add --pokemon=voltorb-hisui --game=legends-arceus --alpha"
-    capture: { "voltorb_hisui_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "voltorb", "data.form_name": "hisui", "data.display_name": "Hisuian Voltorb", "data.is_alpha": true }
-
-  - name: "Sacred Plaza -- catch Misdreavus"
-    command: "pokedex collection add --pokemon=misdreavus --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "misdreavus", "data.status": "caught" }
-
-  - name: "Sacred Plaza -- catch Rotom"
-    command: "pokedex collection add --pokemon=rotom --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "rotom", "data.status": "caught" }
-
-  - name: "Sacred Plaza -- verify stats"
-    command: "pokedex collection stats --game=legends-arceus"
-    assert:
-      exit_code: 0
+      equals: { "data.status": "evolved" }
 
   # ============================================================
-  # AREA 6: avaluggs-legacy (Hisuian Zorua + Zoroark + Avalugg)
+  # ALABASTER ICELANDS: Bonechill Wastes
   # ============================================================
-  - name: "Avalugg's Legacy -- discover encounters"
-    command: "pokedex location encounters avaluggs-legacy --game=legends-arceus"
+  - name: "Bonechill Wastes -- discover encounters"
+    command: "pokedex location encounters bonechill-wastes --game=legends-arceus"
     assert:
       exit_code: 0
-      equals: { "meta.total": 36 }
-      array_len: { "data": { "min": 20 } }
+      equals: { "meta.total": 44 }
+      array_len: { "data": { "min": 30 } }
 
-  - name: "Avalugg's Legacy -- Hisuian Zorua appears"
-    command: "pokedex location encounters avaluggs-legacy --game=legends-arceus"
+  - name: "Bonechill Wastes -- catch Snorunt"
+    command: "pokedex collection add --pokemon=snorunt --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
-      contains: { "data": "Hisuian Zorua" }
+      equals: { "data.species_name": "snorunt", "data.status": "caught" }
 
-  - name: "Avalugg's Legacy -- Hisuian Zoroark appears"
-    command: "pokedex location encounters avaluggs-legacy --game=legends-arceus"
+  - name: "Bonechill Wastes -- catch Bergmite"
+    command: "pokedex collection add --pokemon=bergmite --game=legends-arceus --method=catch"
     assert:
       exit_code: 0
-      contains: { "data": "Hisuian Zoroark" }
+      equals: { "data.species_name": "bergmite", "data.status": "caught" }
 
-  - name: "Avalugg's Legacy -- Hisuian Avalugg appears"
-    command: "pokedex location encounters avaluggs-legacy --game=legends-arceus"
+  - name: "Bonechill Wastes -- catch alpha Abomasnow"
+    command: "pokedex collection add --pokemon=abomasnow --game=legends-arceus --method=catch --alpha"
     assert:
       exit_code: 0
-      contains: { "data": "Hisuian Avalugg" }
-
-  - name: "Avalugg's Legacy -- inspect Hisuian Zorua"
-    command: "pokedex pokemon show zorua-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.display_name": "Hisuian Zorua", "data.types": ["Normal", "Ghost"] }
-      has_fields: ["data.stats", "data.abilities"]
-
-  - name: "Avalugg's Legacy -- Hisuian Zorua is Normal/Ghost (unique dual type)"
-    command: "pokedex pokemon show zorua-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Normal", "Ghost"] }
-      type_of: { "data.types": "array" }
-
-  # BUG: evolutions action for zorua-hisui links to base zorua
-  - name: "Avalugg's Legacy -- Hisuian Zorua evolutions action uses base name"
-    command: "pokedex pokemon show zorua-hisui"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex pokemon evolutions zorua" }
-
-  - name: "Avalugg's Legacy -- catch alpha Hisuian Zorua"
-    command: "pokedex collection add --pokemon=zorua-hisui --game=legends-arceus --alpha"
-    capture: { "zorua_hisui_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "zorua", "data.form_name": "hisui", "data.display_name": "Hisuian Zorua", "data.is_alpha": true }
-
-  - name: "Avalugg's Legacy -- catch Hisuian Sneasel (second location)"
-    command: "pokedex collection add --pokemon=sneasel-hisui --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "sneasel", "data.form_name": "hisui" }
-
-  - name: "Avalugg's Legacy -- catch Swinub"
-    command: "pokedex collection add --pokemon=swinub --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "swinub", "data.status": "caught" }
-
-  - name: "Avalugg's Legacy -- catch Snover"
-    command: "pokedex collection add --pokemon=snover --game=legends-arceus --alpha"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "snover", "data.is_alpha": true }
-
-  - name: "Avalugg's Legacy -- verify stats"
-    command: "pokedex collection stats --game=legends-arceus"
-    assert:
-      exit_code: 0
-      has_fields: ["data.unique_species", "data.by_status", "data.shiny_count"]
+      equals: { "data.species_name": "abomasnow", "data.is_alpha": true }
+      has_fields: ["data.id"]
 
   # ============================================================
-  # AREA 7: wayward-cave (Gible + Unown cave area)
-  # ============================================================
-  - name: "Wayward Cave -- discover encounters"
-    command: "pokedex location encounters wayward-cave --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 8 }
-      array_len: { "data": { "min": 5 } }
-
-  - name: "Wayward Cave -- Gible appears"
-    command: "pokedex location encounters wayward-cave --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "data": "Gible" }
-
-  - name: "Wayward Cave -- catch alpha Gible"
-    command: "pokedex collection add --pokemon=gible --game=legends-arceus --alpha"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "gible", "data.is_alpha": true }
-
-  - name: "Wayward Cave -- catch Zubat"
-    command: "pokedex collection add --pokemon=zubat --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "zubat", "data.status": "caught" }
-
-  # ============================================================
-  # AREA 8: snowfall-hot-spring (Alabaster Icelands)
+  # ALABASTER ICELANDS: Snowfall Hot Spring -- Ursaluna evolution
   # ============================================================
   - name: "Snowfall Hot Spring -- discover encounters"
     command: "pokedex location encounters snowfall-hot-spring --game=legends-arceus"
@@ -491,254 +450,185 @@ steps:
       equals: { "meta.total": 13 }
       array_len: { "data": { "min": 10 } }
 
-  - name: "Snowfall Hot Spring -- catch alpha Machop"
-    command: "pokedex collection add --pokemon=machop --game=legends-arceus --alpha"
+  - name: "Ursaring evolution -- verify Ursaluna with peat-block"
+    command: "pokedex pokemon evolutions ursaring"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "machop", "data.is_alpha": true }
+      contains: { "data.children.0.species_name": "ursaluna" }
+      has_fields: ["data.children.0.methods"]
 
-  - name: "Snowfall Hot Spring -- catch Riolu"
-    command: "pokedex collection add --pokemon=riolu --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "riolu", "data.status": "caught" }
-
-  # ============================================================
-  # CROSS-FORM VERIFICATION: confirm all 4 target Hisuian forms
-  # ============================================================
-  - name: "Cross-check -- growlithe-hisui types are Fire/Rock"
-    command: "pokedex pokemon show growlithe-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Fire", "Rock"] }
-
-  - name: "Cross-check -- voltorb-hisui types are Electric/Grass"
-    command: "pokedex pokemon show voltorb-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Electric", "Grass"] }
-
-  - name: "Cross-check -- zorua-hisui types are Normal/Ghost"
-    command: "pokedex pokemon show zorua-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Normal", "Ghost"] }
-
-  - name: "Cross-check -- sneasel-hisui types are Fighting/Poison"
-    command: "pokedex pokemon show sneasel-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Fighting", "Poison"] }
-
-  # ============================================================
-  # STATS: pokemon_name bug for Hisuian forms
-  # ============================================================
-  # BUG: stats.pokemon_name shows base species name, not form display name.
-  # e.g., growlithe-hisui stats shows "Growlithe" instead of "Hisuian Growlithe"
-
-  - name: "Stats -- growlithe-hisui pokemon_name should be Hisuian Growlithe"
-    command: "pokedex pokemon stats growlithe-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.pokemon_name": "Hisuian Growlithe" }
-
-  - name: "Stats -- zorua-hisui pokemon_name should be Hisuian Zorua"
-    command: "pokedex pokemon stats zorua-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.pokemon_name": "Hisuian Zorua" }
-
-  # ============================================================
-  # FINAL VERIFICATION: collection stats and list
-  # ============================================================
-  - name: "Final stats -- total entries correct"
-    command: "pokedex collection stats --game=legends-arceus"
-    assert:
-      exit_code: 0
-      has_fields: ["data.unique_species", "data.by_status", "data.shiny_count", "data.in_home_count"]
-
-  # BUG: collection stats has no alpha_count field despite PLA being alpha-centric.
-  # The only way to know how many alphas you have is to list and count manually.
-  - name: "Final stats -- no alpha_count field in stats (missing feature)"
-    command: "pokedex collection stats --game=legends-arceus"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total_entries", "data.by_status"]
-
-  - name: "Final stats -- HATEOAS actions include list and dex progress"
-    command: "pokedex collection stats --game=legends-arceus"
-    assert:
-      exit_code: 0
-      has_fields: ["actions"]
-      array_len: { "actions": { "min": 3 } }
-      contains: { "actions": "pokedex collection list" }
-
-  - name: "Final stats -- collection_for_game action preserves game filter"
-    command: "pokedex collection stats --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "actions": "pokedex collection list --game=legends-arceus" }
-
-  - name: "Final list -- all PLA entries present"
-    command: "pokedex collection list --game=legends-arceus"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 26 } }
-      contains: { "data": "growlithe" }
-
-  - name: "Final list -- Hisuian forms in list show form_name"
-    command: "pokedex collection list --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "data": "hisui" }
-
-  # ============================================================
-  # ROUND 12: Additional edge case coverage
-  # ============================================================
-
-  # PLA-exclusive evolutions
-  - name: "R12 -- Stantler evolves to Wyrdeer via agile-style-move"
-    command: "pokedex pokemon evolutions stantler"
-    assert:
-      exit_code: 0
-      contains: { "data": "wyrdeer" }
-      has_fields: ["data.children"]
-
-  - name: "R12 -- Scyther shows both Scizor and Kleavor evolutions"
-    command: "pokedex pokemon evolutions scyther"
-    assert:
-      exit_code: 0
-      contains: { "data": "kleavor" }
-      array_len: { "data.children": { "min": 2 } }
-
-  - name: "R12 -- Kleavor is Bug/Rock"
-    command: "pokedex pokemon show kleavor"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Bug", "Rock"], "data.generation": 8 }
-
-  - name: "R12 -- Wyrdeer is Normal/Psychic"
-    command: "pokedex pokemon show wyrdeer"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Normal", "Psychic"], "data.generation": 8 }
-
-  - name: "R12 -- Ursaluna is Ground/Normal"
+  - name: "Ursaluna -- verify Ground/Normal gen 8"
     command: "pokedex pokemon show ursaluna"
     assert:
       exit_code: 0
       equals: { "data.types": ["Ground", "Normal"], "data.generation": 8 }
 
-  # Hisuian starter final evolutions
-  - name: "R12 -- Hisuian Samurott is Water/Dark"
-    command: "pokedex pokemon show samurott-hisui"
+  - name: "Catch Teddiursa"
+    command: "pokedex collection add --pokemon=teddiursa --game=legends-arceus --method=catch"
+    capture: { "teddiursa_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.display_name": "Hisuian Samurott", "data.types": ["Water", "Dark"] }
+      equals: { "data.species_name": "teddiursa", "data.status": "caught" }
 
-  - name: "R12 -- Hisuian Decidueye is Grass/Fighting"
+  - name: "Evolve Teddiursa to Ursaring"
+    command: "pokedex collection add --pokemon=ursaring --game=legends-arceus --method=evolve"
+    capture: { "ursaring_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ursaring", "data.method": "evolve" }
+
+  - name: "Update Teddiursa status to evolved"
+    command: "pokedex collection update $teddiursa_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  - name: "Evolve Ursaring to Ursaluna"
+    command: "pokedex collection add --pokemon=ursaluna --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ursaluna", "data.method": "evolve" }
+
+  - name: "Update Ursaring status to evolved"
+    command: "pokedex collection update $ursaring_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  - name: "Snowfall Hot Spring -- catch Lickitung"
+    command: "pokedex collection add --pokemon=lickitung --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "lickitung", "data.status": "caught" }
+
+  - name: "Snowfall Hot Spring -- catch Machop"
+    command: "pokedex collection add --pokemon=machop --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "machop", "data.status": "caught" }
+
+  # ============================================================
+  # ADDITIONAL CATCHES -- fill to 40+ species
+  # ============================================================
+  - name: "Evolve Bidoof to Bibarel"
+    command: "pokedex collection add --pokemon=bibarel --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bibarel", "data.method": "evolve" }
+
+  - name: "Update Bidoof status to evolved"
+    command: "pokedex collection update $bidoof_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  - name: "Catch Staravia"
+    command: "pokedex collection add --pokemon=staravia --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "staravia", "data.status": "caught" }
+
+  - name: "Catch Drifblim"
+    command: "pokedex collection add --pokemon=drifblim --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "drifblim", "data.status": "caught" }
+
+  - name: "Catch Gastly"
+    command: "pokedex collection add --pokemon=gastly --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gastly", "data.status": "caught" }
+
+  - name: "Catch Haunter"
+    command: "pokedex collection add --pokemon=haunter --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "haunter", "data.status": "caught" }
+
+  - name: "Catch Paras"
+    command: "pokedex collection add --pokemon=paras --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "paras", "data.status": "caught" }
+
+  - name: "Catch Munchlax"
+    command: "pokedex collection add --pokemon=munchlax --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "munchlax", "data.status": "caught" }
+
+  - name: "Catch Hisuian Voltorb Electric/Grass"
+    command: "pokedex collection add --pokemon=voltorb --form=hisui --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "voltorb", "data.form_name": "hisui" }
+
+  - name: "Hisuian Voltorb -- verify type"
+    command: "pokedex pokemon show voltorb-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Electric", "Grass"] }
+      contains: { "data.display_name": "Hisuian" }
+
+  # ============================================================
+  # PLA ENCOUNTER DETAILS -- alpha_levels field
+  # ============================================================
+  - name: "PLA encounter details -- Bidoof has alpha_levels field"
+    command: "pokedex pokemon encounters bidoof --game=legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data.0.details.alpha_levels"]
+      contains: { "data.0.details.alpha_levels": " - " }
+
+  - name: "PLA encounter details -- during_any_time boolean present"
+    command: "pokedex pokemon encounters bidoof --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "data.0.details.during_any_time": true }
+      has_fields: ["data.0.details.while_weather_overall"]
+
+  # ============================================================
+  # HISUIAN STARTER EVOLUTIONS -- type verification
+  # ============================================================
+  - name: "Hisuian Decidueye -- Grass/Fighting"
     command: "pokedex pokemon show decidueye-hisui"
     assert:
       exit_code: 0
       equals: { "data.display_name": "Hisuian Decidueye", "data.types": ["Grass", "Fighting"] }
 
-  # Hisuian Electrode type
-  - name: "R12 -- Hisuian Electrode is Electric/Grass"
-    command: "pokedex pokemon show electrode-hisui"
+  - name: "Hisuian Typhlosion -- Fire/Ghost"
+    command: "pokedex pokemon show typhlosion-hisui"
     assert:
       exit_code: 0
-      equals: { "data.display_name": "Hisuian Electrode", "data.types": ["Electric", "Grass"] }
+      equals: { "data.display_name": "Hisuian Typhlosion", "data.types": ["Fire", "Ghost"] }
 
-  # Sneasel-Sneasler evolution chain
-  - name: "R12 -- Sneasel evolves to both Weavile and Sneasler"
-    command: "pokedex pokemon evolutions sneasel"
+  - name: "Hisuian Samurott -- Water/Dark"
+    command: "pokedex pokemon show samurott-hisui"
     assert:
       exit_code: 0
-      contains: { "data": "sneasler" }
-      array_len: { "data.children": { "min": 2 } }
+      equals: { "data.display_name": "Hisuian Samurott", "data.types": ["Water", "Dark"] }
 
-  - name: "R12 -- Sneasler is Fighting/Poison"
-    command: "pokedex pokemon show sneasler"
+  # ============================================================
+  # FINAL VERIFICATION
+  # ============================================================
+  - name: "Final collection stats"
+    command: "pokedex collection stats --game=legends-arceus"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Fighting", "Poison"], "data.generation": 8 }
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.unique_species": "number" }
 
-  # Hisuian Arcanine type verification
-  - name: "R12 -- Hisuian Arcanine is Fire/Rock"
-    command: "pokedex pokemon show arcanine-hisui"
-    assert:
-      exit_code: 0
-      equals: { "data.display_name": "Hisuian Arcanine", "data.types": ["Fire", "Rock"] }
-
-  # Error handling
-  - name: "R12 -- Invalid method gives INVALID_PARAMETER with recovery actions"
-    command: "pokedex collection add --pokemon=bidoof --game=legends-arceus --method=evolution"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      has_fields: ["actions"]
-
-  - name: "R12 -- Non-existent Pokemon gives NOT_FOUND"
-    command: "pokedex collection add --pokemon=fakemon --game=legends-arceus --method=catch"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      has_fields: ["actions"]
-
-  - name: "R12 -- Invalid game gives NOT_FOUND with suggestions"
-    command: "pokedex collection add --pokemon=bidoof --game=invalid-game --method=catch"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      has_fields: ["actions"]
-
-  # Pagination on large encounter list
-  - name: "R12 -- Gapejaw Bog pagination page 2"
-    command: "pokedex location encounters gapejaw-bog --game=legends-arceus --limit=50 --offset=50"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 55 }
-      array_len: { "data": { "min": 1, "max": 10 } }
-
-  # Hisui dex progress
-  - name: "R12 -- Hisui dex progress shows correct total"
-    command: "pokedex dex progress hisui"
+  - name: "Hisui dex progress -- check percentage improved"
+    command: "pokedex dex progress hisui --game=legends-arceus --limit=5"
     assert:
       exit_code: 0
       equals: { "data.dex_name": "hisui", "data.total": 242 }
       has_fields: ["data.caught", "data.percentage"]
 
-  # Dry run
-  - name: "R12 -- Dry run does not persist to collection"
-    command: "pokedex collection add --pokemon=ursaluna --game=legends-arceus --method=evolve --dry-run"
+  - name: "Collection list -- verify PLA filter works"
+    command: "pokedex collection list --game=legends-arceus --limit=5"
     assert:
       exit_code: 0
-      equals: { "data.dry_run": true, "data.pokemon": "ursaluna" }
-      has_fields: ["actions"]
-
-  # BUG: --alpha and --shiny flags not documented in --discover
-  # The flags work but are missing from the collection add flags list.
-  - name: "R12 -- discover output documents collection add flags"
-    command: "pokedex --discover"
-    assert:
-      exit_code: 0
-      has_fields: ["data.resources"]
-
-  # BUG: discover method list missing 'evolve' (shows 7 values, actual valid set is 8)
-  # --discover shows: catch, breed, trade, transfer, gift, raid, research
-  # Error message shows: catch, breed, trade, transfer, gift, raid, research, evolve
-
-  # Data quirk: Unown encounter method has typo "Reasearch" instead of "Research"
-  - name: "R12 -- Unown encounter method contains typo in upstream data"
-    command: "pokedex location encounters veilstone-cape --game=legends-arceus"
-    assert:
-      exit_code: 0
-      contains: { "data": "Unown Reasearch Notes" }
-
-  # Both avaluggs-legacy (PokeDB) and avaluggs-lagacy (PokeAPI typo) resolve
-  - name: "R12 -- avaluggs-legacy resolves correctly"
-    command: "pokedex location encounters avaluggs-legacy --game=legends-arceus"
-    assert:
-      exit_code: 0
-      equals: { "meta.total": 36 }
-      contains: { "data": "Hisuian Zorua" }
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 5 } }

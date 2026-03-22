@@ -325,8 +325,15 @@ pub fn remove(conn: &Connection, id: i64, dry_run: bool, format: &OutputFormat) 
     }
 
     if dry_run {
+        #[derive(Serialize)]
+        struct DryRunRemove {
+            dry_run: bool,
+            #[serde(flatten)]
+            entry: crate::db::models::CollectionEntry,
+        }
+        let preview = DryRunRemove { dry_run: true, entry: entry.unwrap() };
         let response = Response::new(
-            entry.unwrap(),
+            preview,
             vec![Action::with_description("confirm", &format!("pokedex collection remove {id}"), "Run without --dry-run to delete")],
             Meta::simple(&format!("pokedex collection remove {id} --dry-run")),
         );
@@ -443,6 +450,11 @@ pub fn update(
         };
         let mut cmd = format!("pokedex collection update {id}");
         if let Some(s) = status { cmd.push_str(&format!(" --status={s}")); }
+        if let Some(ih) = in_home { cmd.push_str(&format!(" --in-home={ih}")); }
+        if let Some(sh) = shiny { cmd.push_str(&format!(" --shiny={sh}")); }
+        if let Some(n) = nickname { cmd.push_str(&format!(" --nickname={n}")); }
+        if let Some(g) = game { cmd.push_str(&format!(" --game={g}")); }
+        if let Some(m) = method { cmd.push_str(&format!(" --method={m}")); }
         let actions = vec![
             Action::new("confirm", &cmd),
             Action::new("show", &format!("pokedex collection show {id}")),

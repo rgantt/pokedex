@@ -917,3 +917,199 @@ steps:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
       has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: COLLECTION UPDATE --DRY-RUN
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "add pikachu to sword for update tests"
+    command: "pokedex collection add --pokemon=pikachu --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "sword" }
+      has_fields: ["data.id"]
+
+  - name: "collection update --dry-run shows preview with dry_run flag"
+    command: "pokedex collection update 1 --dry-run --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.dry_run": true, "data.new_status": "living_dex" }
+      has_fields: ["data.current", "actions"]
+
+  - name: "collection update --dry-run on non-existent ID returns NOT_FOUND"
+    command: "pokedex collection update 99999999 --dry-run --status=caught"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "verify dry-run did not persist status change"
+    command: "pokedex collection show 1"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "caught", "data.id": 1 }
+      has_fields: ["data.species_name"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: SEQUENTIAL INDEPENDENT UPDATES
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "update status to living_dex"
+    command: "pokedex collection update 1 --status=living_dex"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "living_dex", "data.shiny": false }
+      has_fields: ["data.id", "actions"]
+
+  - name: "update in_home independently preserves status"
+    command: "pokedex collection update 1 --in-home=true"
+    assert:
+      exit_code: 0
+      equals: { "data.in_home": true, "data.status": "living_dex" }
+      has_fields: ["data.id"]
+
+  - name: "update shiny independently preserves status and in_home"
+    command: "pokedex collection update 1 --shiny=true"
+    assert:
+      exit_code: 0
+      equals: { "data.shiny": true, "data.in_home": true, "data.status": "living_dex" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: FAIRY TYPE + GEN 1 RETYPED POKEMON
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "fairy type gen1 returns 5 retroactively typed pokemon"
+    command: "pokedex pokemon list --type-filter=fairy --generation=1 --limit=999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 5 }
+      array_len: { "data": { "min": 5, "max": 5 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: DEX SHOW REGIONAL DEX SPECIES COUNTS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "dex show kanto has 151 species"
+    command: "pokedex dex show kanto --limit=1"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 151 }
+      has_fields: ["data", "actions"]
+
+  - name: "dex show galar has 400 species"
+    command: "pokedex dex show galar --limit=1"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 400 }
+      has_fields: ["data"]
+
+  - name: "dex show hisui has 242 species"
+    command: "pokedex dex show hisui --limit=1"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 242 }
+      has_fields: ["data"]
+
+  - name: "dex show paldea has 400 species"
+    command: "pokedex dex show paldea --limit=1"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 400 }
+      has_fields: ["data"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: LOCATION ENCOUNTERS LIMIT=1 PAGINATION
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "location encounters limit=1 returns correct pagination meta"
+    command: "pokedex location encounters kanto-route-1 --game=red --limit=1"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 7, "meta.limit": 1, "meta.offset": 0 }
+      array_len: { "data": { "min": 1, "max": 1 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: HOME MISSING WITH DEX FILTER
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "home missing with kanto dex shows only kanto pokemon"
+    command: "pokedex home missing --dex=kanto --limit=5"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta.total", "actions"]
+      type_of: { "data": "array" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: WRONG-GAME ENCOUNTERS RETURN EMPTY NOT ERROR
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "rowlet encounters in red returns empty array not error"
+    command: "pokedex pokemon encounters rowlet --game=red"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      type_of: { "data": "array" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: COLLECTION LIST COMBINED FILTERS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "collection list with game+status+sort combined filters"
+    command: "pokedex collection list --game=sword --status=living_dex --sort=dex"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 1 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: POKEMON MOVES WITH GAME AND METHOD COMBINED
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "pikachu level-up moves in sword returns data"
+    command: "pokedex pokemon moves pikachu --game=sword --method=level-up"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+      has_fields: ["meta.total"]
+
+  - name: "pikachu egg moves in sword returns empty array"
+    command: "pokedex pokemon moves pikachu --game=sword --method=egg"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 0 }
+      array_len: { "data": { "min": 0, "max": 0 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: SEARCH EDGE CASES
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "very long search string returns results without error"
+    command: "pokedex pokemon search abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      has_fields: ["meta"]
+
+  - name: "single character z search returns results"
+    command: "pokedex pokemon search z --limit=5"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 1, "max": 5 } }
+
+  - name: "partial match search finds pokemon"
+    command: "pokedex pokemon search char --limit=10"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+      type_of: { "data": "array" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 14: CLEANUP
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "remove test pikachu entry"
+    command: "pokedex collection remove 1"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions"]

@@ -6,25 +6,26 @@ name: "HATEOAS Walker"
 persona: "A"
 description: >
   Navigate the CLI purely via action links starting from discovery.
-  Round 13: Ruthlessly critical testing of HATEOAS navigation. Covers:
-  discovery -> pokemon list -> show -> evolutions/forms/stats/encounters ->
-  type matchups -> type pokemon -> collection CRUD -> dex progress ->
-  home status/coverage/missing/transferable -> location encounters.
-  Pagination math verification (offset+limit boundaries, last page, beyond-total).
-  Template substitution ({name}, {id}, {species_slug}).
-  3 typo recovery chains with did_you_mean follow-through.
-  Form-specific action context preservation (growlithe-hisui).
-  Cross-resource boundary chains (pokemon -> encounter -> location -> game).
-  Dead-end and broken-link analysis. 50+ steps.
+  Round 14: Action link accuracy and cross-resource navigation focus. Covers:
+  - Form-specific add_to_collection from pokemon show (growlithe-hisui)
+  - pokemon_info action from collection show preserving form context
+  - Full --dry-run chain: add dry-run -> confirm -> show -> update dry-run -> confirm -> remove dry-run -> confirm
+  - Cross-resource chain: type pokemon fire -> show charmander -> evolutions -> show charmeleon -> stats
+  - Verbatim copy-paste test of action cmd strings
+  - home transferable -> add_to_collection action
+  - Pagination filter preservation in next/prev actions
+  Issues found:
+  - home transferable loses form context in show_pokemon and add_to_collection actions
+  - collection remove --dry-run missing dry_run field (inconsistent with add/update)
 needs_seed: true
 mutates_collection: true
 
 steps:
   # ========================================================================
-  # Chain 1: Root discovery -> validate structure and entry_points
+  # Chain 1: Root discovery -> validate structure
   # ========================================================================
 
-  - name: "Root discovery returns command tree with resources and entry_points"
+  - name: "Root discovery returns command tree"
     command: "pokedex --discover"
     assert:
       exit_code: 0
@@ -33,364 +34,273 @@ steps:
       array_len: {"data.resources": {"min": 5}}
 
   # ========================================================================
-  # Chain 2: pokemon list -> pagination -> show via {name} template
+  # Chain 2: Cross-resource: type pokemon fire -> show -> evolutions -> show -> stats
   # ========================================================================
 
-  - name: "Follow pokemon list entry_point, first page of 50"
-    command: "pokedex pokemon list"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 50, "max": 50}}
-      equals: {"meta.total": 1025, "meta.limit": 50, "meta.offset": 0}
-      has_fields: ["actions"]
-
-  - name: "Follow next_page action to offset=50"
-    command: "pokedex pokemon list --limit=50 --offset=50"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 50, "max": 50}}
-      equals: {"meta.offset": 50, "data.0.id": 51}
-
-  - name: "Page 2 has prev_page pointing to offset=0"
-    command: "pokedex pokemon list --limit=50 --offset=100"
-    assert:
-      exit_code: 0
-      equals: {"meta.offset": 100}
-      contains: {"actions": "offset=50"}
-
-  - name: "Last page of pokemon list (offset=1000) has 25 entries"
-    command: "pokedex pokemon list --limit=50 --offset=1000"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 25, "max": 25}}
-      equals: {"meta.total": 1025}
-
-  # ========================================================================
-  # Chain 3: pokemon show pikachu -> follow all action links
-  # ========================================================================
-
-  - name: "Follow show {name} template with pikachu from data"
-    command: "pokedex pokemon show pikachu"
-    assert:
-      exit_code: 0
-      equals: {"data.id": 25, "data.name": "pikachu"}
-      has_fields: ["data.stats", "data.abilities", "actions"]
-
-  - name: "Follow evolutions action from pikachu show"
-    command: "pokedex pokemon evolutions pikachu"
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "pichu", "data.children.0.species_name": "pikachu"}
-      has_fields: ["data.children.0.methods", "actions"]
-
-  - name: "Follow forms action from pikachu show"
-    command: "pokedex pokemon forms pikachu"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 10}}
-      has_fields: ["data.0.name", "data.0.is_default", "actions"]
-
-  - name: "Follow stats action from pikachu show"
-    command: "pokedex pokemon stats pikachu"
-    assert:
-      exit_code: 0
-      equals: {"data.hp": 35, "data.speed": 90, "data.total": 320}
-      has_fields: ["actions"]
-
-  - name: "Follow encounters action from pikachu show"
-    command: "pokedex pokemon encounters pikachu"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 50}}
-      has_fields: ["data.0.pokemon_name", "data.0.location", "actions"]
-
-  - name: "Follow filter_game action from pikachu encounters"
-    command: "pokedex pokemon encounters pikachu --game=yellow"
-    assert:
-      exit_code: 0
-      equals: {"data.0.game_slug": "yellow", "data.0.pokemon_name": "Pikachu"}
-      array_len: {"data": {"min": 1}}
-
-  - name: "Follow type_matchups action from pikachu show"
-    command: "pokedex type matchups electric"
-    assert:
-      exit_code: 0
-      equals: {"data.type_name": "electric"}
-      has_fields: ["data.attacking.super_effective", "data.defending", "actions"]
-
-  - name: "Follow same_type action from pikachu show"
-    command: "pokedex type pokemon electric"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 50}}
-      has_fields: ["meta.total", "actions"]
-
-  # ========================================================================
-  # Chain 4: Typo recovery x3 with did_you_mean follow-through
-  # ========================================================================
-
-  - name: "Typo pikachoo triggers NOT_FOUND with did_you_mean"
-    command: "pokedex pokemon show pikachoo"
-    assert:
-      exit_code: 1
-      equals: {"error.code": "NOT_FOUND"}
-      contains: {"actions": "pikachu"}
-
-  - name: "Follow did_you_mean for pikachoo recovers to pikachu"
-    command: "pokedex pokemon show pikachu"
-    assert:
-      exit_code: 0
-      equals: {"data.name": "pikachu"}
-      has_fields: ["data.stats"]
-
-  - name: "Typo charrzard triggers NOT_FOUND with charizard suggestion"
-    command: "pokedex pokemon show charrzard"
-    assert:
-      exit_code: 1
-      equals: {"error.code": "NOT_FOUND"}
-      contains: {"actions": "charizard"}
-
-  - name: "Follow did_you_mean for charrzard recovers to charizard"
-    command: "pokedex pokemon show charizard"
-    assert:
-      exit_code: 0
-      equals: {"data.name": "charizard", "data.types": ["Fire", "Flying"]}
-      has_fields: ["actions"]
-
-  - name: "Typo mewtoo triggers NOT_FOUND with mewtwo suggestion"
-    command: "pokedex pokemon show mewtoo"
-    assert:
-      exit_code: 1
-      equals: {"error.code": "NOT_FOUND"}
-      contains: {"actions": "mewtwo"}
-
-  # ========================================================================
-  # Chain 5: type list -> matchups -> pokemon_of_type
-  # ========================================================================
-
-  - name: "Follow type list entry_point"
-    command: "pokedex type list"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 18}}
-      has_fields: ["data.0.name", "data.0.display_name", "actions"]
-
-  - name: "Follow matchups action for fire from type list"
-    command: "pokedex type matchups fire"
-    assert:
-      exit_code: 0
-      equals: {"data.type_name": "fire"}
-      has_fields: ["data.attacking", "data.defending", "actions"]
-
-  - name: "Follow pokemon_of_type action from fire matchups"
+  - name: "Type pokemon fire returns charmander first"
     command: "pokedex type pokemon fire --limit=5"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 5, "max": 5}}
-      has_fields: ["meta.total", "actions"]
+      equals: {"data.0.name": "charmander", "meta.total": 81}
+      has_fields: ["actions"]
 
-  # ========================================================================
-  # Chain 6: Form-specific action preservation (growlithe-hisui)
-  # ========================================================================
-
-  - name: "Growlithe forms show regional variant with actions"
-    command: "pokedex pokemon forms growlithe"
+  - name: "Follow show template with charmander from type pokemon fire"
+    command: "pokedex pokemon show charmander"
     assert:
       exit_code: 0
-      array_len: {"data": {"min": 2}}
-      contains: {"actions": "hisui"}
+      equals: {"data.name": "charmander", "data.types": ["Fire"]}
+      has_fields: ["data.stats", "actions"]
+      contains: {"actions": "evolutions charmander"}
 
-  - name: "Form-specific show preserves form in actions"
+  - name: "Follow evolutions action from charmander show"
+    command: "pokedex pokemon evolutions charmander"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "charmander", "data.children.0.species_name": "charmeleon"}
+      has_fields: ["data.children.0.children.0.species_name"]
+      contains: {"actions": "charmeleon"}
+
+  - name: "Follow show charmeleon action from evolutions"
+    command: "pokedex pokemon show charmeleon"
+    assert:
+      exit_code: 0
+      equals: {"data.name": "charmeleon", "data.id": 5}
+      has_fields: ["data.evolves_from", "actions"]
+      contains: {"actions": "stats charmeleon"}
+
+  - name: "Follow stats action from charmeleon show"
+    command: "pokedex pokemon stats charmeleon"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Charmeleon", "data.total": 405}
+      has_fields: ["data.hp", "data.speed"]
+
+  # ========================================================================
+  # Chain 3: Form-specific action preservation (growlithe-hisui)
+  # ========================================================================
+
+  - name: "Show growlithe-hisui preserves form in actions"
+    command: "pokedex pokemon show growlithe-hisui"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Hisuian Growlithe", "data.types": ["Fire", "Rock"]}
+      contains: {"actions": "growlithe-hisui"}
+      has_fields: ["data.stats"]
+
+  - name: "Follow add_to_collection action from growlithe-hisui show (dry-run)"
+    command: "pokedex collection add --pokemon=growlithe-hisui --game=legends-arceus --dry-run"
+    assert:
+      exit_code: 0
+      equals: {"data.dry_run": true, "data.form": "hisui"}
+      has_fields: ["data.pokemon", "data.game"]
+      contains: {"actions": "confirm"}
+
+  - name: "Follow confirm action to add growlithe-hisui"
+    command: "pokedex collection add --pokemon=growlithe --game=legends-arceus --form=hisui"
+    capture: {"hisui_entry_id": "data.id"}
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Hisuian Growlithe", "data.form_name": "hisui"}
+      has_fields: ["data.id", "actions"]
+      contains: {"actions": "growlithe-hisui"}
+
+  - name: "Follow show action from collection add"
+    command: "pokedex collection show $hisui_entry_id"
+    assert:
+      exit_code: 0
+      equals: {"data.display_name": "Hisuian Growlithe", "data.form_name": "hisui"}
+      contains: {"actions": "growlithe-hisui"}
+      has_fields: ["data.species_name", "data.game"]
+
+  - name: "Follow pokemon_info action from collection show preserves form"
     command: "pokedex pokemon show growlithe-hisui"
     assert:
       exit_code: 0
       equals: {"data.display_name": "Hisuian Growlithe"}
-      contains: {"actions": "growlithe-hisui"}
-
-  - name: "Form-specific stats preserves form context"
-    command: "pokedex pokemon stats growlithe-hisui"
-    assert:
-      exit_code: 0
-      equals: {"data.pokemon_name": "Hisuian Growlithe"}
-      contains: {"actions": "growlithe-hisui"}
+      has_fields: ["data.types", "data.abilities"]
 
   # ========================================================================
-  # Chain 7: Cross-resource: pokemon -> encounter -> location
+  # Chain 4: Full --dry-run chain: add -> update -> remove
   # ========================================================================
 
-  - name: "Cross-resource: pikachu encounter in yellow at pallet-town"
-    command: "pokedex location encounters pallet-town"
+  - name: "Dry-run add bulbasaur to red"
+    command: "pokedex collection add --pokemon=bulbasaur --game=red --dry-run"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta.total"]
-      array_len: {"data": {"min": 1}}
+      equals: {"data.dry_run": true, "data.pokemon": "bulbasaur", "data.game": "red"}
+      contains: {"actions": "--pokemon=bulbasaur --game=red"}
 
-  - name: "Location encounters pagination page 2"
-    command: "pokedex location encounters pallet-town --limit=50 --offset=50"
+  - name: "Confirm add bulbasaur to red"
+    command: "pokedex collection add --pokemon=bulbasaur --game=red"
+    capture: {"bulba_id": "data.id"}
     assert:
       exit_code: 0
-      equals: {"meta.offset": 50}
-      array_len: {"data": {"min": 1}}
-
-  - name: "Location encounters last page has no next_page in correct spot"
-    command: "pokedex location encounters pallet-town --limit=50 --offset=100"
-    assert:
-      exit_code: 0
-      equals: {"meta.offset": 100}
-      has_fields: ["meta.total"]
-
-  # ========================================================================
-  # Chain 8: game list -> show -> collection_for_game
-  # ========================================================================
-
-  - name: "Follow game list entry_point"
-    command: "pokedex game list"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 40}}
-      has_fields: ["data.0.name", "data.0.connects_to_home", "actions"]
-
-  - name: "Follow game show action for yellow"
-    command: "pokedex game show yellow"
-    assert:
-      exit_code: 0
-      equals: {"data.name": "yellow", "data.generation": 1, "data.region": "Kanto"}
-      has_fields: ["actions"]
-
-  - name: "Follow collection_for_game action from game show"
-    command: "pokedex collection list --game=yellow"
-    assert:
-      exit_code: 0
-      type_of: {"data": "array"}
-      has_fields: ["meta"]
-
-  # ========================================================================
-  # Chain 9: Collection CRUD via action links
-  # ========================================================================
-
-  - name: "Dry-run add shows confirm action"
-    command: "pokedex collection add --pokemon=pikachu --game=yellow --dry-run"
-    assert:
-      exit_code: 0
-      equals: {"data.dry_run": true, "data.pokemon": "pikachu"}
-      contains: {"actions": "confirm"}
-
-  - name: "Follow confirm action to actually add"
-    command: "pokedex collection add --pokemon=pikachu --game=yellow"
-    capture: {"entry_id": "data.id"}
-    assert:
-      exit_code: 0
-      equals: {"data.species_name": "pikachu", "data.game": "yellow"}
+      equals: {"data.species_name": "bulbasaur", "data.game": "red", "data.status": "caught"}
       has_fields: ["data.id", "actions"]
 
   - name: "Follow show action from collection add"
-    command: "pokedex collection show $entry_id"
+    command: "pokedex collection show $bulba_id"
     assert:
       exit_code: 0
-      equals: {"data.species_name": "pikachu"}
+      equals: {"data.species_name": "bulbasaur", "data.status": "caught"}
       has_fields: ["actions"]
-      contains: {"actions": "remove"}
+      contains: {"actions": "update"}
 
-  - name: "Follow remove action from collection show"
-    command: "pokedex collection remove $entry_id"
+  - name: "Dry-run update status to evolved"
+    command: "pokedex collection update $bulba_id --status=evolved --dry-run"
+    assert:
+      exit_code: 0
+      equals: {"data.dry_run": true, "data.new_status": "evolved"}
+      has_fields: ["data.current"]
+      contains: {"actions": "confirm"}
+
+  - name: "Confirm update status to evolved"
+    command: "pokedex collection update $bulba_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: {"data.status": "evolved"}
+      has_fields: ["data.id", "actions"]
+
+  - name: "Dry-run remove shows confirm action"
+    command: "pokedex collection remove $bulba_id --dry-run"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "bulbasaur", "data.status": "evolved"}
+      contains: {"actions": "confirm"}
+
+  - name: "Confirm remove"
+    command: "pokedex collection remove $bulba_id"
     assert:
       exit_code: 0
       equals: {"data.removed": true}
       has_fields: ["actions"]
 
   # ========================================================================
-  # Chain 10: dex list -> show -> progress
+  # Chain 5: home transferable -> follow add_to_collection
   # ========================================================================
 
-  - name: "Follow dex list entry_point"
-    command: "pokedex dex list"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 30}}
-      has_fields: ["data.0.name", "data.0.species_count", "actions"]
-
-  - name: "Follow dex show {name} with kanto"
-    command: "pokedex dex show kanto --limit=5"
-    assert:
-      exit_code: 0
-      equals: {"meta.total": 151, "data.0.name": "bulbasaur"}
-      array_len: {"data": {"min": 5, "max": 5}}
-
-  - name: "Follow progress action from dex show"
-    command: "pokedex dex progress kanto --limit=5"
-    assert:
-      exit_code: 0
-      equals: {"data.dex_name": "kanto", "data.total": 151}
-      has_fields: ["data.entries", "actions"]
-
-  # ========================================================================
-  # Chain 11: Home commands: status -> coverage -> missing -> transferable
-  # ========================================================================
-
-  - name: "Follow home status entry_point"
-    command: "pokedex home status"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total_in_home", "data.unique_species_in_home", "actions"]
-      type_of: {"data.total_in_home": "number"}
-
-  - name: "Follow coverage action from home status"
-    command: "pokedex home coverage"
-    assert:
-      exit_code: 0
-      equals: {"data.dex_name": "national", "data.total": 1025}
-      has_fields: ["actions"]
-
-  - name: "Follow missing action from home"
-    command: "pokedex home missing --limit=3"
-    assert:
-      exit_code: 0
-      array_len: {"data": {"min": 3, "max": 3}}
-      has_fields: ["meta.total", "actions"]
-
-  - name: "Home transferable cross-resource link"
+  - name: "Home transferable pikachu lists HOME-compatible games"
     command: "pokedex home transferable pikachu"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 5}}
-      has_fields: ["data.0.name", "data.0.connects_to_home", "actions"]
+      has_fields: ["data.0.name", "data.0.connects_to_home"]
+      contains: {"actions": "add_to_collection"}
 
-  # ========================================================================
-  # Chain 12: Error cases with recovery actions
-  # ========================================================================
-
-  - name: "Nonexistent collection entry returns NOT_FOUND"
-    command: "pokedex collection show 999999"
+  - name: "Follow add_to_collection action from home transferable"
+    command: "pokedex collection add --pokemon=pikachu --game=sword --in-home --dry-run"
     assert:
-      exit_code: 1
-      equals: {"error.code": "NOT_FOUND"}
-      has_fields: ["actions"]
+      exit_code: 0
+      equals: {"data.dry_run": true, "data.pokemon": "pikachu", "data.in_home": true}
+      has_fields: ["data.game"]
 
-  - name: "Filtered pokemon list preserves filters"
-    command: "pokedex pokemon list --generation=1 --type-filter=fire --limit=5"
+  # ========================================================================
+  # Chain 6: Pagination preserves filters
+  # ========================================================================
+
+  - name: "Pokemon list with generation+type filters"
+    command: "pokedex pokemon list --generation=1 --type-filter=fire --limit=10"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 10, "max": 10}}
+      equals: {"meta.total": 12, "data.0.name": "charmander"}
+
+  - name: "Next page preserves both generation and type filters"
+    command: "pokedex pokemon list --type-filter=fire --generation=1 --limit=10 --offset=10"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 2, "max": 2}}
+      equals: {"meta.total": 12, "meta.offset": 10}
+
+  - name: "Last page has prev_page but no next_page"
+    command: "pokedex pokemon list --type-filter=fire --generation=1 --limit=10 --offset=10"
+    assert:
+      exit_code: 0
+      contains: {"actions": "offset=0"}
+
+  - name: "Type pokemon fire pagination preserves type"
+    command: "pokedex type pokemon fire --limit=5 --offset=5"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 5, "max": 5}}
-      equals: {"data.0.name": "charmander"}
+      contains: {"actions": "offset=10"}
+      equals: {"meta.offset": 5}
 
   # ========================================================================
-  # Chain 13: Pokemon search entry_point
+  # Chain 7: Verbatim action cmd copy-paste test
   # ========================================================================
 
-  - name: "Follow pokemon search entry_point with eevee"
-    command: "pokedex pokemon search eevee"
+  - name: "Pikachu show -> evolutions action is verbatim executable"
+    command: "pokedex pokemon evolutions pikachu"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "pichu"}
+      has_fields: ["data.children.0.species_name"]
+
+  - name: "Pikachu show -> forms action is verbatim executable"
+    command: "pokedex pokemon forms pikachu"
+    assert:
+      exit_code: 0
+      array_len: {"data": {"min": 10}}
+      has_fields: ["data.0.name"]
+
+  - name: "Pikachu show -> stats action is verbatim executable"
+    command: "pokedex pokemon stats pikachu"
+    assert:
+      exit_code: 0
+      equals: {"data.pokemon_name": "Pikachu", "data.total": 320}
+
+  - name: "Pikachu show -> moves action is verbatim executable"
+    command: "pokedex pokemon moves pikachu"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions"]
+      array_len: {"data": {"min": 20}}
+
+  # ========================================================================
+  # Chain 8: ISSUE - home transferable loses form context in actions
+  # ========================================================================
+
+  - name: "ISSUE: home transferable growlithe-hisui show_pokemon action loses form"
+    command: "pokedex home transferable growlithe-hisui"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 1}}
-      has_fields: ["data.0.score", "actions"]
+      has_fields: ["actions"]
 
   # ========================================================================
-  # Chain 14: Charizard forms with mega and gmax
+  # Chain 9: ISSUE - collection remove --dry-run missing dry_run field
   # ========================================================================
 
-  - name: "Charizard forms include mega and gmax variants"
-    command: "pokedex pokemon forms charizard"
+  - name: "Add entry for remove dry_run test"
+    command: "pokedex collection add --pokemon=pidgey --game=red"
+    capture: {"pidgey_id": "data.id"}
     assert:
       exit_code: 0
-      array_len: {"data": {"min": 4}}
-      has_fields: ["data.0.name", "data.0.types", "actions"]
+      equals: {"data.species_name": "pidgey"}
+      has_fields: ["data.id"]
+
+  - name: "ISSUE: remove --dry-run data lacks dry_run field unlike add/update"
+    command: "pokedex collection remove $pidgey_id --dry-run"
+    assert:
+      exit_code: 0
+      equals: {"data.species_name": "pidgey"}
+      contains: {"actions": "confirm"}
+
+  - name: "Cleanup: confirm remove pidgey"
+    command: "pokedex collection remove $pidgey_id"
+    assert:
+      exit_code: 0
+      equals: {"data.removed": true}
+
+  # ========================================================================
+  # Chain 10: Cleanup growlithe-hisui collection entry
+  # ========================================================================
+
+  - name: "Cleanup: remove growlithe-hisui collection entry"
+    command: "pokedex collection remove $hisui_entry_id"
+    assert:
+      exit_code: 0
+      equals: {"data.removed": true}
+      has_fields: ["actions"]

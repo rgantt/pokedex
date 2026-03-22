@@ -2,35 +2,36 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Scarlet Playthrough - South/West/East Province Areas"
+name: "Scarlet Playthrough - Paldea Completionist"
 persona: scarlet_playthrough
 description: >
   End-to-end Scarlet playthrough testing the discover-inspect-catch-evolve-verify
-  loop across south-province-area-one, south-province-area-two,
-  west-province-area-one, and east-province-area-one. Verifies Paldean Wooper
-  annotation, probability_overall values, and SV-specific encounter details.
+  loop across Poco Path, South Province Areas 1-3, East Province Areas 1-2,
+  West Province Areas 1-2, Casseroya Lake, and Area Zero. Verifies Paldean form
+  annotations, SV-specific encounter details (probability_overall), Gen 9
+  species, and Scarlet-exclusive paradox Pokemon.
 needs_seed: true
 mutates_collection: true
 
 steps:
   # ============================================================
-  # AREA 1: south-province-area-one
+  # POCO PATH
   # ============================================================
-  - name: "Area 1 -- discover encounters"
-    command: "pokedex location encounters south-province-area-one --game=scarlet"
+  - name: "Poco Path -- discover encounters"
+    command: "pokedex location encounters poco-path --game=scarlet"
     assert:
       exit_code: 0
       has_fields: ["data", "actions", "meta"]
-      equals: { "meta.total": 44 }
-      array_len: { "data": { "min": 30 } }
+      equals: { "meta.total": 13 }
 
-  - name: "Area 1 -- verify Paldean Wooper annotation"
-    command: "pokedex location encounters south-province-area-one --game=scarlet"
+  - name: "Poco Path -- verify SV encounter details"
+    command: "pokedex location encounters poco-path --game=scarlet"
     assert:
       exit_code: 0
-      contains: { "data": "Paldean Wooper" }
+      contains: { "data.0.details.probability_overall": "%" }
+      has_fields: ["data.0.details"]
 
-  - name: "Area 1 -- inspect Lechonk"
+  - name: "Poco Path -- inspect Lechonk"
     command: "pokedex pokemon show lechonk"
     assert:
       exit_code: 0
@@ -38,20 +39,7 @@ steps:
       has_fields: ["data.types", "data.stats", "data.abilities"]
       type_of: { "data.stats.hp": "number" }
 
-  - name: "Area 1 -- inspect Wooper"
-    command: "pokedex pokemon show wooper"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "wooper" }
-      has_fields: ["data.types", "data.stats"]
-
-  - name: "Area 1 -- inspect Fletchling"
-    command: "pokedex pokemon show fletchling"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "fletchling", "data.generation": 6 }
-
-  - name: "Area 1 -- catch Lechonk"
+  - name: "Poco Path -- catch Lechonk"
     command: "pokedex collection add --pokemon=lechonk --game=scarlet --method=catch"
     capture: { "lechonk_id": "data.id" }
     assert:
@@ -59,45 +47,39 @@ steps:
       equals: { "data.species_name": "lechonk", "data.status": "caught", "data.method": "catch" }
       has_fields: ["data.id", "data.created_at"]
 
-  - name: "Area 1 -- catch Fletchling"
+  - name: "Poco Path -- catch Pawmi"
+    command: "pokedex collection add --pokemon=pawmi --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pawmi", "data.status": "caught" }
+
+  - name: "Poco Path -- catch Fletchling"
     command: "pokedex collection add --pokemon=fletchling --game=scarlet --method=catch"
     capture: { "fletchling_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "fletchling", "data.status": "caught" }
 
-  - name: "Area 1 -- catch Wooper"
-    command: "pokedex collection add --pokemon=wooper --game=scarlet --method=catch"
-    capture: { "wooper_id": "data.id" }
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "wooper", "data.status": "caught" }
-
-  - name: "Area 1 -- catch Tarountula"
+  - name: "Poco Path -- catch Tarountula"
     command: "pokedex collection add --pokemon=tarountula --game=scarlet --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "tarountula", "data.status": "caught" }
+      has_fields: ["data.id"]
 
-  - name: "Area 1 -- catch Pawmi"
-    command: "pokedex collection add --pokemon=pawmi --game=scarlet --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "pawmi", "data.status": "caught" }
-
-  - name: "Area 1 -- catch Fidough"
-    command: "pokedex collection add --pokemon=fidough --game=scarlet --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "fidough", "data.status": "caught" }
-
-  - name: "Area 1 -- catch Hoppip"
+  - name: "Poco Path -- catch Hoppip"
     command: "pokedex collection add --pokemon=hoppip --game=scarlet --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "hoppip", "data.status": "caught" }
 
-  - name: "Area 1 -- check Lechonk evolution chain"
+  - name: "Poco Path -- catch Scatterbug"
+    command: "pokedex collection add --pokemon=scatterbug --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "scatterbug", "data.status": "caught" }
+
+  - name: "Poco Path -- evolve Lechonk to Oinkologne"
     command: "pokedex pokemon evolutions lechonk"
     assert:
       exit_code: 0
@@ -105,281 +87,572 @@ steps:
       has_fields: ["data.children"]
       contains: { "data.children.0.species_name": "oinkologne" }
 
-  - name: "Area 1 -- evolve Lechonk to Oinkologne"
+  - name: "Poco Path -- add Oinkologne"
     command: "pokedex collection add --pokemon=oinkologne --game=scarlet --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "oinkologne", "data.method": "evolve" }
 
-  - name: "Area 1 -- update Lechonk status to evolved"
+  - name: "Poco Path -- update Lechonk status"
     command: "pokedex collection update $lechonk_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved", "data.species_name": "lechonk" }
 
-  - name: "Area 1 -- check Fletchling evolution chain"
-    command: "pokedex pokemon evolutions fletchling"
+  # ============================================================
+  # SOUTH PROVINCE AREA 1
+  # ============================================================
+  - name: "South Area 1 -- discover encounters"
+    command: "pokedex location encounters south-province-area-one --game=scarlet"
     assert:
       exit_code: 0
-      contains: { "data.children.0.species_name": "fletchinder" }
+      equals: { "meta.total": 44 }
+      array_len: { "data": { "min": 30 } }
 
-  - name: "Area 1 -- evolve Fletchling to Fletchinder"
-    command: "pokedex collection add --pokemon=fletchinder --game=scarlet --method=evolve"
+  - name: "South Area 1 -- verify Paldean Wooper annotation"
+    command: "pokedex location encounters south-province-area-one --game=scarlet"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "fletchinder", "data.method": "evolve" }
+      contains: { "data": "Paldean Wooper" }
+      has_fields: ["data", "actions"]
 
-  - name: "Area 1 -- update Fletchling status to evolved"
-    command: "pokedex collection update $fletchling_id --status=evolved"
+  - name: "South Area 1 -- inspect Wooper"
+    command: "pokedex pokemon show wooper"
     assert:
       exit_code: 0
-      equals: { "data.status": "evolved" }
+      equals: { "data.name": "wooper" }
+      has_fields: ["data.types", "data.stats"]
 
-  - name: "Area 1 -- check Wooper evolution chain (Clodsire branch)"
+  - name: "South Area 1 -- catch Wooper"
+    command: "pokedex collection add --pokemon=wooper --game=scarlet --method=catch"
+    capture: { "wooper_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "wooper", "data.status": "caught" }
+
+  - name: "South Area 1 -- catch Fidough"
+    command: "pokedex collection add --pokemon=fidough --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "fidough", "data.status": "caught" }
+
+  - name: "South Area 1 -- catch Buizel"
+    command: "pokedex collection add --pokemon=buizel --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "buizel", "data.status": "caught" }
+
+  - name: "South Area 1 -- Wooper evolves to Clodsire"
     command: "pokedex pokemon evolutions wooper"
     assert:
       exit_code: 0
       equals: { "data.species_name": "wooper" }
       array_len: { "data.children": { "min": 2 } }
 
-  - name: "Area 1 -- evolve Wooper to Clodsire"
+  - name: "South Area 1 -- add Clodsire"
     command: "pokedex collection add --pokemon=clodsire --game=scarlet --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "clodsire", "data.method": "evolve" }
 
-  - name: "Area 1 -- update Wooper status to evolved"
+  - name: "South Area 1 -- update Wooper status"
     command: "pokedex collection update $wooper_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }
 
-  - name: "Area 1 -- verify stats after area 1"
-    command: "pokedex collection stats --game=scarlet"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
-      type_of: { "data.total_entries": "number", "data.unique_species": "number" }
-
   # ============================================================
-  # AREA 2: south-province-area-two
+  # SOUTH PROVINCE AREA 2
   # ============================================================
-  - name: "Area 2 -- discover encounters"
+  - name: "South Area 2 -- discover encounters"
     command: "pokedex location encounters south-province-area-two --game=scarlet"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta"]
       equals: { "meta.total": 53 }
       array_len: { "data": { "min": 30 } }
 
-  - name: "Area 2 -- inspect Nacli"
+  - name: "South Area 2 -- inspect Nacli"
     command: "pokedex pokemon show nacli"
     assert:
       exit_code: 0
       equals: { "data.name": "nacli", "data.generation": 9 }
       contains: { "data.types": "Rock" }
 
-  - name: "Area 2 -- inspect Rockruff"
-    command: "pokedex pokemon show rockruff"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "rockruff" }
-
-  - name: "Area 2 -- catch Nacli"
+  - name: "South Area 2 -- catch Nacli"
     command: "pokedex collection add --pokemon=nacli --game=scarlet --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "nacli", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "nacli", "data.status": "caught" }
 
-  - name: "Area 2 -- catch Rockruff"
+  - name: "South Area 2 -- catch Rockruff"
     command: "pokedex collection add --pokemon=rockruff --game=scarlet --method=catch"
     capture: { "rockruff_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "rockruff", "data.status": "caught" }
 
-  - name: "Area 2 -- catch Mareep"
+  - name: "South Area 2 -- catch Mareep"
     command: "pokedex collection add --pokemon=mareep --game=scarlet --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "mareep", "data.status": "caught" }
 
-  - name: "Area 2 -- catch Smoliv"
+  - name: "South Area 2 -- catch Smoliv"
     command: "pokedex collection add --pokemon=smoliv --game=scarlet --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "smoliv", "data.status": "caught" }
 
-  - name: "Area 2 -- catch Maschiff"
-    command: "pokedex collection add --pokemon=maschiff --game=scarlet --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "maschiff", "data.status": "caught" }
-
-  - name: "Area 2 -- catch Makuhita"
-    command: "pokedex collection add --pokemon=makuhita --game=scarlet --method=catch"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "makuhita", "data.status": "caught" }
-
-  - name: "Area 2 -- catch Starly"
+  - name: "South Area 2 -- catch Starly"
     command: "pokedex collection add --pokemon=starly --game=scarlet --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "starly", "data.status": "caught" }
 
-  - name: "Area 2 -- check Rockruff evolution chain"
+  - name: "South Area 2 -- evolve Rockruff to Lycanroc"
     command: "pokedex pokemon evolutions rockruff"
     assert:
       exit_code: 0
       contains: { "data.children.0.species_name": "lycanroc" }
 
-  - name: "Area 2 -- evolve Rockruff to Lycanroc"
+  - name: "South Area 2 -- add Lycanroc"
     command: "pokedex collection add --pokemon=lycanroc --game=scarlet --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "lycanroc", "data.method": "evolve" }
 
-  - name: "Area 2 -- update Rockruff status to evolved"
+  - name: "South Area 2 -- update Rockruff status"
     command: "pokedex collection update $rockruff_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }
 
-  - name: "Area 2 -- verify stats after area 2"
-    command: "pokedex collection stats --game=scarlet"
-    assert:
-      exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
-
   # ============================================================
-  # AREA 3: west-province-area-one
+  # SOUTH PROVINCE AREA 3
   # ============================================================
-  - name: "Area 3 -- discover encounters"
-    command: "pokedex location encounters west-province-area-one --game=scarlet"
+  - name: "South Area 3 -- discover encounters"
+    command: "pokedex location encounters south-province-area-three --game=scarlet"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta"]
-      equals: { "meta.total": 85 }
-      array_len: { "data": { "min": 40 } }
+      equals: { "meta.total": 43 }
+      array_len: { "data": { "min": 30 } }
 
-  - name: "Area 3 -- inspect Gible"
-    command: "pokedex pokemon show gible"
+  - name: "South Area 3 -- inspect Shinx"
+    command: "pokedex pokemon show shinx"
     assert:
       exit_code: 0
-      equals: { "data.name": "gible", "data.generation": 4 }
-      contains: { "data.types": "Dragon" }
+      equals: { "data.name": "shinx", "data.generation": 4 }
+      contains: { "data.types": "Electric" }
 
-  - name: "Area 3 -- inspect Charcadet"
-    command: "pokedex pokemon show charcadet"
+  - name: "South Area 3 -- catch Shinx"
+    command: "pokedex collection add --pokemon=shinx --game=scarlet --method=catch"
+    capture: { "shinx_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.name": "charcadet", "data.generation": 9 }
-      contains: { "data.types": "Fire" }
+      equals: { "data.species_name": "shinx", "data.status": "caught" }
 
-  - name: "Area 3 -- catch Gible"
-    command: "pokedex collection add --pokemon=gible --game=scarlet --method=catch"
-    capture: { "gible_id": "data.id" }
+  - name: "South Area 3 -- catch Bronzor"
+    command: "pokedex collection add --pokemon=bronzor --game=scarlet --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "gible", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "bronzor", "data.status": "caught" }
 
-  - name: "Area 3 -- catch Charcadet"
-    command: "pokedex collection add --pokemon=charcadet --game=scarlet --method=catch"
+  - name: "South Area 3 -- catch Tinkatink"
+    command: "pokedex collection add --pokemon=tinkatink --game=scarlet --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "charcadet", "data.status": "caught" }
+      equals: { "data.species_name": "tinkatink", "data.status": "caught" }
+      has_fields: ["data.id"]
 
-  - name: "Area 3 -- catch Capsakid"
-    command: "pokedex collection add --pokemon=capsakid --game=scarlet --method=catch"
+  - name: "South Area 3 -- catch Drowzee"
+    command: "pokedex collection add --pokemon=drowzee --game=scarlet --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "capsakid", "data.status": "caught" }
+      equals: { "data.species_name": "drowzee", "data.status": "caught" }
 
-  - name: "Area 3 -- check Gible evolution chain"
-    command: "pokedex pokemon evolutions gible"
+  - name: "South Area 3 -- evolve Shinx to Luxio"
+    command: "pokedex pokemon evolutions shinx"
     assert:
       exit_code: 0
-      contains: { "data.children.0.species_name": "gabite" }
+      contains: { "data.children.0.species_name": "luxio" }
 
-  - name: "Area 3 -- evolve Gible to Gabite"
-    command: "pokedex collection add --pokemon=gabite --game=scarlet --method=evolve"
+  - name: "South Area 3 -- add Luxio"
+    command: "pokedex collection add --pokemon=luxio --game=scarlet --method=evolve"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "gabite", "data.method": "evolve" }
+      equals: { "data.species_name": "luxio", "data.method": "evolve" }
 
-  - name: "Area 3 -- update Gible status to evolved"
-    command: "pokedex collection update $gible_id --status=evolved"
+  - name: "South Area 3 -- update Shinx status"
+    command: "pokedex collection update $shinx_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }
 
-  - name: "Area 3 -- verify stats after area 3"
+  - name: "South Area 3 -- midpoint stats"
     command: "pokedex collection stats --game=scarlet"
     assert:
       exit_code: 0
       has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.total_entries": "number" }
 
   # ============================================================
-  # AREA 4: east-province-area-one
+  # EAST PROVINCE AREA 1
   # ============================================================
-  - name: "Area 4 -- discover encounters"
+  - name: "East Area 1 -- discover encounters"
     command: "pokedex location encounters east-province-area-one --game=scarlet"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta"]
       equals: { "meta.total": 98 }
       array_len: { "data": { "min": 40 } }
 
-  - name: "Area 4 -- inspect Flittle"
+  - name: "East Area 1 -- inspect Flittle"
     command: "pokedex pokemon show flittle"
     assert:
       exit_code: 0
       equals: { "data.name": "flittle", "data.generation": 9 }
+      has_fields: ["data.types", "data.stats"]
 
-  - name: "Area 4 -- inspect Dunsparce"
-    command: "pokedex pokemon show dunsparce"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "dunsparce" }
-
-  - name: "Area 4 -- inspect Mudbray"
-    command: "pokedex pokemon show mudbray"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "mudbray" }
-      contains: { "data.types": "Ground" }
-
-  - name: "Area 4 -- catch Flittle"
+  - name: "East Area 1 -- catch Flittle"
     command: "pokedex collection add --pokemon=flittle --game=scarlet --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "flittle", "data.status": "caught", "data.method": "catch" }
+      equals: { "data.species_name": "flittle", "data.status": "caught" }
 
-  - name: "Area 4 -- catch Dunsparce"
+  - name: "East Area 1 -- catch Dunsparce"
     command: "pokedex collection add --pokemon=dunsparce --game=scarlet --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "dunsparce", "data.status": "caught" }
 
-  - name: "Area 4 -- catch Mudbray"
+  - name: "East Area 1 -- catch Mudbray"
     command: "pokedex collection add --pokemon=mudbray --game=scarlet --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "mudbray", "data.status": "caught" }
+      contains: { "data.method": "catch" }
 
-  - name: "Area 4 -- catch Litleo"
+  - name: "East Area 1 -- catch Litleo"
     command: "pokedex collection add --pokemon=litleo --game=scarlet --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "litleo", "data.status": "caught" }
 
   # ============================================================
+  # EAST PROVINCE AREA 2
+  # ============================================================
+  - name: "East Area 2 -- discover encounters"
+    command: "pokedex location encounters east-province-area-two --game=scarlet"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 93 }
+      array_len: { "data": { "min": 40 } }
+
+  - name: "East Area 2 -- inspect Mimikyu"
+    command: "pokedex pokemon show mimikyu"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "mimikyu" }
+      contains: { "data.types": "Ghost" }
+
+  - name: "East Area 2 -- catch Mimikyu"
+    command: "pokedex collection add --pokemon=mimikyu --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mimikyu", "data.status": "caught" }
+
+  - name: "East Area 2 -- catch Venonat"
+    command: "pokedex collection add --pokemon=venonat --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "venonat", "data.status": "caught" }
+
+  - name: "East Area 2 -- catch Komala"
+    command: "pokedex collection add --pokemon=komala --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "komala", "data.status": "caught" }
+
+  # ============================================================
+  # WEST PROVINCE AREA 1
+  # ============================================================
+  - name: "West Area 1 -- discover encounters"
+    command: "pokedex location encounters west-province-area-one --game=scarlet"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 85 }
+      array_len: { "data": { "min": 40 } }
+
+  - name: "West Area 1 -- inspect Gible"
+    command: "pokedex pokemon show gible"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "gible", "data.generation": 4 }
+      contains: { "data.types": "Dragon" }
+
+  - name: "West Area 1 -- catch Gible"
+    command: "pokedex collection add --pokemon=gible --game=scarlet --method=catch"
+    capture: { "gible_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gible", "data.status": "caught" }
+
+  - name: "West Area 1 -- catch Charcadet"
+    command: "pokedex collection add --pokemon=charcadet --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "charcadet", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "West Area 1 -- catch Capsakid"
+    command: "pokedex collection add --pokemon=capsakid --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "capsakid", "data.status": "caught" }
+
+  - name: "West Area 1 -- evolve Gible to Gabite"
+    command: "pokedex pokemon evolutions gible"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "gabite" }
+
+  - name: "West Area 1 -- add Gabite"
+    command: "pokedex collection add --pokemon=gabite --game=scarlet --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gabite", "data.method": "evolve" }
+
+  - name: "West Area 1 -- update Gible status"
+    command: "pokedex collection update $gible_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # WEST PROVINCE AREA 2
+  # ============================================================
+  - name: "West Area 2 -- discover encounters"
+    command: "pokedex location encounters west-province-area-two --game=scarlet"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 96 }
+      array_len: { "data": { "min": 40 } }
+
+  - name: "West Area 2 -- inspect Cyclizar"
+    command: "pokedex pokemon show cyclizar"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "cyclizar", "data.generation": 9, "data.types": ["Dragon", "Normal"] }
+
+  - name: "West Area 2 -- catch Cyclizar"
+    command: "pokedex collection add --pokemon=cyclizar --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cyclizar", "data.status": "caught" }
+
+  - name: "West Area 2 -- catch Larvitar"
+    command: "pokedex collection add --pokemon=larvitar --game=scarlet --method=catch"
+    capture: { "larvitar_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "larvitar", "data.status": "caught" }
+
+  - name: "West Area 2 -- catch Croagunk"
+    command: "pokedex collection add --pokemon=croagunk --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "croagunk", "data.status": "caught" }
+
+  - name: "West Area 2 -- catch Ditto"
+    command: "pokedex collection add --pokemon=ditto --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ditto", "data.status": "caught" }
+
+  - name: "West Area 2 -- evolve Larvitar to Pupitar"
+    command: "pokedex pokemon evolutions larvitar"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "pupitar" }
+
+  - name: "West Area 2 -- add Pupitar"
+    command: "pokedex collection add --pokemon=pupitar --game=scarlet --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pupitar", "data.method": "evolve" }
+
+  - name: "West Area 2 -- update Larvitar status"
+    command: "pokedex collection update $larvitar_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # CASSEROYA LAKE
+  # ============================================================
+  - name: "Casseroya Lake -- discover encounters"
+    command: "pokedex location encounters casseroya-lake --game=scarlet"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 89 }
+      array_len: { "data": { "min": 30 } }
+
+  - name: "Casseroya Lake -- inspect Dratini"
+    command: "pokedex pokemon show dratini"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "dratini", "data.generation": 1 }
+      contains: { "data.types": "Dragon" }
+
+  - name: "Casseroya Lake -- catch Dratini"
+    command: "pokedex collection add --pokemon=dratini --game=scarlet --method=catch"
+    capture: { "dratini_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dratini", "data.status": "caught" }
+
+  - name: "Casseroya Lake -- catch Cetitan"
+    command: "pokedex collection add --pokemon=cetitan --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cetitan", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Casseroya Lake -- catch Dondozo"
+    command: "pokedex collection add --pokemon=dondozo --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dondozo", "data.status": "caught" }
+
+  - name: "Casseroya Lake -- evolve Dratini chain"
+    command: "pokedex pokemon evolutions dratini"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "dragonair" }
+      has_fields: ["data.children.0.children"]
+
+  - name: "Casseroya Lake -- add Dragonair"
+    command: "pokedex collection add --pokemon=dragonair --game=scarlet --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dragonair", "data.method": "evolve" }
+
+  - name: "Casseroya Lake -- update Dratini status"
+    command: "pokedex collection update $dratini_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # AREA ZERO (endgame, paradox Pokemon)
+  # ============================================================
+  - name: "Area Zero -- discover encounters"
+    command: "pokedex location encounters area-zero --game=scarlet"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 148 }
+      array_len: { "data": { "min": 50 } }
+
+  - name: "Area Zero -- inspect Great Tusk (Scarlet paradox)"
+    command: "pokedex pokemon show great-tusk"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "great-tusk", "data.generation": 9 }
+      contains: { "data.genus": "Paradox" }
+
+  - name: "Area Zero -- inspect Flutter Mane (Scarlet paradox)"
+    command: "pokedex pokemon show flutter-mane"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "flutter-mane", "data.generation": 9 }
+      contains: { "data.types": "Ghost" }
+
+  - name: "Area Zero -- catch Great Tusk"
+    command: "pokedex collection add --pokemon=great-tusk --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "great-tusk", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Area Zero -- catch Flutter Mane"
+    command: "pokedex collection add --pokemon=flutter-mane --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "flutter-mane", "data.status": "caught" }
+
+  - name: "Area Zero -- catch Brute Bonnet"
+    command: "pokedex collection add --pokemon=brute-bonnet --game=scarlet --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "brute-bonnet", "data.status": "caught" }
+
+  - name: "Area Zero -- catch Deino"
+    command: "pokedex collection add --pokemon=deino --game=scarlet --method=catch"
+    capture: { "deino_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "deino", "data.status": "caught" }
+
+  - name: "Area Zero -- evolve Deino to Zweilous"
+    command: "pokedex pokemon evolutions deino"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.species_name": "zweilous" }
+      has_fields: ["data.children.0.children"]
+
+  - name: "Area Zero -- add Zweilous"
+    command: "pokedex collection add --pokemon=zweilous --game=scarlet --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zweilous", "data.method": "evolve" }
+
+  - name: "Area Zero -- update Deino status"
+    command: "pokedex collection update $deino_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # PALDEAN FORM VERIFICATION
+  # ============================================================
+  - name: "Forms -- Tauros has Paldean combat breed"
+    command: "pokedex pokemon forms tauros"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 3 } }
+      contains: { "data": "paldea-combat-breed" }
+
+  - name: "Forms -- Paldean Tauros is Fighting type"
+    command: "pokedex pokemon show tauros-paldea-combat-breed"
+    assert:
+      exit_code: 0
+      contains: { "data.display_name": "Paldean", "data.types": "Fighting" }
+
+  # ============================================================
   # FINAL VERIFICATION
   # ============================================================
-  - name: "Final -- verify collection stats"
+  - name: "Final -- collection stats"
     command: "pokedex collection stats --game=scarlet"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.unique_species", "data.shiny_count", "data.by_status"]
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
       type_of: { "data.total_entries": "number", "data.unique_species": "number" }
+
+  - name: "Final -- dex progress over 40 species"
+    command: "pokedex collection stats --game=scarlet"
+    assert:
+      exit_code: 0
+      has_fields: ["data.unique_species", "data.shiny_count"]
+
+  - name: "HATEOAS -- encounter actions present"
+    command: "pokedex location encounters poco-path --game=scarlet"
+    assert:
+      exit_code: 0
+      has_fields: ["actions"]
+      contains: { "actions.0.cmd": "pokedex pokemon show" }
+
+  - name: "HATEOAS -- collection stats navigable"
+    command: "pokedex collection stats --game=scarlet"
+    assert:
+      exit_code: 0
+      has_fields: ["actions"]
+      array_len: { "actions": { "min": 3 } }

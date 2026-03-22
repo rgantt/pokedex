@@ -33,9 +33,16 @@ pub fn transferable(conn: &Connection, pokemon: &str, format: &OutputFormat) -> 
 
     let games = queries::get_home_transferable(conn, species_id)?;
 
+    // Preserve form context in actions
+    let action_name = if pokemon.to_lowercase() != name {
+        pokemon.to_lowercase()
+    } else {
+        name.clone()
+    };
+
     let actions = vec![
-        Action::new("show_pokemon", &format!("pokedex pokemon show {name}")),
-        Action::new("add_to_collection", &format!("pokedex collection add --pokemon={name} --game=<game> --in-home")),
+        Action::new("show_pokemon", &format!("pokedex pokemon show {action_name}")),
+        Action::new("add_to_collection", &format!("pokedex collection add --pokemon={action_name} --game=<game> --in-home")),
     ];
 
     let response = Response::new(games, actions, Meta::simple(&format!("pokedex home transferable {pokemon}")));

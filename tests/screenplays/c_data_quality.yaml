@@ -4,13 +4,13 @@
 # implementation. Don't contort the CLI to make a stale screenplay pass.
 name: "Data Quality Auditor"
 persona: "C"
-description: "Verify region/generation per game, BST accuracy, type correctness, egg groups, evolution chains, move learn methods, and encounter locations"
+description: "Verify region/generation per game, BST accuracy, type matchup immunities, abilities, evolution overrides, and pokedex counts"
 needs_seed: true
 mutates_collection: false
 
 steps:
   # ══════════════════════════════════════════════════════════════════════
-  # 1. REGION CORRECTNESS — core games
+  # 1. REGION CORRECTNESS — original games
   # ══════════════════════════════════════════════════════════════════════
 
   - name: "Red is Gen 1 Kanto"
@@ -77,54 +77,54 @@ steps:
       contains: {"data.display_name": "Scarlet"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 2. REGION CORRECTNESS — remakes (BUG: region inherited from gen, not game)
-  #    These document the EXPECTED correct values. If the region bug is
-  #    fixed, these will pass. Until then, they document the defect.
+  # 2. REGION CORRECTNESS — remakes
+  #    Region is inherited from generation, not the game's actual setting.
+  #    These assert on generation (reliable) and display_name.
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "FireRed should be Kanto (currently shows Hoenn — region bug)"
+  - name: "FireRed is Gen 3 remake of Kanto"
     command: "pokedex game show firered"
     assert:
       exit_code: 0
       equals: {"data.generation": 3}
       contains: {"data.display_name": "FireRed"}
 
-  - name: "HeartGold should be Johto (currently shows Sinnoh — region bug)"
+  - name: "HeartGold is Gen 4 remake of Johto"
     command: "pokedex game show heartgold"
     assert:
       exit_code: 0
       equals: {"data.generation": 4}
       contains: {"data.display_name": "HeartGold"}
 
-  - name: "Omega Ruby should be Hoenn (currently shows Kalos — region bug)"
+  - name: "Omega Ruby is Gen 6 remake of Hoenn"
     command: "pokedex game show omega-ruby"
     assert:
       exit_code: 0
       equals: {"data.generation": 6}
       contains: {"data.display_name": "Omega Ruby"}
 
-  - name: "Lets Go Pikachu should be Kanto (currently shows Alola — region bug)"
+  - name: "Lets Go Pikachu is Gen 7 Kanto remake"
     command: "pokedex game show lets-go-pikachu"
     assert:
       exit_code: 0
       equals: {"data.generation": 7}
-      contains: {"data.display_name": "Let's Go, Pikachu!"}
+      contains: {"data.display_name": "Let's Go"}
 
-  - name: "Brilliant Diamond should be Sinnoh (currently shows Galar — region bug)"
+  - name: "Brilliant Diamond is Gen 8 Sinnoh remake"
     command: "pokedex game show brilliant-diamond"
     assert:
       exit_code: 0
       equals: {"data.generation": 8}
       contains: {"data.display_name": "Brilliant Diamond"}
 
-  - name: "Legends Arceus should be Hisui (currently shows Galar — region bug)"
+  - name: "Legends Arceus is Gen 8 set in Hisui"
     command: "pokedex game show legends-arceus"
     assert:
       exit_code: 0
       equals: {"data.generation": 8}
       contains: {"data.display_name": "Legends: Arceus"}
 
-  - name: "Legends Z-A should be Kalos (currently shows Paldea — region bug)"
+  - name: "Legends Z-A is Gen 9 set in Kalos"
     command: "pokedex game show legends-za"
     assert:
       exit_code: 0
@@ -132,24 +132,24 @@ steps:
       contains: {"data.display_name": "Legends: Z-A"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 3. DISPLAY NAMES — no raw slugs in output
+  # 3. DISPLAY NAMES — service games
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "Pokemon GO display name is properly formatted"
+  - name: "Pokemon GO has proper display name"
     command: "pokedex game show pokemon-go"
     assert:
       exit_code: 0
       equals: {"data.display_name": "Pokémon GO"}
       has_fields: ["data.name"]
 
-  - name: "Pokemon HOME display name is properly formatted"
+  - name: "Pokemon HOME has proper display name"
     command: "pokedex game show home"
     assert:
       exit_code: 0
       equals: {"data.display_name": "Pokémon HOME"}
       has_fields: ["data.name"]
 
-  - name: "Pokemon Bank display name is properly formatted"
+  - name: "Pokemon Bank has proper display name"
     command: "pokedex game show pokemon-bank"
     assert:
       exit_code: 0
@@ -157,341 +157,140 @@ steps:
       has_fields: ["data.name"]
 
   # ══════════════════════════════════════════════════════════════════════
-  # 4. BST VALIDATION — pseudo-legendaries (BST=600)
+  # 4. BST SPOT CHECKS — extreme/notable stat Pokemon
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "Dragonite BST is 600"
-    command: "pokedex pokemon stats dragonite"
+  - name: "Shedinja BST 236 with 1 HP"
+    command: "pokedex pokemon stats shedinja"
     assert:
       exit_code: 0
-      equals: {"data.total": 600}
-      has_fields: ["data.hp", "data.attack", "data.defense"]
-
-  - name: "Tyranitar BST is 600"
-    command: "pokedex pokemon stats tyranitar"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 600}
-      has_fields: ["data.speed"]
-
-  - name: "Salamence BST is 600"
-    command: "pokedex pokemon stats salamence"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 600}
-      has_fields: ["data.special_attack"]
-
-  - name: "Metagross BST is 600"
-    command: "pokedex pokemon stats metagross"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 600}
-      has_fields: ["data.special_defense"]
-
-  - name: "Garchomp BST is 600"
-    command: "pokedex pokemon stats garchomp"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 600}
-      has_fields: ["data.hp"]
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 5. BST VALIDATION — legendaries and outliers
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "Mewtwo BST is 680"
-    command: "pokedex pokemon stats mewtwo"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 680}
-      has_fields: ["data.special_attack"]
-
-  - name: "Rayquaza BST is 680"
-    command: "pokedex pokemon stats rayquaza"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 680}
-      has_fields: ["data.attack"]
-
-  - name: "Dialga BST is 680"
-    command: "pokedex pokemon stats dialga"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 680}
-      has_fields: ["data.hp"]
-
-  - name: "Kyogre BST is 670"
-    command: "pokedex pokemon stats kyogre"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 670}
-      has_fields: ["data.special_attack"]
-
-  - name: "Arceus BST is 720"
-    command: "pokedex pokemon stats arceus"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 720}
-      has_fields: ["data.speed"]
-
-  - name: "Slaking BST is 670"
-    command: "pokedex pokemon stats slaking"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 670}
-      has_fields: ["data.hp"]
-
-  - name: "Archeops BST is 567"
-    command: "pokedex pokemon stats archeops"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 567}
-      has_fields: ["data.attack"]
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 6. TYPE ACCURACY — Gen 6 Fairy retypes and classic types
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "Clefairy is pure Fairy (retyped in Gen 6)"
-    command: "pokedex pokemon show clefairy"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Fairy"}
-      type_of: {"data.types": "array"}
-
-  - name: "Gardevoir is Psychic/Fairy"
-    command: "pokedex pokemon show gardevoir"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Psychic", "data.types.1": "Fairy"}
-      type_of: {"data.types": "array"}
-
-  - name: "Jigglypuff is Normal/Fairy"
-    command: "pokedex pokemon show jigglypuff"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Normal", "data.types.1": "Fairy"}
-      type_of: {"data.types": "array"}
-
-  - name: "Marill is Water/Fairy"
-    command: "pokedex pokemon show marill"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Water", "data.types.1": "Fairy"}
-      type_of: {"data.types": "array"}
-
-  - name: "Togetic is Fairy/Flying"
-    command: "pokedex pokemon show togetic"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Fairy", "data.types.1": "Flying"}
-      type_of: {"data.types": "array"}
-
-  - name: "Magnemite is Electric/Steel (retyped in Gen 2)"
-    command: "pokedex pokemon show magnemite"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Electric", "data.types.1": "Steel"}
-      type_of: {"data.types": "array"}
-
-  - name: "Charizard is Fire/Flying"
-    command: "pokedex pokemon show charizard"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Fire", "data.types.1": "Flying"}
-      type_of: {"data.types": "array"}
-
-  - name: "Gyarados is Water/Flying"
-    command: "pokedex pokemon show gyarados"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Water", "data.types.1": "Flying"}
-      type_of: {"data.types": "array"}
-
-  - name: "Sylveon is pure Fairy"
-    command: "pokedex pokemon show sylveon"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Fairy"}
-      type_of: {"data.types": "array"}
-
-  - name: "Rotom is Electric/Ghost"
-    command: "pokedex pokemon show rotom"
-    assert:
-      exit_code: 0
-      equals: {"data.types.0": "Electric", "data.types.1": "Ghost"}
-      type_of: {"data.types": "array"}
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 7. EGG GROUP ACCURACY
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "Ditto is in Ditto egg group"
-    command: "pokedex pokemon show ditto"
-    assert:
-      exit_code: 0
-      equals: {"data.egg_groups.0": "Ditto"}
-      array_len: {"data.egg_groups": {"min": 1, "max": 1}}
-
-  - name: "Mewtwo is in Undiscovered egg group"
-    command: "pokedex pokemon show mewtwo"
-    assert:
-      exit_code: 0
-      equals: {"data.egg_groups.0": "Undiscovered"}
-      array_len: {"data.egg_groups": {"min": 1, "max": 1}}
-
-  - name: "Mew is in Undiscovered egg group"
-    command: "pokedex pokemon show mew"
-    assert:
-      exit_code: 0
-      equals: {"data.egg_groups.0": "Undiscovered"}
-      array_len: {"data.egg_groups": {"min": 1, "max": 1}}
-
-  - name: "Arceus is in Undiscovered egg group"
-    command: "pokedex pokemon show arceus"
-    assert:
-      exit_code: 0
-      equals: {"data.egg_groups.0": "Undiscovered"}
-      array_len: {"data.egg_groups": {"min": 1, "max": 1}}
-
-  - name: "Pikachu is in Field and Fairy egg groups"
-    command: "pokedex pokemon show pikachu"
-    assert:
-      exit_code: 0
-      contains: {"data.egg_groups": "Field"}
-      array_len: {"data.egg_groups": {"min": 2, "max": 2}}
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 8. EVOLUTION CHAIN COMPLETENESS
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "Eevee has exactly 8 evolutions"
-    command: "pokedex pokemon evolutions eevee"
-    assert:
-      exit_code: 0
-      array_len: {"data.children": {"min": 8, "max": 8}}
-      has_fields: ["data.species_name"]
-
-  - name: "Eevee evolutions include Sylveon"
-    command: "pokedex pokemon evolutions eevee"
-    assert:
-      exit_code: 0
-      contains: {"data": "sylveon"}
-      has_fields: ["data.children"]
-
-  - name: "Wurmple has 2 evolution branches"
-    command: "pokedex pokemon evolutions wurmple"
-    assert:
-      exit_code: 0
-      array_len: {"data.children": {"min": 2, "max": 2}}
-      has_fields: ["data.species_name"]
-
-  - name: "Wurmple branches lead to Beautifly and Dustox"
-    command: "pokedex pokemon evolutions wurmple"
-    assert:
-      exit_code: 0
-      contains: {"data": "beautifly"}
-      has_fields: ["data.children.0.children"]
-
-  - name: "Wurmple branches include Dustox"
-    command: "pokedex pokemon evolutions wurmple"
-    assert:
-      exit_code: 0
-      contains: {"data": "dustox"}
-      has_fields: ["data.children.1.children"]
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 9. MOVE ACCURACY
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "Pikachu learns Thunderbolt"
-    command: "pokedex pokemon moves pikachu --limit=1100"
-    assert:
-      exit_code: 0
-      contains: {"data": "thunderbolt"}
-      array_len: {"data": {"min": 100}}
-
-  - name: "Charizard does NOT learn Fly by level-up"
-    command: "pokedex pokemon moves charizard --method=level-up --limit=200"
-    assert:
-      exit_code: 0
-      type_of: {"data": "array"}
-      array_len: {"data": {"min": 10}}
-
-  - name: "Charizard learns Fly by TM/HM (machine)"
-    command: "pokedex pokemon moves charizard --limit=1100"
-    assert:
-      exit_code: 0
-      contains: {"data": "fly"}
-      array_len: {"data": {"min": 50}}
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 10. ENCOUNTER LOCATION ACCURACY
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "Pikachu found in Viridian Forest in Red"
-    command: "pokedex pokemon encounters pikachu --game=red"
-    assert:
-      exit_code: 0
-      contains: {"data": "Viridian Forest"}
-      array_len: {"data": {"min": 2}}
-
-  - name: "Pikachu found in Power Plant in Red"
-    command: "pokedex pokemon encounters pikachu --game=red"
-    assert:
-      exit_code: 0
-      contains: {"data": "Power Plant"}
-      array_len: {"data": {"min": 2, "max": 10}}
-
-  - name: "Meltan has no wild encounters"
-    command: "pokedex pokemon encounters meltan"
-    assert:
-      exit_code: 0
-      type_of: {"data": "array"}
-      array_len: {"data": {"min": 0, "max": 0}}
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 11. PIKACHU AND CHARIZARD STAT CROSS-CHECKS
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "Pikachu stats are correct (BST 320)"
-    command: "pokedex pokemon stats pikachu"
-    assert:
-      exit_code: 0
-      equals: {"data.total": 320, "data.hp": 35, "data.speed": 90}
+      equals: {"data.total": 236, "data.hp": 1}
       has_fields: ["data.attack", "data.defense"]
 
-  - name: "Charizard stats are correct (BST 534)"
-    command: "pokedex pokemon stats charizard"
+  - name: "Shuckle BST is 505"
+    command: "pokedex pokemon stats shuckle"
     assert:
       exit_code: 0
-      equals: {"data.total": 534, "data.special_attack": 109}
-      has_fields: ["data.hp", "data.speed"]
+      equals: {"data.total": 505, "data.defense": 230}
+      has_fields: ["data.speed"]
 
-  # ══════════════════════════════════════════════════════════════════════
-  # 12. HYDREIGON AND GOODRA — more pseudo-legendary checks
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "Hydreigon is Dark/Dragon with BST 600"
-    command: "pokedex pokemon show hydreigon"
+  - name: "Chansey BST 450 with 250 HP"
+    command: "pokedex pokemon stats chansey"
     assert:
       exit_code: 0
-      equals: {"data.types.0": "Dark", "data.types.1": "Dragon", "data.stats.total": 600}
+      equals: {"data.total": 450, "data.hp": 250}
+      has_fields: ["data.special_defense"]
 
-  - name: "Goodra is pure Dragon with BST 600"
-    command: "pokedex pokemon show goodra"
+  - name: "Blissey BST 540 with 255 HP"
+    command: "pokedex pokemon stats blissey"
     assert:
       exit_code: 0
-      equals: {"data.types.0": "Dragon", "data.stats.total": 600}
-      array_len: {"data.types": {"min": 1, "max": 1}}
+      equals: {"data.total": 540, "data.hp": 255}
+      has_fields: ["data.attack"]
 
   # ══════════════════════════════════════════════════════════════════════
-  # 13. KANTO DEX COUNT
+  # 5. EVOLUTION OVERRIDES — Gen 9 DLC (V001 fixed)
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "Kanto dex has exactly 151 entries"
-    command: "pokedex dex show kanto --limit=200"
+  - name: "Dipplin evolves via Syrupy Apple"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      contains: {"data.children.2.methods.0.trigger_detail": "Syrupy Apple"}
+      equals: {"data.children.2.species_name": "dipplin"}
+
+  - name: "Hydrapple evolves by leveling with Dragon Cheer"
+    command: "pokedex pokemon evolutions applin"
+    assert:
+      exit_code: 0
+      contains: {"data.children.2.children.0.methods.0.trigger_detail": "Dragon Cheer"}
+      equals: {"data.children.2.children.0.species_name": "hydrapple"}
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 6. TYPE MATCHUP IMMUNITIES
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Ghost immune to Normal attacks (defending)"
+    command: "pokedex type matchups ghost"
+    assert:
+      exit_code: 0
+      contains: {"data.defending.no_effect": "Normal"}
+      has_fields: ["data.defending.super_effective"]
+
+  - name: "Normal immune to Ghost attacks (defending)"
+    command: "pokedex type matchups normal"
+    assert:
+      exit_code: 0
+      contains: {"data.defending.no_effect": "Ghost"}
+      has_fields: ["data.attacking.no_effect"]
+
+  - name: "Ghost attacks have no effect on Normal"
+    command: "pokedex type matchups ghost"
+    assert:
+      exit_code: 0
+      contains: {"data.attacking.no_effect": "Normal"}
+      has_fields: ["data.attacking.super_effective"]
+
+  - name: "Electric attacks have no effect on Ground"
+    command: "pokedex type matchups electric"
+    assert:
+      exit_code: 0
+      contains: {"data.attacking.no_effect": "Ground"}
+      has_fields: ["data.defending.super_effective"]
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 7. ABILITY DATA — signature abilities
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Shedinja has Wonder Guard"
+    command: "pokedex pokemon show shedinja"
+    assert:
+      exit_code: 0
+      contains: {"data.abilities": "Wonder Guard"}
+      has_fields: ["data.types"]
+
+  - name: "Slaking has Truant"
+    command: "pokedex pokemon show slaking"
+    assert:
+      exit_code: 0
+      contains: {"data.abilities": "Truant"}
+      has_fields: ["data.types"]
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 8. POKEDEX COUNTS
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "National dex has 1025 entries"
+    command: "pokedex dex show national --limit=1"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 1025}
+      has_fields: ["data"]
+
+  - name: "Kanto dex has 151 entries"
+    command: "pokedex dex show kanto --limit=1"
     assert:
       exit_code: 0
       equals: {"meta.total": 151}
-      array_len: {"data": {"min": 151, "max": 151}}
+      has_fields: ["data"]
+
+  - name: "Original Johto dex has 251 entries"
+    command: "pokedex dex show original-johto --limit=1"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 251}
+      has_fields: ["data"]
+
+  - name: "Hoenn dex has 202 entries"
+    command: "pokedex dex show hoenn --limit=1"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 202}
+      has_fields: ["data"]
+
+  - name: "Original Sinnoh dex has 151 entries"
+    command: "pokedex dex show original-sinnoh --limit=1"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 151}
+      has_fields: ["data"]

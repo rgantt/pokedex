@@ -1,0 +1,650 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Ruby Playthrough - Route 101 to Victory Road"
+persona: ruby_hoenn_completionist
+description: >
+  End-to-end Ruby playthrough testing the discover-inspect-catch-evolve-verify
+  loop across hoenn-route-101, hoenn-route-102, petalburg-woods, hoenn-route-116,
+  granite-cave, hoenn-route-110, hoenn-route-111, fiery-path, hoenn-route-113,
+  hoenn-route-114, hoenn-route-119, hoenn-route-120, mt-pyre, and
+  hoenn-victory-road.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # LOCATION 1: hoenn-route-101
+  # ============================================================
+  - name: "Route 101 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-101 --game=ruby"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 9 }
+
+  - name: "Route 101 -- inspect Mudkip"
+    command: "pokedex pokemon show mudkip"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "mudkip", "data.generation": 3 }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Route 101 -- inspect Poochyena"
+    command: "pokedex pokemon show poochyena"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "poochyena", "data.generation": 3 }
+      contains: { "data.types.0": "Dark" }
+
+  - name: "Route 101 -- catch Mudkip"
+    command: "pokedex collection add --pokemon=mudkip --game=ruby --method=catch"
+    capture: { "mudkip_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mudkip", "data.status": "caught" }
+      has_fields: ["data.id", "data.created_at"]
+
+  - name: "Route 101 -- catch Poochyena"
+    command: "pokedex collection add --pokemon=poochyena --game=ruby --method=catch"
+    capture: { "poochyena_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "poochyena", "data.method": "catch" }
+
+  - name: "Route 101 -- catch Zigzagoon"
+    command: "pokedex collection add --pokemon=zigzagoon --game=ruby --method=catch"
+    capture: { "zigzagoon_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zigzagoon", "data.status": "caught" }
+
+  - name: "Route 101 -- catch Wurmple"
+    command: "pokedex collection add --pokemon=wurmple --game=ruby --method=catch"
+    capture: { "wurmple_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "wurmple", "data.method": "catch" }
+
+  - name: "Route 101 -- check Poochyena evolution chain"
+    command: "pokedex pokemon evolutions poochyena"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "poochyena" }
+      contains: { "data.children.0.species_name": "mightyena" }
+
+  - name: "Route 101 -- evolve Poochyena to Mightyena"
+    command: "pokedex collection add --pokemon=mightyena --game=ruby --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mightyena", "data.method": "evolve" }
+
+  - name: "Route 101 -- update Poochyena status to evolved"
+    command: "pokedex collection update $poochyena_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "poochyena" }
+
+  # ============================================================
+  # LOCATION 2: hoenn-route-102
+  # ============================================================
+  - name: "Route 102 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-102 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 25 }
+      array_len: { "data": { "min": 20 } }
+
+  - name: "Route 102 -- catch Ralts"
+    command: "pokedex collection add --pokemon=ralts --game=ruby --method=catch"
+    capture: { "ralts_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ralts", "data.status": "caught" }
+
+  - name: "Route 102 -- catch Seedot"
+    command: "pokedex collection add --pokemon=seedot --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "seedot", "data.method": "catch" }
+
+  - name: "Route 102 -- catch Marill"
+    command: "pokedex collection add --pokemon=marill --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "marill", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Route 102 -- catch Magikarp"
+    command: "pokedex collection add --pokemon=magikarp --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "magikarp", "data.method": "catch" }
+
+  # ============================================================
+  # LOCATION 3: petalburg-woods
+  # ============================================================
+  - name: "Petalburg Woods -- discover encounters"
+    command: "pokedex location encounters petalburg-woods --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 12 }
+      has_fields: ["data", "meta"]
+
+  - name: "Petalburg Woods -- inspect Shroomish"
+    command: "pokedex pokemon show shroomish"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "shroomish", "data.generation": 3 }
+      contains: { "data.types.0": "Grass" }
+
+  - name: "Petalburg Woods -- catch Shroomish"
+    command: "pokedex collection add --pokemon=shroomish --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "shroomish", "data.status": "caught" }
+
+  - name: "Petalburg Woods -- catch Slakoth"
+    command: "pokedex collection add --pokemon=slakoth --game=ruby --method=catch"
+    capture: { "slakoth_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "slakoth", "data.method": "catch" }
+
+  - name: "Petalburg Woods -- check Wurmple evolution chain"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "wurmple" }
+      array_len: { "data.children": { "min": 2 } }
+
+  - name: "Petalburg Woods -- evolve Wurmple to Silcoon"
+    command: "pokedex collection add --pokemon=silcoon --game=ruby --method=evolve"
+    capture: { "silcoon_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "silcoon", "data.method": "evolve" }
+
+  - name: "Petalburg Woods -- update Wurmple status to evolved"
+    command: "pokedex collection update $wurmple_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "wurmple" }
+
+  - name: "Petalburg Woods -- evolve Silcoon to Beautifly"
+    command: "pokedex collection add --pokemon=beautifly --game=ruby --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "beautifly", "data.method": "evolve" }
+
+  # ============================================================
+  # VERIFY checkpoint 1 -- after 3 locations
+  # ============================================================
+  - name: "Checkpoint 1 -- collection stats"
+    command: "pokedex collection stats --game=ruby"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species"]
+      type_of: { "data.total_entries": "number" }
+
+  # ============================================================
+  # LOCATION 4: hoenn-route-116
+  # ============================================================
+  - name: "Route 116 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-116 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 12 }
+      has_fields: ["data", "actions"]
+
+  - name: "Route 116 -- catch Nincada"
+    command: "pokedex collection add --pokemon=nincada --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "nincada", "data.status": "caught" }
+
+  - name: "Route 116 -- catch Whismur"
+    command: "pokedex collection add --pokemon=whismur --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "whismur", "data.method": "catch" }
+
+  - name: "Route 116 -- catch Skitty"
+    command: "pokedex collection add --pokemon=skitty --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "skitty", "data.status": "caught" }
+      has_fields: ["data.game"]
+
+  # ============================================================
+  # LOCATION 5: granite-cave
+  # ============================================================
+  - name: "Granite Cave -- discover encounters"
+    command: "pokedex location encounters granite-cave --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 46 }
+      array_len: { "data": { "min": 40 } }
+
+  - name: "Granite Cave -- inspect Aron"
+    command: "pokedex pokemon show aron"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "aron", "data.generation": 3 }
+      has_fields: ["data.types", "data.stats"]
+
+  - name: "Granite Cave -- catch Makuhita"
+    command: "pokedex collection add --pokemon=makuhita --game=ruby --method=catch"
+    capture: { "makuhita_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "makuhita", "data.status": "caught" }
+
+  - name: "Granite Cave -- catch Aron"
+    command: "pokedex collection add --pokemon=aron --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "aron", "data.method": "catch" }
+
+  - name: "Granite Cave -- catch Mawile"
+    command: "pokedex collection add --pokemon=mawile --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mawile", "data.status": "caught" }
+
+  - name: "Granite Cave -- catch Zubat"
+    command: "pokedex collection add --pokemon=zubat --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zubat", "data.method": "catch" }
+      has_fields: ["data.id"]
+
+  - name: "Granite Cave -- catch Abra"
+    command: "pokedex collection add --pokemon=abra --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "abra", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 6: hoenn-route-110
+  # ============================================================
+  - name: "Route 110 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-110 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 24 }
+      has_fields: ["data", "meta"]
+
+  - name: "Route 110 -- catch Electrike"
+    command: "pokedex collection add --pokemon=electrike --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "electrike", "data.status": "caught" }
+
+  - name: "Route 110 -- catch Gulpin"
+    command: "pokedex collection add --pokemon=gulpin --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gulpin", "data.method": "catch" }
+
+  - name: "Route 110 -- catch Oddish"
+    command: "pokedex collection add --pokemon=oddish --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "oddish", "data.status": "caught" }
+
+  # ============================================================
+  # VERIFY checkpoint 2 -- after 6 locations
+  # ============================================================
+  - name: "Checkpoint 2 -- collection stats"
+    command: "pokedex collection stats --game=ruby"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species"]
+      type_of: { "data.unique_species": "number" }
+
+  # ============================================================
+  # LOCATION 7: hoenn-route-111 (desert)
+  # ============================================================
+  - name: "Route 111 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-111 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 28 }
+      array_len: { "data": { "min": 20 } }
+
+  - name: "Route 111 -- inspect Trapinch"
+    command: "pokedex pokemon show trapinch"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "trapinch", "data.generation": 3 }
+      contains: { "data.types.0": "Ground" }
+
+  - name: "Route 111 -- catch Trapinch"
+    command: "pokedex collection add --pokemon=trapinch --game=ruby --method=catch"
+    capture: { "trapinch_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "trapinch", "data.status": "caught" }
+
+  - name: "Route 111 -- catch Cacnea"
+    command: "pokedex collection add --pokemon=cacnea --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cacnea", "data.method": "catch" }
+
+  - name: "Route 111 -- catch Sandshrew"
+    command: "pokedex collection add --pokemon=sandshrew --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sandshrew", "data.status": "caught" }
+
+  - name: "Route 111 -- check Trapinch evolution chain"
+    command: "pokedex pokemon evolutions trapinch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "trapinch" }
+      contains: { "data.children.0.species_name": "vibrava" }
+
+  # ============================================================
+  # LOCATION 8: fiery-path
+  # ============================================================
+  - name: "Fiery Path -- discover encounters"
+    command: "pokedex location encounters fiery-path --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 11 }
+      has_fields: ["data", "actions"]
+
+  - name: "Fiery Path -- catch Numel"
+    command: "pokedex collection add --pokemon=numel --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "numel", "data.status": "caught" }
+
+  - name: "Fiery Path -- catch Torkoal"
+    command: "pokedex collection add --pokemon=torkoal --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "torkoal", "data.method": "catch" }
+      has_fields: ["data.id"]
+
+  - name: "Fiery Path -- catch Koffing"
+    command: "pokedex collection add --pokemon=koffing --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "koffing", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 9: hoenn-route-113
+  # ============================================================
+  - name: "Route 113 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-113 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 7 }
+      has_fields: ["data"]
+
+  - name: "Route 113 -- catch Spinda"
+    command: "pokedex collection add --pokemon=spinda --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "spinda", "data.status": "caught" }
+
+  - name: "Route 113 -- catch Skarmory"
+    command: "pokedex collection add --pokemon=skarmory --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "skarmory", "data.method": "catch" }
+
+  # ============================================================
+  # VERIFY checkpoint 3 -- after 9 locations
+  # ============================================================
+  - name: "Checkpoint 3 -- collection stats"
+    command: "pokedex collection stats --game=ruby"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.by_status"]
+      type_of: { "data.total_entries": "number" }
+
+  # ============================================================
+  # LOCATION 10: hoenn-route-114
+  # ============================================================
+  - name: "Route 114 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-114 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 29 }
+      array_len: { "data": { "min": 25 } }
+
+  - name: "Route 114 -- catch Swablu"
+    command: "pokedex collection add --pokemon=swablu --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "swablu", "data.status": "caught" }
+
+  - name: "Route 114 -- catch Zangoose"
+    command: "pokedex collection add --pokemon=zangoose --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zangoose", "data.method": "catch" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # LOCATION 11: hoenn-route-118/119
+  # ============================================================
+  - name: "Route 118 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-118 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 24 }
+      has_fields: ["data", "meta"]
+
+  - name: "Route 118 -- catch Carvanha"
+    command: "pokedex collection add --pokemon=carvanha --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "carvanha", "data.status": "caught" }
+
+  - name: "Route 118 -- catch Kecleon"
+    command: "pokedex collection add --pokemon=kecleon --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kecleon", "data.method": "catch" }
+
+  - name: "Route 119 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-119 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 29 }
+      array_len: { "data": { "min": 25 } }
+
+  - name: "Route 119 -- catch Tropius"
+    command: "pokedex collection add --pokemon=tropius --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tropius", "data.status": "caught" }
+
+  - name: "Route 119 -- catch Feebas"
+    command: "pokedex collection add --pokemon=feebas --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "feebas", "data.method": "catch" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # LOCATION 12: hoenn-route-120/121
+  # ============================================================
+  - name: "Route 120 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-120 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 28 }
+      has_fields: ["data", "meta"]
+
+  - name: "Route 120 -- catch Absol"
+    command: "pokedex collection add --pokemon=absol --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "absol", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Route 121 -- discover encounters"
+    command: "pokedex location encounters hoenn-route-121 --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 26 }
+      array_len: { "data": { "min": 20 } }
+
+  - name: "Route 121 -- catch Duskull"
+    command: "pokedex collection add --pokemon=duskull --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "duskull", "data.status": "caught" }
+
+  # ============================================================
+  # VERIFY checkpoint 4 -- after 12 locations
+  # ============================================================
+  - name: "Checkpoint 4 -- collection stats"
+    command: "pokedex collection stats --game=ruby"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species"]
+      type_of: { "data.total_entries": "number" }
+
+  # ============================================================
+  # LOCATION 13: mt-pyre
+  # ============================================================
+  - name: "Mt. Pyre -- discover encounters"
+    command: "pokedex location encounters mt-pyre --game=ruby"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 40 } }
+
+  - name: "Mt. Pyre -- inspect Chimecho"
+    command: "pokedex pokemon show chimecho"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "chimecho", "data.generation": 3 }
+      contains: { "data.types.0": "Psychic" }
+
+  - name: "Mt. Pyre -- catch Chimecho"
+    command: "pokedex collection add --pokemon=chimecho --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "chimecho", "data.status": "caught" }
+
+  # ============================================================
+  # LOCATION 14: hoenn-victory-road
+  # ============================================================
+  - name: "Victory Road -- discover encounters"
+    command: "pokedex location encounters hoenn-victory-road --game=ruby"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 48 }
+      array_len: { "data": { "min": 40 } }
+
+  - name: "Victory Road -- catch Hariyama"
+    command: "pokedex collection add --pokemon=hariyama --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "hariyama", "data.status": "caught" }
+
+  - name: "Victory Road -- catch Lairon"
+    command: "pokedex collection add --pokemon=lairon --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "lairon", "data.method": "catch" }
+
+  - name: "Victory Road -- catch Medicham"
+    command: "pokedex collection add --pokemon=medicham --game=ruby --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "medicham", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # EVOLVE -- end-of-game evolution round
+  # ============================================================
+  - name: "Evolve -- check Ralts evolution chain"
+    command: "pokedex pokemon evolutions ralts"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ralts" }
+      contains: { "data.children.0.species_name": "kirlia" }
+
+  - name: "Evolve -- add Kirlia"
+    command: "pokedex collection add --pokemon=kirlia --game=ruby --method=evolve"
+    capture: { "kirlia_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kirlia", "data.method": "evolve" }
+
+  - name: "Evolve -- update Ralts status to evolved"
+    command: "pokedex collection update $ralts_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "ralts" }
+
+  - name: "Evolve -- add Gardevoir"
+    command: "pokedex collection add --pokemon=gardevoir --game=ruby --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gardevoir", "data.method": "evolve" }
+
+  - name: "Evolve -- update Kirlia status to evolved"
+    command: "pokedex collection update $kirlia_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "kirlia" }
+
+  - name: "Evolve -- check Mudkip evolution chain"
+    command: "pokedex pokemon evolutions mudkip"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mudkip" }
+      contains: { "data.children.0.species_name": "marshtomp" }
+
+  - name: "Evolve -- add Marshtomp"
+    command: "pokedex collection add --pokemon=marshtomp --game=ruby --method=evolve"
+    capture: { "marshtomp_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "marshtomp", "data.method": "evolve" }
+
+  - name: "Evolve -- update Mudkip status to evolved"
+    command: "pokedex collection update $mudkip_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "mudkip" }
+
+  - name: "Evolve -- add Swampert"
+    command: "pokedex collection add --pokemon=swampert --game=ruby --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "swampert", "data.method": "evolve" }
+
+  - name: "Evolve -- update Marshtomp status to evolved"
+    command: "pokedex collection update $marshtomp_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "marshtomp" }
+
+  # ============================================================
+  # FINAL VERIFY
+  # ============================================================
+  - name: "Final -- collection stats"
+    command: "pokedex collection stats --game=ruby"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.total_entries": "number" }
+
+  - name: "Final -- dex progress"
+    command: "pokedex dex progress national"
+    assert:
+      exit_code: 0
+      has_fields: ["data.dex_name", "data.total", "data.caught", "data.percentage"]
+      type_of: { "data.percentage": "number" }

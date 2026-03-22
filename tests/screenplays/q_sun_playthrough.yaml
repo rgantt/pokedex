@@ -1,0 +1,420 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Sun Playthrough - Alola Completionist"
+persona: q_sun_playthrough
+description: >
+  End-to-end Sun playthrough focused on Alolan form resolution, SM encounter
+  data quality, and collection building across all major Alola routes. Exercises
+  the discover-inspect-catch-evolve-verify loop across alola-route-1 through
+  alola-route-3, verdant-cavern, brooklet-hill, wela-volcano-park, lush-jungle,
+  alola-route-10, alola-route-11, haina-desert, vast-poni-canyon, and
+  mount-lanakila. Verifies Alolan display_name, form-specific types, HATEOAS
+  actions, SOS/island-scan methods, and dex progress tracking.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # AREA 1: alola-route-1 (starting area)
+  # ============================================================
+  - name: "Route 1 -- discover encounters"
+    command: "pokedex location encounters alola-route-1 --game=sun"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 39 }
+
+  - name: "Route 1 -- encounter actions have show template"
+    command: "pokedex location encounters alola-route-1 --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "actions": "pokedex pokemon show" }
+      has_fields: ["actions.0.rel", "actions.0.cmd"]
+
+  - name: "Route 1 -- encounters include Pikipek"
+    command: "pokedex location encounters alola-route-1 --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "Pikipek" }
+      array_len: { "data": { "min": 30 } }
+
+  - name: "Route 1 -- encounters include SOS method"
+    command: "pokedex location encounters alola-route-1 --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "sos encounter" }
+
+  # ============================================================
+  # INSPECT: Alolan forms via pokemon show
+  # ============================================================
+  - name: "Inspect Alolan Rattata -- Dark/Normal types"
+    command: "pokedex pokemon show rattata-alola"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Alolan Rattata", "data.types": ["Dark", "Normal"] }
+      has_fields: ["data.stats", "data.abilities"]
+
+  - name: "Inspect Alolan Rattata -- actions include evolutions and forms"
+    command: "pokedex pokemon show rattata-alola"
+    assert:
+      exit_code: 0
+      contains: { "actions": "evolutions" }
+      has_fields: ["actions"]
+
+  - name: "Inspect Alolan Grimer -- Poison/Dark types"
+    command: "pokedex pokemon show grimer-alola"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Alolan Grimer", "data.types": ["Poison", "Dark"] }
+      has_fields: ["data.stats"]
+
+  - name: "Inspect Alolan Vulpix -- Ice type"
+    command: "pokedex pokemon show vulpix-alola"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Alolan Vulpix", "data.types": ["Ice"] }
+      has_fields: ["data.abilities"]
+
+  - name: "Rattata forms -- both Kanto and Alola listed"
+    command: "pokedex pokemon forms rattata"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 2 } }
+      contains: { "data": "rattata-alola" }
+
+  # ============================================================
+  # INSPECT: Gen 7 species
+  # ============================================================
+  - name: "Inspect Pikipek -- Normal/Flying Gen 7"
+    command: "pokedex pokemon show pikipek"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "pikipek", "data.types": ["Normal", "Flying"] }
+      has_fields: ["data.generation"]
+
+  - name: "Pikipek evolution chain"
+    command: "pokedex pokemon evolutions pikipek"
+    assert:
+      exit_code: 0
+      contains: { "data": "Trumbeak" }
+      has_fields: ["data.children"]
+
+  # ============================================================
+  # AREA 2: alola-route-2
+  # ============================================================
+  - name: "Route 2 -- discover encounters"
+    command: "pokedex location encounters alola-route-2 --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 21 }
+      has_fields: ["data", "meta"]
+
+  - name: "Route 2 -- encounters include Growlithe"
+    command: "pokedex location encounters alola-route-2 --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "Growlithe" }
+
+  # ============================================================
+  # AREA 3: alola-route-3
+  # ============================================================
+  - name: "Route 3 -- discover encounters"
+    command: "pokedex location encounters alola-route-3 --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 17 }
+      contains: { "data": "Bagon" }
+
+  # ============================================================
+  # AREA 4: verdant-cavern (Trial site)
+  # ============================================================
+  - name: "Verdant Cavern -- discover encounters"
+    command: "pokedex location encounters verdant-cavern --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 3 }
+      contains: { "data": "Zubat" }
+
+  # ============================================================
+  # AREA 5: brooklet-hill (Water trial)
+  # ============================================================
+  - name: "Brooklet Hill -- discover encounters"
+    command: "pokedex location encounters brooklet-hill --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 31 }
+      has_fields: ["data", "actions"]
+
+  - name: "Brooklet Hill -- has multiple areas"
+    command: "pokedex location encounters brooklet-hill --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "north" }
+      array_len: { "data": { "min": 20 } }
+
+  # ============================================================
+  # CATCH: Route 1-3 pokemon
+  # ============================================================
+  - name: "Catch Pikipek in Sun"
+    command: "pokedex collection add --pokemon=pikipek --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikipek", "data.game": "sun" }
+      has_fields: ["data.id", "data.created_at"]
+
+  - name: "Catch Yungoos in Sun"
+    command: "pokedex collection add --pokemon=yungoos --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "yungoos", "data.status": "caught" }
+
+  - name: "Catch Rattata in Sun"
+    command: "pokedex collection add --pokemon=rattata --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "rattata", "data.method": "catch" }
+
+  - name: "Catch Grimer in Sun"
+    command: "pokedex collection add --pokemon=grimer --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "grimer", "data.game": "sun" }
+
+  # ============================================================
+  # AREA 6: wela-volcano-park (Fire trial)
+  # ============================================================
+  - name: "Wela Volcano -- discover encounters"
+    command: "pokedex location encounters wela-volcano-park --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 7 }
+      contains: { "data": "Salandit" }
+
+  - name: "Wela Volcano -- Ultra Beast Nihilego appears"
+    command: "pokedex location encounters wela-volcano-park --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "Nihilego" }
+
+  # ============================================================
+  # CATCH: Volcano + Water pokemon
+  # ============================================================
+  - name: "Catch Salandit in Sun"
+    command: "pokedex collection add --pokemon=salandit --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "salandit", "data.game": "sun" }
+
+  - name: "Catch Dewpider in Sun"
+    command: "pokedex collection add --pokemon=dewpider --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dewpider" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # AREA 7: lush-jungle (Grass trial)
+  # ============================================================
+  - name: "Lush Jungle -- discover encounters"
+    command: "pokedex location encounters lush-jungle --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 35 }
+      has_fields: ["data", "meta"]
+
+  - name: "Lush Jungle -- includes Sun-exclusive Passimian"
+    command: "pokedex location encounters lush-jungle --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "Passimian" }
+      array_len: { "data": { "min": 30 } }
+
+  - name: "Lush Jungle -- Ultra Beast Xurkitree appears"
+    command: "pokedex location encounters lush-jungle --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "Xurkitree" }
+
+  # ============================================================
+  # CATCH: Jungle pokemon
+  # ============================================================
+  - name: "Catch Fomantis in Sun"
+    command: "pokedex collection add --pokemon=fomantis --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "fomantis", "data.game": "sun" }
+
+  - name: "Catch Bounsweet in Sun"
+    command: "pokedex collection add --pokemon=bounsweet --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bounsweet" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # AREAS 8-9: alola-route-10 and alola-route-11
+  # ============================================================
+  - name: "Route 10 -- discover encounters"
+    command: "pokedex location encounters alola-route-10 --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 10 }
+      contains: { "data": "Skarmory" }
+
+  - name: "Route 10 -- includes island scan"
+    command: "pokedex location encounters alola-route-10 --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "island scan" }
+
+  - name: "Route 11 -- discover encounters"
+    command: "pokedex location encounters alola-route-11 --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 11 }
+      contains: { "data": "Komala" }
+
+  # ============================================================
+  # AREA 10: haina-desert
+  # ============================================================
+  - name: "Haina Desert -- discover encounters"
+    command: "pokedex location encounters haina-desert --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 5 }
+      contains: { "data": "Sandile" }
+
+  # ============================================================
+  # AREA 11: vast-poni-canyon (Dragon trial)
+  # ============================================================
+  - name: "Vast Poni Canyon -- discover encounters"
+    command: "pokedex location encounters vast-poni-canyon --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 27 }
+      has_fields: ["data", "actions"]
+
+  - name: "Vast Poni Canyon -- Jangmo-o line present"
+    command: "pokedex location encounters vast-poni-canyon --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "Jangmo-o" }
+
+  - name: "Vast Poni Canyon -- Dratini available"
+    command: "pokedex location encounters vast-poni-canyon --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "Dratini" }
+
+  # ============================================================
+  # CATCH: Dragon canyon pokemon
+  # ============================================================
+  - name: "Catch Jangmo-o in Sun"
+    command: "pokedex collection add --pokemon=jangmo-o --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "jangmo-o", "data.game": "sun" }
+
+  - name: "Catch Dratini in Sun"
+    command: "pokedex collection add --pokemon=dratini --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dratini" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # AREA 12: mount-lanakila (Victory Road)
+  # ============================================================
+  - name: "Mount Lanakila -- discover encounters"
+    command: "pokedex location encounters mount-lanakila --game=sun"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 12 }
+      contains: { "data": "Vulpix" }
+
+  - name: "Mount Lanakila -- Absol available"
+    command: "pokedex location encounters mount-lanakila --game=sun"
+    assert:
+      exit_code: 0
+      contains: { "data": "Absol" }
+      array_len: { "data": { "min": 10 } }
+
+  # ============================================================
+  # CATCH: Lanakila pokemon
+  # ============================================================
+  - name: "Catch Vulpix in Sun"
+    command: "pokedex collection add --pokemon=vulpix --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "vulpix", "data.game": "sun" }
+
+  - name: "Catch Sneasel in Sun"
+    command: "pokedex collection add --pokemon=sneasel --game=sun --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sneasel" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # EVOLVE: Build out evolution chains
+  # ============================================================
+  - name: "Yungoos evolution -- check chain"
+    command: "pokedex pokemon evolutions yungoos"
+    assert:
+      exit_code: 0
+      contains: { "data": "Gumshoos" }
+      has_fields: ["data.children"]
+
+  - name: "Evolve Yungoos to Gumshoos"
+    command: "pokedex collection add --pokemon=gumshoos --game=sun --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gumshoos", "data.method": "evolve" }
+
+  - name: "Evolve Pikipek to Trumbeak"
+    command: "pokedex collection add --pokemon=trumbeak --game=sun --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "trumbeak", "data.method": "evolve" }
+
+  - name: "Evolve Trumbeak to Toucannon"
+    command: "pokedex collection add --pokemon=toucannon --game=sun --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "toucannon", "data.method": "evolve" }
+
+  # ============================================================
+  # VERIFY: Collection stats and dex progress
+  # ============================================================
+  - name: "Collection stats -- verify catches"
+    command: "pokedex collection stats --game=sun"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.total_entries": "number" }
+
+  - name: "Alola dex progress"
+    command: "pokedex dex progress original-alola"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total", "data.caught", "data.percentage"]
+      equals: { "data.dex_name": "original-alola", "data.total": 302 }
+
+  # ============================================================
+  # ERROR HANDLING: negative cases
+  # ============================================================
+  - name: "Nonexistent location returns NOT_FOUND"
+    command: "pokedex location encounters fake-alola-place --game=sun"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "Kanto Route 1 has no Sun encounters"
+    command: "pokedex location encounters route-1 --game=sun"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      contains: { "error.message": "other games" }

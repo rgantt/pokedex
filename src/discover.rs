@@ -201,7 +201,7 @@ pub fn print_discovery() -> anyhow::Result<()> {
                     },
                     CommandInfo {
                         name: "update".to_string(),
-                        usage: "pokedex collection update <id> [--status=<s>] [--in-home=<bool>] [--shiny=<bool>] [--nickname=<n>] [--notes=<n>] [--game=<g>] [--method=<m>]".to_string(),
+                        usage: "pokedex collection update <id> [--status=<s>] [--in-home=<bool>] [--shiny=<bool>] [--nickname=<n>] [--notes=<n>] [--game=<g>] [--method=<m>] [--dry-run]".to_string(),
                         description: "Update a collection entry".to_string(),
                         flags: vec![],
                     },

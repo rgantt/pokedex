@@ -1,214 +1,253 @@
-name: "Competitive Team Building"
+name: "Competitive Pokemon Analysis"
 persona: E
-description: "Build a competitive team in Scarlet: verify BST for pseudo-legendaries, moves by game/method, egg groups, type matchups, encounters with probability, form variants (mega/gmax), collection with breed method and dry-run, Applin evolution chain"
+description: "Deep-dive on stats accuracy (unusual BSTs, form distributions), move pools (level-up/TM/egg), hidden abilities, type matchup edge cases, competitive forms (mega/primal), item-based evolutions, and move categories for competitive play"
 needs_seed: true
 mutates_collection: true
 
 steps:
-  - name: "garchomp BST 600 with egg groups and abilities"
-    command: "pokedex pokemon show garchomp"
+  - name: "shedinja has 236 BST with 1 HP and wonder guard"
+    command: "pokedex pokemon show shedinja"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 600, "data.types": ["Dragon", "Ground"] }
-      has_fields: ["data.stats", "data.abilities", "data.egg_groups"]
-      array_len: { "data.egg_groups": { "min": 2 } }
+      equals: { "data.stats.total": 236, "data.stats.hp": 1 }
+      has_fields: ["data.abilities", "data.egg_groups"]
+      contains: { "data.abilities.0.display_name": "Wonder Guard" }
 
-  - name: "dragonite BST 600 dragon/flying"
-    command: "pokedex pokemon show dragonite"
+  - name: "shuckle has 505 BST with 230 def and 230 spdef"
+    command: "pokedex pokemon show shuckle"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 600, "data.types": ["Dragon", "Flying"] }
-      has_fields: ["data.egg_groups", "data.abilities"]
-      array_len: { "data.egg_groups": { "min": 2 } }
+      equals: { "data.stats.total": 505, "data.stats.defense": 230, "data.stats.special_defense": 230 }
+      has_fields: ["data.abilities"]
+      contains: { "data.types.0": "Bug" }
 
-  - name: "tyranitar BST 600 rock/dark"
-    command: "pokedex pokemon show tyranitar"
+  - name: "shuckle hidden ability is contrary"
+    command: "pokedex pokemon show shuckle"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 600, "data.types": ["Rock", "Dark"] }
-      has_fields: ["data.egg_groups", "data.stats"]
+      equals: { "data.abilities.2.is_hidden": true }
+      contains: { "data.abilities.2.display_name": "Contrary" }
+      array_len: { "data.abilities": { "min": 3 } }
 
-  - name: "salamence BST 600 dragon/flying"
-    command: "pokedex pokemon show salamence"
+  - name: "deoxys normal form 600 BST balanced offenses"
+    command: "pokedex pokemon show deoxys"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 600, "data.types": ["Dragon", "Flying"] }
-      has_fields: ["data.egg_groups", "data.abilities"]
+      equals: { "data.stats.total": 600, "data.stats.attack": 150, "data.stats.speed": 150 }
+      contains: { "data.display_name": "Deoxys" }
 
-  - name: "metagross BST 600 steel/psychic"
-    command: "pokedex pokemon show metagross"
+  - name: "deoxys attack form 600 BST with 180 atk and spatk"
+    command: "pokedex pokemon show deoxys-attack"
     assert:
       exit_code: 0
-      equals: { "data.stats.total": 600, "data.types": ["Steel", "Psychic"] }
-      has_fields: ["data.egg_groups", "data.stats"]
+      equals: { "data.stats.total": 600, "data.stats.attack": 180, "data.stats.special_attack": 180 }
+      contains: { "data.display_name": "Attack Deoxys" }
 
-  - name: "garchomp level-up moves in scarlet"
-    command: "pokedex pokemon moves garchomp --game=scarlet --method=level-up"
+  - name: "deoxys defense form 600 BST with 160 def and spdef"
+    command: "pokedex pokemon show deoxys-defense"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 10 } }
-      equals: { "data.0.learn_method": "level-up" }
-      has_fields: ["meta.total"]
+      equals: { "data.stats.total": 600, "data.stats.defense": 160, "data.stats.special_defense": 160 }
+      contains: { "data.display_name": "Defense" }
 
-  - name: "dragonite level-up moves include dragon dance"
-    command: "pokedex pokemon moves dragonite --game=scarlet --method=level-up"
+  - name: "deoxys speed form 600 BST with 180 speed"
+    command: "pokedex pokemon show deoxys-speed"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 15 } }
-      equals: { "data.0.learn_method": "level-up" }
+      equals: { "data.stats.total": 600, "data.stats.speed": 180 }
+      contains: { "data.display_name": "Speed Deoxys" }
 
-  - name: "tyranitar level-up moves in scarlet"
-    command: "pokedex pokemon moves tyranitar --game=scarlet --method=level-up"
+  - name: "blaziken has speed boost as hidden ability"
+    command: "pokedex pokemon show blaziken"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 15 } }
-      has_fields: ["data.0.move_name", "data.0.type_name", "data.0.level"]
+      equals: { "data.abilities.1.is_hidden": true, "data.stats.total": 530 }
+      contains: { "data.abilities.1.display_name": "Speed Boost" }
+      has_fields: ["data.types", "data.egg_groups"]
 
-  - name: "metagross level-up moves in scarlet"
-    command: "pokedex pokemon moves metagross --game=scarlet --method=level-up"
+  - name: "mega blaziken 630 BST with speed boost as regular ability"
+    command: "pokedex pokemon show blaziken-mega"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 10 } }
-      has_fields: ["data.0.power", "data.0.damage_class"]
+      equals: { "data.stats.total": 630, "data.abilities.0.is_hidden": false }
+      contains: { "data.abilities.0.display_name": "Speed Boost" }
+      has_fields: ["data.stats.attack", "data.stats.speed"]
 
-  - name: "dragon type matchups fairy immune"
-    command: "pokedex type matchups dragon"
+  - name: "normal type immune to ghost both attacking and defending"
+    command: "pokedex type matchups normal"
     assert:
       exit_code: 0
-      equals: { "data.attacking.no_effect": ["Fairy"] }
-      array_len: { "data.defending.super_effective": { "min": 3 } }
-      has_fields: ["data.attacking.super_effective", "data.defending.not_very_effective"]
+      equals: { "data.attacking.no_effect": ["Ghost"], "data.defending.no_effect": ["Ghost"] }
+      has_fields: ["data.defending.super_effective"]
 
-  - name: "ground type matchups electric immune"
-    command: "pokedex type matchups ground"
+  - name: "ghost type immune to normal attacking"
+    command: "pokedex type matchups ghost"
     assert:
       exit_code: 0
-      equals: { "data.defending.no_effect": ["Electric"] }
-      array_len: { "data.attacking.super_effective": { "min": 5 } }
+      equals: { "data.attacking.no_effect": ["Normal"] }
+      array_len: { "data.defending.no_effect": { "min": 2 } }
+      has_fields: ["data.defending.super_effective"]
 
-  - name: "steel type matchups poison immune"
+  - name: "steel has 10 resistances and poison immunity"
     command: "pokedex type matchups steel"
     assert:
       exit_code: 0
       equals: { "data.defending.no_effect": ["Poison"] }
       array_len: { "data.defending.not_very_effective": { "min": 10 } }
+      has_fields: ["data.attacking.super_effective"]
 
-  - name: "garchomp encounters in scarlet include tera raids"
-    command: "pokedex pokemon encounters garchomp --game=scarlet"
+  - name: "fairy immune to dragon defending"
+    command: "pokedex type matchups fairy"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 1 } }
-      has_fields: ["data.0.pokemon_name", "data.0.game_slug"]
-      contains: { "data.0.game": "Scarlet" }
+      equals: { "data.defending.no_effect": ["Dragon"] }
+      array_len: { "data.attacking.super_effective": { "min": 3 } }
+      has_fields: ["data.defending.super_effective"]
 
-  - name: "pikachu encounters in red have rarity percentages"
-    command: "pokedex pokemon encounters pikachu --game=red"
+  - name: "dragon type attacks have no effect on fairy"
+    command: "pokedex type matchups dragon"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 2 } }
-      has_fields: ["data.0.rarity", "data.0.min_level"]
+      equals: { "data.attacking.no_effect": ["Fairy"] }
+      array_len: { "data.defending.super_effective": { "min": 3 } }
 
-  - name: "applin evolution chain with dipplin and hydrapple"
-    command: "pokedex pokemon evolutions applin"
+  - name: "mega kangaskhan 590 BST with parental bond"
+    command: "pokedex pokemon show kangaskhan-mega"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "applin" }
-      array_len: { "data.children": { "min": 3 } }
-      has_fields: ["data.children.2.children.0.methods"]
+      equals: { "data.stats.total": 590, "data.types": ["Normal"] }
+      contains: { "data.abilities.0.display_name": "Parental Bond" }
+      has_fields: ["data.stats.attack"]
 
-  - name: "dipplin evolves via syrupy apple"
-    command: "pokedex pokemon show dipplin"
+  - name: "primal groudon 770 BST ground/fire typing"
+    command: "pokedex pokemon show groudon-primal"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Grass", "Dragon"] }
-      contains: { "data.evolves_from": "Applin" }
-      has_fields: ["data.egg_groups"]
+      equals: { "data.stats.total": 770, "data.types": ["Ground", "Fire"] }
+      contains: { "data.abilities.0.display_name": "Desolate Land" }
 
-  - name: "hydrapple evolves from dipplin by knowing dragon cheer"
-    command: "pokedex pokemon show hydrapple"
+  - name: "base groudon 670 BST pure ground"
+    command: "pokedex pokemon show groudon"
     assert:
       exit_code: 0
-      equals: { "data.types": ["Grass", "Dragon"] }
-      contains: { "data.evolves_from": "Dipplin" }
-
-  - name: "charizard forms include mega-x with fire/dragon typing"
-    command: "pokedex pokemon forms charizard"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 4 } }
-      equals: { "data.0.is_default": true }
-      has_fields: ["data.0.types", "data.0.is_mega"]
-
-  - name: "mega charizard x has fire/dragon types"
-    command: "pokedex pokemon show charizard-mega-x"
-    assert:
-      exit_code: 0
-      equals: { "data.types": ["Fire", "Dragon"] }
-      contains: { "data.display_name": "Mega Charizard X" }
-
-  - name: "mega garchomp BST 700"
-    command: "pokedex pokemon show garchomp-mega"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.total": 700 }
-      contains: { "data.display_name": "Mega Garchomp" }
+      equals: { "data.stats.total": 670, "data.types": ["Ground"] }
       has_fields: ["data.abilities"]
+      contains: { "data.display_name": "Groudon" }
 
-  - name: "garchomp forms include mega"
-    command: "pokedex pokemon forms garchomp"
+  - name: "garchomp level-up moves in scarlet have correct levels and categories"
+    command: "pokedex pokemon moves garchomp --game=scarlet --method=level-up"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 2 } }
-      equals: { "data.0.is_default": true, "data.1.is_mega": true }
+      array_len: { "data": { "min": 10 } }
+      has_fields: ["data.0.level", "data.0.damage_class", "data.0.power"]
+      equals: { "data.0.learn_method": "level-up" }
 
-  - name: "collection add dry-run with breed method"
-    command: "pokedex collection add --pokemon=garchomp --game=scarlet --method=breed --dry-run"
+  - name: "garchomp TM moves in scarlet include earthquake"
+    command: "pokedex pokemon moves garchomp --game=scarlet --method=machine"
     assert:
       exit_code: 0
-      equals: { "data.dry_run": true, "data.method": "breed", "data.game": "scarlet" }
-      has_fields: ["actions"]
-      contains: { "actions.0.description": "Run without --dry-run" }
+      array_len: { "data": { "min": 30 } }
+      equals: { "data.0.learn_method": "machine" }
+      has_fields: ["data.0.move_name", "data.0.type_name"]
 
-  - name: "collection add garchomp via breed"
-    command: "pokedex collection add --pokemon=garchomp --game=scarlet --method=breed"
-    capture:
-      garchomp_id: "data.id"
+  - name: "blaziken egg moves exist with correct damage classes"
+    command: "pokedex pokemon moves blaziken --method=egg"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "garchomp", "data.method": "breed" }
-      has_fields: ["data.id", "data.created_at"]
-      type_of: { "data.id": "number" }
+      array_len: { "data": { "min": 5 } }
+      equals: { "data.0.learn_method": "egg" }
+      has_fields: ["data.0.damage_class", "data.0.type_name"]
 
-  - name: "collection add dragonite to scarlet"
-    command: "pokedex collection add --pokemon=dragonite --game=scarlet"
+  - name: "shedinja has TM/HM machine moves"
+    command: "pokedex pokemon moves shedinja --method=machine"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "dragonite", "data.game": "scarlet" }
-      has_fields: ["data.id"]
+      array_len: { "data": { "min": 20 } }
+      has_fields: ["data.0.move_name", "data.0.damage_class"]
 
-  - name: "collection list shows scarlet team"
-    command: "pokedex collection list --game=scarlet"
+  - name: "porygon evolves to porygon2 via trade with up-grade"
+    command: "pokedex pokemon evolutions porygon"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 2 } }
-      has_fields: ["meta.total"]
-      type_of: { "data": "array" }
+      equals: { "data.children.0.species_name": "porygon2" }
+      contains: { "data.children.0.methods.0.trigger_detail": "up-grade" }
+      has_fields: ["data.children.0.children.0.methods"]
 
-  - name: "collection stats shows game breakdown"
-    command: "pokedex collection stats"
+  - name: "porygon-z evolves from porygon2 via trade with dubious-disc"
+    command: "pokedex pokemon evolutions porygon"
     assert:
       exit_code: 0
-      has_fields: ["data.total_entries", "data.by_game", "data.by_status"]
-      array_len: { "data.by_game": { "min": 1 } }
+      equals: { "data.children.0.children.0.species_name": "porygon-z" }
+      contains: { "data.children.0.children.0.methods.0.trigger_detail": "dubious-disc" }
 
-  - name: "invalid game returns error with exit code 1"
-    command: "pokedex pokemon moves garchomp --game=invalidgame"
+  - name: "scyther to scizor via trade with metal-coat"
+    command: "pokedex pokemon evolutions scyther"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "scizor" }
+      contains: { "data.children.0.methods.0.trigger_detail": "metal-coat" }
+      has_fields: ["data.children.1.species_name"]
+
+  - name: "scyther to kleavor via black-augurite"
+    command: "pokedex pokemon evolutions scyther"
+    assert:
+      exit_code: 0
+      equals: { "data.children.1.species_name": "kleavor", "data.children.1.methods.0.item": "black-augurite" }
+      contains: { "data.children.1.methods.0.trigger_detail": "black-augurite" }
+
+  - name: "electabuzz to electivire via trade with electirizer"
+    command: "pokedex pokemon evolutions electabuzz"
+    assert:
+      exit_code: 0
+      contains: { "data.children.0.children.0.methods.0.trigger_detail": "electirizer" }
+      equals: { "data.children.0.children.0.species_name": "electivire" }
+      has_fields: ["data.children.0.methods"]
+
+  - name: "eevee has 8 evolution branches"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      array_len: { "data.children": { "min": 8, "max": 8 } }
+      equals: { "data.species_name": "eevee" }
+      has_fields: ["data.children.0.methods"]
+
+  - name: "sylveon evolves via level-up with fairy move and friendship"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      equals: { "data.children.7.species_name": "sylveon" }
+      contains: { "data.children.7.methods.0.trigger_detail": "Fairy" }
+
+  - name: "aegislash shield form has 500 BST with stance change"
+    command: "pokedex pokemon show aegislash"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 500, "data.stats.defense": 140, "data.stats.special_defense": 140 }
+      contains: { "data.abilities.0.display_name": "Stance Change" }
+
+  - name: "aegislash blade form swaps offenses to 140"
+    command: "pokedex pokemon show aegislash-blade"
+    assert:
+      exit_code: 0
+      equals: { "data.stats.total": 500, "data.stats.attack": 140, "data.stats.special_attack": 140 }
+      contains: { "data.display_name": "Blade" }
+
+  - name: "deoxys has all four forms listed"
+    command: "pokedex pokemon forms deoxys"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 4, "max": 4 } }
+      equals: { "data.0.is_default": true }
+      has_fields: ["data.0.types", "data.1.name"]
+
+  - name: "nature command not available returns error"
+    command: "pokedex nature list"
     assert:
       exit_code: 1
-      has_fields: ["error.code", "error.message", "actions"]
-      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["error.code", "error.message"]
+      equals: { "error.code": "INVALID_PARAMETER" }
 
-  - name: "invalid method returns error with valid methods listed"
+  - name: "invalid move method returns error with valid methods"
     command: "pokedex pokemon moves garchomp --method=invalidmethod"
     assert:
       exit_code: 1
@@ -216,23 +255,49 @@ steps:
       contains: { "error.message": "level-up" }
       array_len: { "actions": { "min": 1 } }
 
-  - name: "invalid pokemon returns fuzzy match suggestions"
-    command: "pokedex pokemon show notarealpokemon"
+  - name: "collection add garchomp to scarlet for team"
+    command: "pokedex collection add --pokemon=garchomp --game=scarlet --method=breed"
+    capture:
+      garchomp_entry_id: "data.id"
     assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      array_len: { "actions": { "min": 1 } }
+      exit_code: 0
+      equals: { "data.species_name": "garchomp", "data.method": "breed" }
+      has_fields: ["data.id", "data.created_at"]
+      type_of: { "data.id": "number" }
 
-  - name: "collection show entry has update and remove actions"
-    command: "pokedex collection show $garchomp_id"
+  - name: "collection add dragonite to scarlet team"
+    command: "pokedex collection add --pokemon=dragonite --game=scarlet"
+    capture:
+      dragonite_entry_id: "data.id"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dragonite", "data.game": "scarlet" }
+      has_fields: ["data.id"]
+
+  - name: "collection list shows scarlet team members"
+    command: "pokedex collection list --game=scarlet"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 2 } }
+      has_fields: ["meta.total"]
+      type_of: { "data": "array" }
+
+  - name: "collection show garchomp entry has actions"
+    command: "pokedex collection show $garchomp_entry_id"
     assert:
       exit_code: 0
       equals: { "data.species_name": "garchomp" }
       has_fields: ["actions"]
       array_len: { "actions": { "min": 3 } }
 
-  - name: "cleanup - remove bred garchomp"
-    command: "pokedex collection remove $garchomp_id"
+  - name: "cleanup remove garchomp entry"
+    command: "pokedex collection remove $garchomp_entry_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "cleanup remove dragonite entry"
+    command: "pokedex collection remove $dragonite_entry_id"
     assert:
       exit_code: 0
       equals: { "data.removed": true }

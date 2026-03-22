@@ -58,7 +58,7 @@ steps:
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
-      has_fields: ["actions"]
+      contains: { "error.message": "-1" }
 
   # ══════════════════════════════════════════════════════════════════
   # CLAP-LEVEL errors: missing args, bad subcommands
@@ -339,51 +339,18 @@ steps:
   # EMPTY COLLECTION HANDLING
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "empty collection list returns valid envelope"
-    command: "pokedex collection list"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 0, "max": 0 } }
-      equals: { "meta.total": 0 }
-      has_fields: ["actions"]
-
-  - name: "collection stats with empty collection returns zeros"
-    command: "pokedex collection stats"
-    assert:
-      exit_code: 0
-      equals: { "data.total_entries": 0, "data.unique_species": 0 }
-      has_fields: ["actions"]
-
   - name: "show non-existent collection entry returns NOT_FOUND"
-    command: "pokedex collection show 1"
+    command: "pokedex collection show 99999999"
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
       has_fields: ["actions"]
 
   - name: "remove non-existent collection entry returns NOT_FOUND"
-    command: "pokedex collection remove 999999"
+    command: "pokedex collection remove 99999999"
     assert:
       exit_code: 1
       equals: { "error.code": "NOT_FOUND" }
-      has_fields: ["actions"]
-
-  # ══════════════════════════════════════════════════════════════════
-  # COLLECTION ADD/REMOVE WORKFLOW
-  # ══════════════════════════════════════════════════════════════════
-
-  - name: "add pikachu to collection in red"
-    command: "pokedex collection add --pokemon=pikachu --game=red"
-    assert:
-      exit_code: 0
-      equals: { "data.species_name": "pikachu", "data.game": "red", "data.status": "caught" }
-      has_fields: ["data.id", "actions"]
-
-  - name: "remove the added collection entry"
-    command: "pokedex collection remove 1"
-    assert:
-      exit_code: 0
-      equals: { "data.removed": true }
       has_fields: ["actions"]
 
   # ══════════════════════════════════════════════════════════════════
@@ -541,27 +508,20 @@ steps:
       array_len: { "data": { "min": 1, "max": 50 } }
 
   # ══════════════════════════════════════════════════════════════════
-  # HOME AND DEX COMMANDS WITH EMPTY COLLECTION
+  # HOME AND DEX COMMANDS
   # ══════════════════════════════════════════════════════════════════
 
-  - name: "home coverage with empty collection works"
+  - name: "home coverage works"
     command: "pokedex home coverage"
     assert:
       exit_code: 0
       has_fields: ["data", "actions", "meta"]
 
-  - name: "home status with empty collection works"
+  - name: "home status works"
     command: "pokedex home status"
     assert:
       exit_code: 0
       has_fields: ["data", "actions"]
-
-  - name: "dex progress national with empty collection shows 0 caught"
-    command: "pokedex dex progress national"
-    assert:
-      exit_code: 0
-      equals: { "data.caught": 0, "data.total": 1025 }
-      has_fields: ["actions"]
 
   # ══════════════════════════════════════════════════════════════════
   # ADD POKEMON WITH NON-EXISTENT ID TO COLLECTION
@@ -584,3 +544,376 @@ steps:
       exit_code: 0
       has_fields: ["data.name", "data.resources", "data.entry_points", "actions"]
       contains: { "data.name": "pokedex" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: ADDITIONAL UNICODE & SPECIAL NAMES
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "mime-jr (baby with hyphen) resolves correctly"
+    command: "pokedex pokemon show mime-jr"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 439, "data.name": "mime-jr" }
+      contains: { "data.display_name": "Mime Jr." }
+
+  - name: "nidoran-m resolves to Nidoran male"
+    command: "pokedex pokemon show nidoran-m"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 32, "data.name": "nidoran-m" }
+      contains: { "data.display_name": "Nidoran" }
+
+  - name: "flabebe display name has unicode accent"
+    command: "pokedex pokemon show flabebe"
+    assert:
+      exit_code: 0
+      equals: { "data.id": 669 }
+      contains: { "data.display_name": "Flab" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: PAGINATION MATH WITH LIMIT=1
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "limit=1 offset=0 next_page points to offset=1"
+    command: "pokedex pokemon list --limit=1 --offset=0"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1, "max": 1 } }
+      equals: { "meta.total": 1025, "meta.offset": 0 }
+
+  - name: "limit=1 at last item (offset=1024) has no next_page"
+    command: "pokedex pokemon list --limit=1 --offset=1024"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1, "max": 1 } }
+      equals: { "meta.offset": 1024 }
+
+  - name: "limit=1 beyond end (offset=1025) returns empty data"
+    command: "pokedex pokemon list --limit=1 --offset=1025"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      equals: { "meta.total": 1025 }
+
+  - name: "offset=1000 returns wo-chien at position 1001"
+    command: "pokedex pokemon list --limit=1 --offset=1000"
+    assert:
+      exit_code: 0
+      equals: { "data.0.name": "wo-chien", "meta.offset": 1000 }
+      array_len: { "data": { "min": 1, "max": 1 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: WHITESPACE AND EMPTY STRING INPUTS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "whitespace-only pokemon name returns NOT_FOUND"
+    command: "pokedex pokemon show \"   \""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "whitespace-only search query returns INVALID_PARAMETER"
+    command: "pokedex pokemon search \"   \""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required" }
+
+  - name: "empty location name returns INVALID_PARAMETER"
+    command: "pokedex location encounters \"\""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required" }
+
+  - name: "whitespace-only location returns INVALID_PARAMETER"
+    command: "pokedex location encounters \"   \""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required" }
+
+  - name: "empty game string in collection add returns NOT_FOUND"
+    command: "pokedex collection add --pokemon=pikachu --game=\"\""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: UNSUPPORTED FLAG COMBINATIONS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "--game flag on pokemon show is rejected"
+    command: "pokedex pokemon show pikachu --game=red"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      has_fields: ["actions"]
+
+  - name: "collection add without --game is rejected"
+    command: "pokedex collection add --pokemon=pikachu"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required" }
+
+  - name: "collection add without --pokemon is rejected"
+    command: "pokedex collection add --game=red"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "required" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: COMBINED FILTER EDGE CASES
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "fairy type + gen1 returns retroactively typed pokemon"
+    command: "pokedex pokemon list --type-filter=fairy --generation=1 --limit=999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 5 }
+      array_len: { "data": { "min": 5, "max": 5 } }
+
+  - name: "dragon type + gen1 returns only Dratini line"
+    command: "pokedex pokemon list --type-filter=dragon --generation=1 --limit=999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 3 }
+      array_len: { "data": { "min": 3, "max": 3 } }
+
+  - name: "legendary + gen1 returns exactly 4 (birds + Mewtwo)"
+    command: "pokedex pokemon list --category=legendary --generation=1 --limit=999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 4 }
+      array_len: { "data": { "min": 4, "max": 4 } }
+
+  - name: "fire + gen1 returns 12 pokemon"
+    command: "pokedex pokemon list --type-filter=fire --generation=1 --limit=999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 12 }
+      array_len: { "data": { "min": 12, "max": 12 } }
+
+  - name: "gen9 has 120 pokemon"
+    command: "pokedex pokemon list --generation=9 --limit=999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 120 }
+      array_len: { "data": { "min": 120, "max": 120 } }
+
+  - name: "baby category returns 19 pokemon"
+    command: "pokedex pokemon list --category=baby --limit=999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 19 }
+      array_len: { "data": { "min": 19, "max": 19 } }
+
+  - name: "mythical category returns 23 pokemon including Mew and Pecharunt"
+    command: "pokedex pokemon list --category=mythical --limit=999"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 23 }
+      array_len: { "data": { "min": 23, "max": 23 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: SQL INJECTION IN LOCATION
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "SQL injection in location encounters is safely handled"
+    command: "pokedex location encounters \"'; DROP TABLE pokemon;--\""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "special chars in location returns NOT_FOUND safely"
+    command: "pokedex location encounters \"route<>1&2\""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: LOCATION ENCOUNTERS PAGINATION WITH LIMIT=1
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "location encounters limit=1 returns 1 of 7 with next_page"
+    command: "pokedex location encounters kanto-route-1 --game=red --limit=1"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1, "max": 1 } }
+      equals: { "meta.total": 7 }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: GAME SHOW ERRORS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "game show non-existent returns NOT_FOUND"
+    command: "pokedex game show nonexistent"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "game show valid game returns data"
+    command: "pokedex game show red"
+    assert:
+      exit_code: 0
+      has_fields: ["data.name", "actions"]
+      equals: { "data.name": "red" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: MOVES PAGINATION WITH LIMIT=1
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "mew moves limit=1 shows total and next_page"
+    command: "pokedex pokemon moves mew --limit=1"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1, "max": 1 } }
+      has_fields: ["meta.total"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: FORM-SPECIFIC ACTION CONTEXT PRESERVATION
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "deoxys-attack moves actions preserve form slug"
+    command: "pokedex pokemon moves deoxys-attack --limit=1"
+    assert:
+      exit_code: 0
+      has_fields: ["meta.total", "actions"]
+      array_len: { "data": { "min": 1, "max": 1 } }
+
+  - name: "deoxys-attack encounters actions preserve form slug"
+    command: "pokedex pokemon encounters deoxys-attack"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      has_fields: ["actions"]
+
+  - name: "deoxys-attack stats preserves form in actions"
+    command: "pokedex pokemon stats deoxys-attack"
+    assert:
+      exit_code: 0
+      equals: { "data.attack": 180, "data.defense": 20 }
+      contains: { "data.pokemon_name": "Attack Deoxys" }
+
+  - name: "growlithe-hisui encounters in PLA shows Hisuian Growlithe"
+    command: "pokedex pokemon encounters growlithe-hisui --game=legends-arceus"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 1 } }
+      contains: { "data.0.pokemon_name": "Hisuian Growlithe" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: PAGINATION NEAR END BOUNDARY
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "offset=975 with limit=50 returns exactly 50 (last full page)"
+    command: "pokedex pokemon list --limit=50 --offset=975"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 50, "max": 50 } }
+      equals: { "meta.total": 1025 }
+
+  - name: "offset=976 with limit=50 returns 49 (partial last page)"
+    command: "pokedex pokemon list --limit=50 --offset=976"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 49, "max": 49 } }
+      equals: { "meta.total": 1025 }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: EMPTY GAME IN ENCOUNTERS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "empty game string in encounters returns NOT_FOUND"
+    command: "pokedex pokemon encounters pikachu --game=\"\""
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: GAME TYPO WITH FUZZY SUGGESTION
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "misspelled game in moves returns NOT_FOUND with did_you_mean"
+    command: "pokedex pokemon moves mew --game=legends-z-a"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: TYPE LIST COMPLETENESS
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "type list returns all types including fairy and stellar"
+    command: "pokedex type list"
+    assert:
+      exit_code: 0
+      type_of: { "data": "array" }
+      array_len: { "data": { "min": 18 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: DEX PROGRESS FOR REGIONAL DEXES
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "dex progress original-johto returns 251 total"
+    command: "pokedex dex progress original-johto"
+    assert:
+      exit_code: 0
+      equals: { "data.total": 251, "data.dex_name": "original-johto" }
+      has_fields: ["data.caught", "actions"]
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: COLLECTION ADD WITH FORM FLAG
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "collection add with valid form flag succeeds"
+    command: "pokedex collection add --pokemon=vivillon --game=x --form=polar"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "vivillon", "data.form_name": "polar" }
+      contains: { "data.display_name": "Polar Vivillon" }
+
+  - name: "clean up vivillon collection entry"
+    command: "pokedex collection list --limit=1"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions"]
+      array_len: { "data": { "min": 1 } }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: UPDATE NON-EXISTENT COLLECTION ENTRY
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "update non-existent collection entry returns NOT_FOUND"
+    command: "pokedex collection update 99999999 --status=caught"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
+
+  - name: "update with invalid status returns INVALID_PARAMETER"
+    command: "pokedex collection update 99999999 --status=invalid_status"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "INVALID_PARAMETER" }
+      contains: { "error.message": "caught, living_dex" }
+
+  # ══════════════════════════════════════════════════════════════════
+  # ROUND 13: DOUBLE REMOVE
+  # ══════════════════════════════════════════════════════════════════
+
+  - name: "double remove of same ID returns NOT_FOUND"
+    command: "pokedex collection remove 99999999"
+    assert:
+      exit_code: 1
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]

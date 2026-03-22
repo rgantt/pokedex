@@ -143,11 +143,11 @@ fn main() -> Result<()> {
                 CollectionCommands::Remove { id, dry_run } => {
                     commands::collection::remove(&conn, id, dry_run, &format)?;
                 }
-                CollectionCommands::Update { id, status, in_home, shiny, nickname, notes, game, method } => {
+                CollectionCommands::Update { id, status, in_home, shiny, nickname, notes, game, method, dry_run } => {
                     commands::collection::update(
                         &conn, id, status.as_deref(), in_home, shiny,
                         nickname.as_deref(), notes.as_deref(),
-                        game.as_deref(), method.as_deref(), &format,
+                        game.as_deref(), method.as_deref(), dry_run, &format,
                     )?;
                 }
                 CollectionCommands::List { game, pokemon, shiny_only, in_home, status, limit, offset, sort } => {

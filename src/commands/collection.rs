@@ -356,6 +356,7 @@ pub fn update(
     notes: Option<&str>,
     game: Option<&str>,
     method: Option<&str>,
+    dry_run: bool,
     format: &OutputFormat,
 ) -> Result<()> {
     let existing = queries::get_collection_entry(conn, id)?;
@@ -417,6 +418,38 @@ pub fn update(
     } else {
         None
     };
+
+    if dry_run {
+        let entry = queries::get_collection_entry(conn, id)?.unwrap();
+        #[derive(Serialize)]
+        struct DryRunPreview {
+            dry_run: bool,
+            id: i64,
+            current: crate::db::models::CollectionEntry,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            new_status: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            new_in_home: Option<bool>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            new_shiny: Option<bool>,
+        }
+        let preview = DryRunPreview {
+            dry_run: true,
+            id,
+            current: entry,
+            new_status: status.map(|s| s.to_string()),
+            new_in_home: in_home,
+            new_shiny: shiny,
+        };
+        let mut cmd = format!("pokedex collection update {id}");
+        if let Some(s) = status { cmd.push_str(&format!(" --status={s}")); }
+        let actions = vec![
+            Action::new("confirm", &cmd),
+            Action::new("show", &format!("pokedex collection show {id}")),
+        ];
+        let response = Response::new(preview, actions, Meta::simple(&format!("pokedex collection update {id} --dry-run")));
+        return response.print(format);
+    }
 
     queries::update_collection_entry(conn, id, status, in_home, shiny, nickname, notes, game_id, method)?;
 

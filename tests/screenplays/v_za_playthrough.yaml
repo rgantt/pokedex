@@ -2,172 +2,236 @@
 # If a step fails, investigate: is it a real bug (fix the code) or a stale
 # assertion (update or delete this file)? The INTENT matters, not the exact
 # implementation. Don't contort the CLI to make a stale screenplay pass.
-name: "Legends Z-A Playthrough - All 20 Wild Zones + Data Quality"
+name: "Legends Z-A Playthrough - All 20 Wild Zones + Alpha Completionist"
 persona: za_playthrough
 description: >
-  Comprehensive Z-A playthrough verifying all 20 wild zones exist with correct
-  encounter data, no zone bleed, alpha data present, correct location naming,
-  catches from 5 different zones, evolution chains, and pokemon show for Z-A
-  species. Targets 20+ species coverage.
+  Comprehensive Z-A Lumiose completionist covering all 20 Wild Zones,
+  alpha catches across zone progression 1-4, 5-8, 9-12, 13-16, 17-20.
+  Verifies alpha details, Symbol Encounter method, Mega Z forms,
+  PLA cross-reference, evolution chains, and collection tracking.
+  Target: 40+ species. Region confirmed as Kalos (gen 9).
 needs_seed: true
 mutates_collection: true
 
 steps:
   # ============================================================
-  # GAME SETUP: Verify Z-A game exists
+  # GAME SETUP: Verify Z-A game metadata
   # ============================================================
-  - name: "Game setup -- verify legends-za exists"
+  - name: "Game setup -- legends-za exists with Kalos region"
     command: "pokedex game show legends-za"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta"]
       equals: { "data.name": "legends-za", "data.generation": 9, "data.region": "Kalos" }
       contains: { "data.display_name": "Z-A" }
 
-  # ============================================================
-  # WILD ZONE 1: Discover + verify data quality
-  # ============================================================
-  - name: "Zone 1 -- discover encounters"
-    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+  - name: "Game setup -- legends-za connects to HOME"
+    command: "pokedex game show legends-za"
     assert:
       exit_code: 0
-      has_fields: ["data", "actions", "meta"]
-      equals: { "meta.total": 8 }
-      array_len: { "data": { "min": 7 } }
-  - name: "Zone 1 -- location is Wild Zone 1 not Lumiose City"
-    command: "pokedex location encounters wild-zone-1 --game=legends-za"
-    assert:
-      exit_code: 0
-      equals: { "data.0.location": "Wild Zone 1", "data.0.area": "wild-zone-1" }
-  - name: "Zone 1 -- alpha data present"
-    command: "pokedex location encounters wild-zone-1 --game=legends-za"
-    assert:
-      exit_code: 0
-      has_fields: ["data.0.details.alpha_levels"]
-      contains: { "data.0.details.alpha_levels": "15" }
-  - name: "Zone 1 -- no encounter bleed (game slug matches)"
-    command: "pokedex location encounters wild-zone-1 --game=legends-za"
-    assert:
-      exit_code: 0
-      equals: { "data.0.game_slug": "legends-za" }
+      equals: { "data.connects_to_home": true }
+      has_fields: ["data.transfer_direction", "actions"]
 
   # ============================================================
-  # WILD ZONE 2: Verify exists + data quality
+  # WILD ZONES 1-4: Early game progression
   # ============================================================
-  - name: "Zone 2 -- discover encounters"
+  - name: "Zone 1 -- discover 8 encounters"
+    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 8, "data.0.location": "Wild Zone 1" }
+      array_len: { "data": { "min": 8, "max": 8 } }
+
+  - name: "Zone 1 -- alpha details and method"
+    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+    assert:
+      exit_code: 0
+      has_fields: ["data.0.details.alpha_levels", "data.0.details.during_any_time"]
+      equals: { "data.0.method": "Symbol Encounter", "data.0.game_slug": "legends-za" }
+
+  - name: "Zone 1 -- alpha note present"
+    command: "pokedex location encounters wild-zone-1 --game=legends-za"
+    assert:
+      exit_code: 0
+      contains: { "data.0.details.note": "Alpha" }
+      equals: { "data.0.area": "wild-zone-1" }
+
+  - name: "Zone 1 -- catch Fletchling alpha"
+    command: "pokedex collection add --pokemon=fletchling --game=legends-za --method=catch --alpha"
+    capture: { "fletchling_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "fletchling", "data.is_alpha": true, "data.status": "caught" }
+
+  - name: "Zone 1 -- catch Mareep alpha"
+    command: "pokedex collection add --pokemon=mareep --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mareep", "data.is_alpha": true }
+      has_fields: ["data.id", "data.created_at"]
+
+  - name: "Zone 1 -- catch Pidgey"
+    command: "pokedex collection add --pokemon=pidgey --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pidgey", "data.status": "caught" }
+
+  - name: "Zone 1 -- catch Bunnelby"
+    command: "pokedex collection add --pokemon=bunnelby --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bunnelby", "data.status": "caught" }
+
+  - name: "Zone 1 -- catch Pichu alpha"
+    command: "pokedex collection add --pokemon=pichu --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pichu", "data.is_alpha": true }
+
+  - name: "Zone 1 -- catch Weedle"
+    command: "pokedex collection add --pokemon=weedle --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "weedle", "data.status": "caught" }
+
+  - name: "Zone 1 -- catch Scatterbug"
+    command: "pokedex collection add --pokemon=scatterbug --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "scatterbug", "data.status": "caught" }
+
+  - name: "Zone 2 -- discover 9 encounters"
     command: "pokedex location encounters wild-zone-2 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 9, "data.0.location": "Wild Zone 2", "data.0.area": "wild-zone-2" }
-      array_len: { "data": { "min": 6 } }
+      equals: { "meta.total": 9, "data.0.location": "Wild Zone 2" }
+      array_len: { "data": { "min": 9, "max": 9 } }
 
-  # ============================================================
-  # WILD ZONE 3: Discover + catch espurr
-  # ============================================================
-  - name: "Zone 3 -- discover encounters"
+  - name: "Zone 2 -- catch Staryu"
+    command: "pokedex collection add --pokemon=staryu --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "staryu", "data.status": "caught" }
+
+  - name: "Zone 2 -- catch Budew alpha"
+    command: "pokedex collection add --pokemon=budew --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "budew", "data.is_alpha": true }
+
+  - name: "Zone 3 -- discover 8 encounters"
     command: "pokedex location encounters wild-zone-3 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 8, "data.0.location": "Wild Zone 3", "data.0.area": "wild-zone-3" }
-      array_len: { "data": { "min": 7 } }
-  - name: "Zone 3 -- alpha data present"
+      equals: { "meta.total": 8, "data.0.location": "Wild Zone 3" }
+      array_len: { "data": { "min": 8, "max": 8 } }
+
+  - name: "Zone 3 -- alpha levels contain 19"
     command: "pokedex location encounters wild-zone-3 --game=legends-za"
     assert:
       exit_code: 0
-      has_fields: ["data.0.details"]
+      has_fields: ["data.0.details.alpha_levels"]
       contains: { "data.0.details.alpha_levels": "19" }
-  - name: "Zone 3 -- inspect Espurr"
+
+  - name: "Zone 3 -- inspect Espurr (Psychic type, Gen 6)"
     command: "pokedex pokemon show espurr"
     assert:
       exit_code: 0
       equals: { "data.name": "espurr", "data.generation": 6, "data.types": ["Psychic"] }
-      has_fields: ["data.stats", "data.abilities"]
-  - name: "Zone 3 -- espurr evolution chain"
+      has_fields: ["data.stats"]
+
+  - name: "Zone 3 -- espurr evolves to meowstic"
     command: "pokedex pokemon evolutions espurr"
     assert:
       exit_code: 0
       equals: { "data.species_name": "espurr" }
-      has_fields: ["data.children"]
       contains: { "data.children": "meowstic" }
+
   - name: "Zone 3 -- catch Espurr"
     command: "pokedex collection add --pokemon=espurr --game=legends-za --method=catch"
     capture: { "espurr_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "espurr", "data.status": "caught", "data.method": "catch" }
-      has_fields: ["data.id", "data.created_at"]
+      equals: { "data.species_name": "espurr", "data.status": "caught" }
+      has_fields: ["data.id"]
+
   - name: "Zone 3 -- catch Litleo"
     command: "pokedex collection add --pokemon=litleo --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "litleo", "data.status": "caught" }
+
   - name: "Zone 3 -- catch Pancham"
     command: "pokedex collection add --pokemon=pancham --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "pancham", "data.status": "caught" }
+
   - name: "Zone 3 -- catch Skiddo"
     command: "pokedex collection add --pokemon=skiddo --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "skiddo", "data.status": "caught" }
+
   - name: "Zone 3 -- catch Flabebe"
     command: "pokedex collection add --pokemon=flabebe --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "flabebe", "data.status": "caught" }
 
-  # ============================================================
-  # WILD ZONE 4: Discover + catch honedge
-  # ============================================================
-  - name: "Zone 4 -- discover encounters"
+  - name: "Zone 4 -- discover 7 encounters"
     command: "pokedex location encounters wild-zone-4 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 7, "data.0.location": "Wild Zone 4", "data.0.area": "wild-zone-4" }
-      array_len: { "data": { "min": 6 } }
-  - name: "Zone 4 -- alpha data present"
+      equals: { "meta.total": 7, "data.0.location": "Wild Zone 4" }
+      array_len: { "data": { "min": 7, "max": 7 } }
+
+  - name: "Zone 4 -- alpha levels contain 20"
     command: "pokedex location encounters wild-zone-4 --game=legends-za"
     assert:
       exit_code: 0
       has_fields: ["data.0.details"]
       contains: { "data.0.details.alpha_levels": "20" }
-  - name: "Zone 4 -- inspect Honedge"
+
+  - name: "Zone 4 -- inspect Honedge (Steel/Ghost, Gen 6)"
     command: "pokedex pokemon show honedge"
     assert:
       exit_code: 0
       equals: { "data.name": "honedge", "data.generation": 6, "data.types": ["Steel", "Ghost"] }
-      has_fields: ["data.stats", "data.abilities"]
-  - name: "Zone 4 -- honedge evolution chain (3-stage)"
+      has_fields: ["data.stats"]
+
+  - name: "Zone 4 -- honedge 3-stage chain includes doublade"
     command: "pokedex pokemon evolutions honedge"
     assert:
       exit_code: 0
       equals: { "data.species_name": "honedge" }
-      has_fields: ["data.children"]
       contains: { "data.children": "doublade" }
-  - name: "Zone 4 -- doublade evolves to aegislash"
+
+  - name: "Zone 4 -- doublade chain includes aegislash"
     command: "pokedex pokemon evolutions doublade"
     assert:
       exit_code: 0
       has_fields: ["data.children"]
-      contains: {"data": "aegislash"}
-  - name: "Zone 4 -- catch Honedge"
-    command: "pokedex collection add --pokemon=honedge --game=legends-za --method=catch"
+      contains: { "data": "aegislash" }
+
+  - name: "Zone 4 -- catch Honedge alpha"
+    command: "pokedex collection add --pokemon=honedge --game=legends-za --method=catch --alpha"
     capture: { "honedge_id": "data.id" }
     assert:
       exit_code: 0
-      equals: { "data.species_name": "honedge", "data.status": "caught", "data.method": "catch" }
-      has_fields: ["data.id", "data.created_at"]
+      equals: { "data.species_name": "honedge", "data.is_alpha": true, "data.method": "catch" }
+
   - name: "Zone 4 -- catch Gastly"
     command: "pokedex collection add --pokemon=gastly --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "gastly", "data.status": "caught" }
+
   - name: "Zone 4 -- catch Ekans"
     command: "pokedex collection add --pokemon=ekans --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "ekans", "data.status": "caught" }
+
   - name: "Zone 4 -- catch Spinarak"
     command: "pokedex collection add --pokemon=spinarak --game=legends-za --method=catch"
     assert:
@@ -175,375 +239,574 @@ steps:
       equals: { "data.species_name": "spinarak", "data.status": "caught" }
 
   # ============================================================
-  # WILD ZONE 5: Verify + catch
+  # WILD ZONES 5-8: Mid-game progression
   # ============================================================
-  - name: "Zone 5 -- discover encounters"
+  - name: "Zone 5 -- discover 13 encounters (large zone)"
     command: "pokedex location encounters wild-zone-5 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 13, "data.0.location": "Wild Zone 5", "data.0.area": "wild-zone-5" }
-      array_len: { "data": { "min": 10 } }
+      equals: { "meta.total": 13, "data.0.location": "Wild Zone 5" }
+      array_len: { "data": { "min": 13, "max": 13 } }
+
   - name: "Zone 5 -- catch Abra"
     command: "pokedex collection add --pokemon=abra --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "abra", "data.status": "caught" }
+
   - name: "Zone 5 -- catch Bellsprout"
     command: "pokedex collection add --pokemon=bellsprout --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "bellsprout", "data.status": "caught" }
-  - name: "Zone 5 -- catch Electrike"
-    command: "pokedex collection add --pokemon=electrike --game=legends-za --method=catch"
+
+  - name: "Zone 5 -- catch Electrike alpha"
+    command: "pokedex collection add --pokemon=electrike --game=legends-za --method=catch --alpha"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "electrike", "data.status": "caught" }
+      equals: { "data.species_name": "electrike", "data.is_alpha": true }
 
-  # ============================================================
-  # WILD ZONES 6-10: Verify all exist with correct location names
-  # ============================================================
-  - name: "Zone 6 -- encounters exist with correct location"
+  - name: "Zone 5 -- catch Venipede"
+    command: "pokedex collection add --pokemon=venipede --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "venipede", "data.status": "caught" }
+
+  - name: "Zone 6 -- discover 10 encounters"
     command: "pokedex location encounters wild-zone-6 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 10, "data.0.location": "Wild Zone 6", "data.0.area": "wild-zone-6" }
-      array_len: { "data": { "min": 8 } }
-  - name: "Zone 7 -- encounters exist with correct location"
+      equals: { "meta.total": 10, "data.0.location": "Wild Zone 6" }
+      array_len: { "data": { "min": 10, "max": 10 } }
+
+  - name: "Zone 6 -- catch Buneary"
+    command: "pokedex collection add --pokemon=buneary --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "buneary", "data.status": "caught" }
+
+  - name: "Zone 6 -- catch Meditite"
+    command: "pokedex collection add --pokemon=meditite --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "meditite", "data.status": "caught" }
+
+  - name: "Zone 6 -- catch Houndour alpha"
+    command: "pokedex collection add --pokemon=houndour --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "houndour", "data.is_alpha": true }
+
+  - name: "Zone 7 -- discover 10 encounters"
     command: "pokedex location encounters wild-zone-7 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 10, "data.0.location": "Wild Zone 7", "data.0.area": "wild-zone-7" }
-      array_len: { "data": { "min": 8 } }
+      equals: { "meta.total": 10, "data.0.location": "Wild Zone 7" }
+      array_len: { "data": { "min": 10, "max": 10 } }
 
-  # ============================================================
-  # WILD ZONE 8: Discover + catch gible
-  # ============================================================
-  - name: "Zone 8 -- discover encounters"
+  - name: "Zone 7 -- catch Snover"
+    command: "pokedex collection add --pokemon=snover --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "snover", "data.status": "caught" }
+
+  - name: "Zone 7 -- catch Shuppet"
+    command: "pokedex collection add --pokemon=shuppet --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "shuppet", "data.status": "caught" }
+
+  - name: "Zone 8 -- discover 8 encounters"
     command: "pokedex location encounters wild-zone-8 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 8, "data.0.location": "Wild Zone 8", "data.0.area": "wild-zone-8" }
-      array_len: { "data": { "min": 6 } }
-  - name: "Zone 8 -- alpha data present"
-    command: "pokedex location encounters wild-zone-8 --game=legends-za"
-    assert:
-      exit_code: 0
-      has_fields: ["data.0.details"]
-  - name: "Zone 8 -- inspect Gible"
+      equals: { "meta.total": 8, "data.0.location": "Wild Zone 8" }
+      array_len: { "data": { "min": 8, "max": 8 } }
+
+  - name: "Zone 8 -- inspect Gible (Dragon/Ground, Gen 4)"
     command: "pokedex pokemon show gible"
     assert:
       exit_code: 0
       equals: { "data.name": "gible", "data.generation": 4, "data.types": ["Dragon", "Ground"] }
-      has_fields: ["data.stats", "data.abilities"]
-  - name: "Zone 8 -- gible evolution chain (3-stage)"
+      has_fields: ["data.stats"]
+
+  - name: "Zone 8 -- gible 3-stage chain to Garchomp"
     command: "pokedex pokemon evolutions gible"
     assert:
       exit_code: 0
       equals: { "data.species_name": "gible" }
-      has_fields: ["data.children"]
       contains: { "data.children": "gabite" }
-  - name: "Zone 8 -- catch Gible"
-    command: "pokedex collection add --pokemon=gible --game=legends-za --method=catch"
+
+  - name: "Zone 8 -- catch Gible alpha"
+    command: "pokedex collection add --pokemon=gible --game=legends-za --method=catch --alpha"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "gible", "data.status": "caught" }
+      equals: { "data.species_name": "gible", "data.is_alpha": true }
+
   - name: "Zone 8 -- catch Machop"
     command: "pokedex collection add --pokemon=machop --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "machop", "data.status": "caught" }
+
   - name: "Zone 8 -- catch Sandile"
     command: "pokedex collection add --pokemon=sandile --game=legends-za --method=catch"
     assert:
       exit_code: 0
       equals: { "data.species_name": "sandile", "data.status": "caught" }
 
-  - name: "Zone 9 -- encounters exist with correct location"
+  # ============================================================
+  # WILD ZONES 9-12: Late-mid progression
+  # ============================================================
+  - name: "Zone 9 -- discover 8 encounters"
     command: "pokedex location encounters wild-zone-9 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 8, "data.0.location": "Wild Zone 9", "data.0.area": "wild-zone-9" }
-  - name: "Zone 10 -- encounters exist with correct location"
+      equals: { "meta.total": 8, "data.0.location": "Wild Zone 9" }
+      array_len: { "data": { "min": 8, "max": 8 } }
+
+  - name: "Zone 10 -- discover 11 encounters"
     command: "pokedex location encounters wild-zone-10 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 11, "data.0.location": "Wild Zone 10", "data.0.area": "wild-zone-10" }
-      array_len: { "data": { "min": 8 } }
+      equals: { "meta.total": 11, "data.0.location": "Wild Zone 10" }
+      array_len: { "data": { "min": 11, "max": 11 } }
 
-  # ============================================================
-  # WILD ZONES 11-14: Verify exist
-  # ============================================================
-  - name: "Zone 11 -- encounters exist with correct location"
+  - name: "Zone 10 -- catch Carvanha"
+    command: "pokedex collection add --pokemon=carvanha --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "carvanha", "data.status": "caught" }
+
+  - name: "Zone 10 -- catch Slowpoke alpha"
+    command: "pokedex collection add --pokemon=slowpoke --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "slowpoke", "data.is_alpha": true }
+
+  - name: "Zone 11 -- discover 8 encounters"
     command: "pokedex location encounters wild-zone-11 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 8, "data.0.location": "Wild Zone 11", "data.0.area": "wild-zone-11" }
-  - name: "Zone 12 -- encounters exist with correct location"
+      equals: { "meta.total": 8, "data.0.location": "Wild Zone 11" }
+
+  - name: "Zone 11 -- catch Clauncher"
+    command: "pokedex collection add --pokemon=clauncher --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "clauncher", "data.status": "caught" }
+
+  - name: "Zone 11 -- catch Inkay"
+    command: "pokedex collection add --pokemon=inkay --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "inkay", "data.status": "caught" }
+
+  - name: "Zone 12 -- discover 11 encounters"
     command: "pokedex location encounters wild-zone-12 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 11, "data.0.location": "Wild Zone 12", "data.0.area": "wild-zone-12" }
-      array_len: { "data": { "min": 9 } }
-  - name: "Zone 13 -- encounters exist with correct location"
+      equals: { "meta.total": 11, "data.0.location": "Wild Zone 12" }
+      array_len: { "data": { "min": 11, "max": 11 } }
+
+  - name: "Zone 12 -- catch Bergmite"
+    command: "pokedex collection add --pokemon=bergmite --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bergmite", "data.status": "caught" }
+
+  - name: "Zone 12 -- catch Snorunt alpha"
+    command: "pokedex collection add --pokemon=snorunt --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "snorunt", "data.is_alpha": true }
+
+  # ============================================================
+  # WILD ZONES 13-16: Late progression
+  # ============================================================
+  - name: "Zone 13 -- discover 8 encounters"
     command: "pokedex location encounters wild-zone-13 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 8, "data.0.location": "Wild Zone 13", "data.0.area": "wild-zone-13" }
-  - name: "Zone 14 -- encounters exist with correct location"
+      equals: { "meta.total": 8, "data.0.location": "Wild Zone 13" }
+
+  - name: "Zone 13 -- catch Phantump"
+    command: "pokedex collection add --pokemon=phantump --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "phantump", "data.status": "caught" }
+
+  - name: "Zone 13 -- catch Heracross alpha"
+    command: "pokedex collection add --pokemon=heracross --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "heracross", "data.is_alpha": true }
+
+  - name: "Zone 13 -- catch Scyther"
+    command: "pokedex collection add --pokemon=scyther --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "scyther", "data.status": "caught" }
+
+  - name: "Zone 14 -- discover 10 encounters"
     command: "pokedex location encounters wild-zone-14 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 10, "data.0.location": "Wild Zone 14", "data.0.area": "wild-zone-14" }
+      equals: { "meta.total": 10, "data.0.location": "Wild Zone 14" }
 
-  # ============================================================
-  # WILD ZONE 15: Verify + noibat
-  # ============================================================
-  - name: "Zone 15 -- discover encounters"
+  - name: "Zone 14 -- catch Aron"
+    command: "pokedex collection add --pokemon=aron --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "aron", "data.status": "caught" }
+
+  - name: "Zone 14 -- catch Helioptile"
+    command: "pokedex collection add --pokemon=helioptile --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "helioptile", "data.status": "caught" }
+
+  - name: "Zone 15 -- discover 13 encounters (large zone)"
     command: "pokedex location encounters wild-zone-15 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 13, "data.0.location": "Wild Zone 15", "data.0.area": "wild-zone-15" }
-      array_len: { "data": { "min": 10 } }
-  - name: "Zone 15 -- inspect Noibat"
+      equals: { "meta.total": 13, "data.0.location": "Wild Zone 15" }
+      array_len: { "data": { "min": 13, "max": 13 } }
+
+  - name: "Zone 15 -- inspect Noibat (Flying/Dragon, Gen 6)"
     command: "pokedex pokemon show noibat"
     assert:
       exit_code: 0
       equals: { "data.name": "noibat", "data.generation": 6, "data.types": ["Flying", "Dragon"] }
-      has_fields: ["data.stats", "data.abilities"]
-  - name: "Zone 15 -- noibat encounters in zone 15"
+      has_fields: ["data.stats"]
+
+  - name: "Zone 15 -- noibat encounters in Z-A include Zone 15"
     command: "pokedex pokemon encounters noibat --game=legends-za"
     assert:
       exit_code: 0
-      has_fields: ["data"]
       contains: { "data": "Wild Zone 15" }
-  - name: "Zone 15 -- noibat evolution chain"
+      array_len: { "data": { "min": 1 } }
+
+  - name: "Zone 15 -- noibat evolves to noivern"
     command: "pokedex pokemon evolutions noibat"
     assert:
       exit_code: 0
       equals: { "data.species_name": "noibat" }
-      has_fields: ["data.children"]
       contains: { "data.children": "noivern" }
 
-  # ============================================================
-  # WILD ZONES 16-19: Verify exist
-  # ============================================================
-  - name: "Zone 16 -- encounters exist with correct location"
+  - name: "Zone 15 -- catch Noibat"
+    command: "pokedex collection add --pokemon=noibat --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "noibat", "data.status": "caught" }
+
+  - name: "Zone 15 -- catch Larvitar alpha"
+    command: "pokedex collection add --pokemon=larvitar --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "larvitar", "data.is_alpha": true }
+
+  - name: "Zone 16 -- discover 9 encounters"
     command: "pokedex location encounters wild-zone-16 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 9, "data.0.location": "Wild Zone 16", "data.0.area": "wild-zone-16" }
-  - name: "Zone 16 -- inspect Froakie (Kalos starter)"
+      equals: { "meta.total": 9, "data.0.location": "Wild Zone 16" }
+
+  - name: "Zone 16 -- inspect Froakie (Water, Kalos starter)"
     command: "pokedex pokemon show froakie"
     assert:
       exit_code: 0
       equals: { "data.name": "froakie", "data.generation": 6, "data.types": ["Water"] }
-      has_fields: ["data.stats", "data.abilities"]
-  - name: "Zone 16 -- froakie evolution chain (3-stage)"
+      has_fields: ["data.stats"]
+
+  - name: "Zone 16 -- froakie evolves to frogadier"
     command: "pokedex pokemon evolutions froakie"
     assert:
       exit_code: 0
       equals: { "data.species_name": "froakie" }
-      has_fields: ["data.children"]
       contains: { "data.children": "frogadier" }
-  - name: "Zone 17 -- encounters exist with correct location"
+
+  - name: "Zone 16 -- catch Froakie"
+    command: "pokedex collection add --pokemon=froakie --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "froakie", "data.status": "caught" }
+
+  # ============================================================
+  # WILD ZONES 17-20: Endgame progression
+  # ============================================================
+  - name: "Zone 17 -- discover 9 encounters"
     command: "pokedex location encounters wild-zone-17 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 9, "data.0.location": "Wild Zone 17", "data.0.area": "wild-zone-17" }
-  - name: "Zone 17 -- inspect Chespin (Kalos starter)"
+      equals: { "meta.total": 9, "data.0.location": "Wild Zone 17" }
+
+  - name: "Zone 17 -- inspect Chespin (Grass, Kalos starter)"
     command: "pokedex pokemon show chespin"
     assert:
       exit_code: 0
       equals: { "data.name": "chespin", "data.generation": 6, "data.types": ["Grass"] }
-  - name: "Zone 17 -- chespin evolution chain"
-    command: "pokedex pokemon evolutions chespin"
+
+  - name: "Zone 17 -- catch Chespin"
+    command: "pokedex collection add --pokemon=chespin --game=legends-za --method=catch"
     assert:
       exit_code: 0
-      contains: { "data.children": "quilladin" }
+      equals: { "data.species_name": "chespin", "data.status": "caught" }
 
-  # ============================================================
-  # WILD ZONE 18: Verify + fennekin + noibat alpha cross-check
-  # ============================================================
-  - name: "Zone 18 -- encounters exist with correct location"
+  - name: "Zone 17 -- catch Klefki"
+    command: "pokedex collection add --pokemon=klefki --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "klefki", "data.status": "caught" }
+
+  - name: "Zone 18 -- discover 8 encounters"
     command: "pokedex location encounters wild-zone-18 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 8, "data.0.location": "Wild Zone 18", "data.0.area": "wild-zone-18" }
-  - name: "Zone 18 -- inspect Fennekin (Kalos starter)"
+      equals: { "meta.total": 8, "data.0.location": "Wild Zone 18" }
+
+  - name: "Zone 18 -- inspect Fennekin (Fire, Kalos starter)"
     command: "pokedex pokemon show fennekin"
     assert:
       exit_code: 0
       equals: { "data.name": "fennekin", "data.generation": 6, "data.types": ["Fire"] }
-  - name: "Zone 18 -- fennekin evolution chain"
+
+  - name: "Zone 18 -- fennekin evolves to braixen"
     command: "pokedex pokemon evolutions fennekin"
     assert:
       exit_code: 0
       contains: { "data.children": "braixen" }
-  - name: "Zone 19 -- encounters exist with correct location"
+
+  - name: "Zone 18 -- catch Fennekin"
+    command: "pokedex collection add --pokemon=fennekin --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "fennekin", "data.status": "caught" }
+
+  - name: "Zone 18 -- catch Bagon alpha"
+    command: "pokedex collection add --pokemon=bagon --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bagon", "data.is_alpha": true }
+
+  - name: "Zone 19 -- discover 10 encounters"
     command: "pokedex location encounters wild-zone-19 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 10, "data.0.location": "Wild Zone 19", "data.0.area": "wild-zone-19" }
-      array_len: { "data": { "min": 8 } }
+      equals: { "meta.total": 10, "data.0.location": "Wild Zone 19" }
+      array_len: { "data": { "min": 10, "max": 10 } }
 
-  # ============================================================
-  # WILD ZONE 20: Mega zone with many encounters
-  # ============================================================
-  - name: "Zone 20 -- discover encounters (largest zone)"
+  - name: "Zone 19 -- catch Eevee"
+    command: "pokedex collection add --pokemon=eevee --game=legends-za --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "eevee", "data.status": "caught" }
+
+  - name: "Zone 19 -- catch Cleffa alpha"
+    command: "pokedex collection add --pokemon=cleffa --game=legends-za --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cleffa", "data.is_alpha": true }
+
+  - name: "Zone 20 -- discover 82 encounters (largest zone, paginated)"
     command: "pokedex location encounters wild-zone-20 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "meta.total": 82, "data.0.location": "Wild Zone 20", "data.0.area": "wild-zone-20" }
-      array_len: { "data": { "min": 40 } }
-  - name: "Zone 20 -- no encounter bleed (game slug matches)"
+      equals: { "meta.total": 82, "data.0.location": "Wild Zone 20" }
+      array_len: { "data": { "min": 50 } }
+
+  - name: "Zone 20 -- game slug on paginated data"
     command: "pokedex location encounters wild-zone-20 --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "data.0.game_slug": "legends-za" }
+      equals: { "data.0.game_slug": "legends-za", "data.0.area": "wild-zone-20" }
+
+  - name: "Zone 20 -- page 2 returns remaining 32 encounters"
+    command: "pokedex location encounters wild-zone-20 --game=legends-za --offset=50"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 82 }
+      array_len: { "data": { "min": 32, "max": 32 } }
 
   # ============================================================
-  # ZONE 1 CATCHES: Complete the catch loop
+  # MEGA Z FORMS: Z-A exclusive feature
   # ============================================================
-  - name: "Zone 1 -- inspect Fletchling"
-    command: "pokedex pokemon show fletchling"
+  - name: "Mega Z -- garchomp has 3 forms including mega-z"
+    command: "pokedex pokemon forms garchomp"
     assert:
       exit_code: 0
-      equals: { "data.name": "fletchling", "data.generation": 6 }
-      has_fields: ["data.types", "data.stats"]
-  - name: "Zone 1 -- fletchling evolution chain (3-stage)"
-    command: "pokedex pokemon evolutions fletchling"
+      contains: { "data": "garchomp-mega-z" }
+      array_len: { "data": { "min": 3, "max": 3 } }
+
+  - name: "Mega Z -- garchomp-mega-z is Dragon mono-type"
+    command: "pokedex pokemon show garchomp-mega-z"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "fletchling" }
-      has_fields: ["data.children"]
-      contains: { "data.children": "fletchinder" }
-  - name: "Zone 1 -- catch Fletchling"
-    command: "pokedex collection add --pokemon=fletchling --game=legends-za --method=catch"
-    capture: { "fletchling_id": "data.id" }
+      contains: { "data.display_name": "Mega Garchomp Z" }
+      equals: { "data.types": ["Dragon"] }
+
+  - name: "Mega Z -- lucario has 3 forms including mega-z"
+    command: "pokedex pokemon forms lucario"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "fletchling", "data.status": "caught", "data.method": "catch" }
-  - name: "Zone 1 -- catch Mareep"
-    command: "pokedex collection add --pokemon=mareep --game=legends-za --method=catch"
+      contains: { "data": "lucario-mega-z" }
+      array_len: { "data": { "min": 3, "max": 3 } }
+
+  - name: "Mega Z -- lucario-mega-z is Fighting/Steel"
+    command: "pokedex pokemon show lucario-mega-z"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "mareep", "data.status": "caught" }
-  - name: "Zone 1 -- catch Pidgey"
-    command: "pokedex collection add --pokemon=pidgey --game=legends-za --method=catch"
+      contains: { "data.display_name": "Mega Lucario Z" }
+      equals: { "data.types": ["Fighting", "Steel"] }
+
+  # ============================================================
+  # PLA CROSS-REFERENCE: Shared species comparison
+  # ============================================================
+  - name: "Cross-ref -- pichu in Z-A appears in Wild Zone 1"
+    command: "pokedex pokemon encounters pichu --game=legends-za"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "pidgey", "data.status": "caught" }
-  - name: "Zone 1 -- catch Bunnelby"
-    command: "pokedex collection add --pokemon=bunnelby --game=legends-za --method=catch"
+      contains: { "data": "Wild Zone 1" }
+      array_len: { "data": { "min": 1 } }
+
+  - name: "Cross-ref -- pichu in PLA appears in Aspiration Hill"
+    command: "pokedex pokemon encounters pichu --game=legends-arceus"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "bunnelby", "data.status": "caught" }
+      contains: { "data": "Aspiration Hill" }
+      array_len: { "data": { "min": 3 } }
+
+  - name: "Cross-ref -- pichu Z-A alpha levels include 16"
+    command: "pokedex pokemon encounters pichu --game=legends-za"
+    assert:
+      exit_code: 0
+      has_fields: ["data.0.details"]
+      contains: { "data.0.details.alpha_levels": "16" }
 
   # ============================================================
   # EVOLUTION LOOP: Evolve key catches
   # ============================================================
-  - name: "Evolve -- mareep evolution chain"
-    command: "pokedex pokemon evolutions mareep"
+  - name: "Evolve -- fletchling chain includes fletchinder"
+    command: "pokedex pokemon evolutions fletchling"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "mareep" }
-      contains: { "data.children": "flaaffy" }
-  - name: "Evolve -- evolve Fletchling to Fletchinder"
+      equals: { "data.species_name": "fletchling" }
+      contains: { "data.children": "fletchinder" }
+
+  - name: "Evolve -- add Fletchinder via evolution"
     command: "pokedex collection add --pokemon=fletchinder --game=legends-za --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "fletchinder", "data.method": "evolve" }
-  - name: "Evolve -- update Fletchling status to evolved"
+
+  - name: "Evolve -- update Fletchling to evolved status"
     command: "pokedex collection update $fletchling_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved", "data.species_name": "fletchling" }
-  - name: "Evolve -- evolve Espurr to Meowstic"
+
+  - name: "Evolve -- add Talonflame (final evo)"
+    command: "pokedex collection add --pokemon=talonflame --game=legends-za --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "talonflame", "data.method": "evolve" }
+
+  - name: "Evolve -- add Meowstic via evolution"
     command: "pokedex collection add --pokemon=meowstic --game=legends-za --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "meowstic", "data.method": "evolve" }
-  - name: "Evolve -- update Espurr status to evolved"
+
+  - name: "Evolve -- update Espurr to evolved status"
     command: "pokedex collection update $espurr_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved", "data.species_name": "espurr" }
-  - name: "Evolve -- evolve Honedge to Doublade"
+
+  - name: "Evolve -- add Doublade via evolution"
     command: "pokedex collection add --pokemon=doublade --game=legends-za --method=evolve"
     assert:
       exit_code: 0
       equals: { "data.species_name": "doublade", "data.method": "evolve" }
-  - name: "Evolve -- update Honedge status to evolved"
+
+  - name: "Evolve -- update Honedge to evolved status"
     command: "pokedex collection update $honedge_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved", "data.species_name": "honedge" }
 
+  - name: "Evolve -- add Aegislash (dusk-stone final evo)"
+    command: "pokedex collection add --pokemon=aegislash --game=legends-za --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "aegislash", "data.method": "evolve" }
+
   # ============================================================
-  # ADDITIONAL POKEMON SHOW: Z-A species data quality
+  # DATA QUALITY: Z-A species type checks
   # ============================================================
-  - name: "Show -- Phantump (Ghost/Grass)"
+  - name: "Show -- Phantump is Ghost/Grass"
     command: "pokedex pokemon show phantump"
     assert:
       exit_code: 0
-      equals: { "data.name": "phantump", "data.generation": 6, "data.types": ["Ghost", "Grass"] }
-      has_fields: ["data.stats", "data.abilities"]
-  - name: "Show -- Phantump evolution"
-    command: "pokedex pokemon evolutions phantump"
-    assert:
-      exit_code: 0
-      contains: { "data.children": "trevenant" }
-  - name: "Show -- Furfrou (unique to Kalos)"
-    command: "pokedex pokemon show furfrou"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "furfrou", "data.generation": 6 }
-      has_fields: ["data.stats", "data.abilities"]
-  - name: "Show -- Klefki (Steel/Fairy)"
-    command: "pokedex pokemon show klefki"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "klefki", "data.generation": 6 }
+      equals: { "data.name": "phantump", "data.types": ["Ghost", "Grass"] }
       has_fields: ["data.stats"]
-  - name: "Show -- Hawlucha (Fighting/Flying)"
-    command: "pokedex pokemon show hawlucha"
-    assert:
-      exit_code: 0
-      equals: { "data.name": "hawlucha", "data.generation": 6 }
-      has_fields: ["data.stats"]
-  - name: "Show -- Aegislash (final evo of honedge line)"
+
+  - name: "Show -- Aegislash is Steel/Ghost Gen 6"
     command: "pokedex pokemon show aegislash"
     assert:
       exit_code: 0
       equals: { "data.name": "aegislash", "data.generation": 6, "data.types": ["Steel", "Ghost"] }
-      has_fields: ["data.stats", "data.abilities"]
+      has_fields: ["data.abilities"]
+
+  - name: "Show -- Hawlucha is Fighting/Flying Gen 6"
+    command: "pokedex pokemon show hawlucha"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "hawlucha", "data.generation": 6, "data.types": ["Fighting", "Flying"] }
+      has_fields: ["data.stats"]
+
+  - name: "Show -- Furfrou is unique to Kalos"
+    command: "pokedex pokemon show furfrou"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "furfrou", "data.generation": 6 }
+      has_fields: ["data.stats"]
 
   # ============================================================
   # COLLECTION VERIFICATION
   # ============================================================
-  - name: "Collection -- verify stats"
+  - name: "Collection -- stats show 40+ entries"
     command: "pokedex collection stats --game=legends-za"
     assert:
       exit_code: 0
       has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
-      type_of: { "data.total_entries": "number", "data.unique_species": "number" }
-  - name: "Collection -- list entries"
-    command: "pokedex collection list --game=legends-za"
+      type_of: { "data.total_entries": "number" }
+
+  - name: "Collection -- list confirms 40+ entries"
+    command: "pokedex collection list --game=legends-za --limit=100"
     assert:
       exit_code: 0
       has_fields: ["data", "meta"]
-      array_len: { "data": { "min": 20 } }
+      array_len: { "data": { "min": 40 } }
+
+  - name: "Collection -- by_status includes evolved entries"
+    command: "pokedex collection stats --game=legends-za"
+    assert:
+      exit_code: 0
+      contains: { "data.by_status": "evolved" }
+      type_of: { "data.unique_species": "number" }
 
   # ============================================================
   # HATEOAS: Verify navigability
   # ============================================================
-  - name: "HATEOAS -- encounter actions have pokemon show links"
+  - name: "HATEOAS -- encounter actions have pokemon show template"
     command: "pokedex location encounters wild-zone-1 --game=legends-za"
     assert:
       exit_code: 0
       has_fields: ["actions"]
-      contains: { "actions.0.cmd": "pokedex pokemon show" }
-  - name: "HATEOAS -- collection stats returns navigable actions"
+      contains: { "actions": "pokemon show" }
+
+  - name: "HATEOAS -- collection stats has navigable actions"
     command: "pokedex collection stats --game=legends-za"
     assert:
       exit_code: 0

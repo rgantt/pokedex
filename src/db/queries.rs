@@ -1484,7 +1484,8 @@ pub fn list_games(conn: &Connection, home_compatible: bool) -> Result<Vec<GameIn
          FROM games g \
          LEFT JOIN version_groups vg ON vg.id = g.version_group_id \
          LEFT JOIN generations gen ON gen.id = vg.generation_id \
-         LEFT JOIN regions r ON r.id = gen.region_id \
+         LEFT JOIN (SELECT version_group_id, MAX(region_id) as region_id FROM version_group_regions GROUP BY version_group_id) vgr ON vgr.version_group_id = vg.id \
+         LEFT JOIN regions r ON r.id = vgr.region_id \
          LEFT JOIN region_names rn ON rn.region_id = r.id \
          LEFT JOIN versions v ON v.version_group_id = vg.id AND LOWER(v.name) = LOWER(g.name) \
          LEFT JOIN version_names vn ON vn.version_id = v.id \
@@ -1895,11 +1896,13 @@ pub fn get_home_transferable(conn: &Connection, species_id: i64) -> Result<Vec<G
          JOIN pokedex_version_groups pvg ON pvg.version_group_id = vg.id \
          JOIN pokemon_dex_numbers pdn ON pdn.pokedex_id = pvg.pokedex_id \
          LEFT JOIN generations gen ON gen.id = vg.generation_id \
-         LEFT JOIN regions r ON r.id = gen.region_id \
+         LEFT JOIN (SELECT version_group_id, MAX(region_id) as region_id FROM version_group_regions GROUP BY version_group_id) vgr ON vgr.version_group_id = vg.id \
+         LEFT JOIN regions r ON r.id = vgr.region_id \
          LEFT JOIN region_names rn ON rn.region_id = r.id \
          LEFT JOIN versions v ON v.version_group_id = vg.id AND LOWER(v.name) = LOWER(g.name) \
          LEFT JOIN version_names vn ON vn.version_id = v.id \
          WHERE g.connects_to_home = 1 AND pdn.species_id = ?1 \
+         GROUP BY g.id \
          ORDER BY g.id"
     )?;
     let results: Vec<GameInfo> = stmt
@@ -1943,11 +1946,13 @@ pub fn get_home_transferable(conn: &Connection, species_id: i64) -> Result<Vec<G
                  FROM games g \
                  LEFT JOIN version_groups vg ON vg.id = g.version_group_id \
                  LEFT JOIN generations gen ON gen.id = vg.generation_id \
-                 LEFT JOIN regions r ON r.id = gen.region_id \
+                 LEFT JOIN (SELECT version_group_id, MAX(region_id) as region_id FROM version_group_regions GROUP BY version_group_id) vgr ON vgr.version_group_id = vg.id \
+                 LEFT JOIN regions r ON r.id = vgr.region_id \
                  LEFT JOIN region_names rn ON rn.region_id = r.id \
                  LEFT JOIN versions v ON v.version_group_id = vg.id AND LOWER(v.name) = LOWER(g.name) \
                  LEFT JOIN version_names vn ON vn.version_id = v.id \
-                 WHERE g.connects_to_home = 1 AND gen.id >= ?1 ORDER BY g.id"
+                 WHERE g.connects_to_home = 1 AND gen.id >= ?1 \
+                 GROUP BY g.id ORDER BY g.id"
             )?;
             let fallback = stmt
                 .query_map(params![gen_id], |row| {

@@ -57,7 +57,7 @@ pub fn list(
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
     }
     if offset > 0 {
-        let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+        let prev_offset = offset.saturating_sub(limit);
         actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={prev_offset}")));
     }
 
@@ -282,12 +282,15 @@ pub fn forms(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<
     let mut actions = vec![
         Action::new("show", &format!("pokedex pokemon show {name}")),
     ];
+    let mut seen_forms = std::collections::HashSet::new();
     for form in &forms {
         if let Some(ref form_name) = form.form_name {
-            actions.push(Action::new(
-                "add_form_to_collection",
-                &format!("pokedex collection add --pokemon={name} --form={form_name} --game=<game>"),
-            ));
+            if seen_forms.insert(form_name.clone()) {
+                actions.push(Action::new(
+                    "add_form_to_collection",
+                    &format!("pokedex collection add --pokemon={name} --form={form_name} --game=<game>"),
+                ));
+            }
         }
     }
 
@@ -327,19 +330,26 @@ pub fn encounters(conn: &Connection, pokemon: &str, game: Option<&str>, format: 
 
     let encounters = queries::get_encounters(conn, species_id, game)?;
 
-    let mut cmd = format!("pokedex pokemon encounters {name}");
+    // Preserve form context in actions (use original input if it's a form name)
+    let action_name = if pokemon.to_lowercase() != name {
+        pokemon.to_lowercase()
+    } else {
+        name.clone()
+    };
+
+    let mut cmd = format!("pokedex pokemon encounters {action_name}");
     if let Some(g) = game { cmd.push_str(&format!(" --game={g}")); }
 
     let mut actions = vec![
-        Action::new("show", &format!("pokedex pokemon show {name}")),
-        Action::new("add_to_collection", &format!("pokedex collection add --pokemon={name} --game={}", game.unwrap_or("<game>"))),
+        Action::new("show", &format!("pokedex pokemon show {action_name}")),
+        Action::new("add_to_collection", &format!("pokedex collection add --pokemon={action_name} --game={}", game.unwrap_or("<game>"))),
     ];
 
     // Suggest filtering by specific games found in encounters (use slug for --game flag)
     let game_slugs: Vec<String> = encounters.iter().map(|e| e.game_slug.clone()).collect::<std::collections::HashSet<_>>().into_iter().collect();
     for g in &game_slugs {
         if game.is_none() {
-            actions.push(Action::new("filter_game", &format!("pokedex pokemon encounters {name} --game={g}")));
+            actions.push(Action::new("filter_game", &format!("pokedex pokemon encounters {action_name} --game={g}")));
         }
     }
 
@@ -392,25 +402,32 @@ pub fn moves(conn: &Connection, pokemon: &str, game: Option<&str>, method: Optio
     let limit = super::validate_limit(limit)?;
     let (moves, total) = queries::get_pokemon_moves(conn, species_id, game, method, limit, offset)?;
 
-    let mut cmd = format!("pokedex pokemon moves {name}");
+    // Preserve form context in actions
+    let action_name = if pokemon.to_lowercase() != name {
+        pokemon.to_lowercase()
+    } else {
+        name.clone()
+    };
+
+    let mut cmd = format!("pokedex pokemon moves {action_name}");
     if let Some(g) = game { cmd.push_str(&format!(" --game={g}")); }
     if let Some(m) = method { cmd.push_str(&format!(" --method={m}")); }
 
     let mut actions = vec![
-        Action::new("show", &format!("pokedex pokemon show {name}")),
+        Action::new("show", &format!("pokedex pokemon show {action_name}")),
     ];
     if method.is_none() {
-        actions.push(Action::new("filter_level_up", &format!("pokedex pokemon moves {name} --method=level-up")));
-        actions.push(Action::new("filter_tm", &format!("pokedex pokemon moves {name} --method=machine")));
-        actions.push(Action::new("filter_egg", &format!("pokedex pokemon moves {name} --method=egg")));
-        actions.push(Action::new("filter_tutor", &format!("pokedex pokemon moves {name} --method=tutor")));
+        actions.push(Action::new("filter_level_up", &format!("pokedex pokemon moves {action_name} --method=level-up")));
+        actions.push(Action::new("filter_tm", &format!("pokedex pokemon moves {action_name} --method=machine")));
+        actions.push(Action::new("filter_egg", &format!("pokedex pokemon moves {action_name} --method=egg")));
+        actions.push(Action::new("filter_tutor", &format!("pokedex pokemon moves {action_name} --method=tutor")));
     }
 
     if offset + limit < total {
         actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
     }
     if offset > 0 {
-        let prev_offset = if offset > total { total.saturating_sub(limit) } else { offset.saturating_sub(limit) };
+        let prev_offset = offset.saturating_sub(limit);
         actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={prev_offset}")));
     }
 

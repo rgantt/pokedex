@@ -280,6 +280,9 @@ pub enum CollectionCommands {
         /// Change the catch method for this entry
         #[arg(long)]
         method: Option<String>,
+        /// Preview the update without saving
+        #[arg(long)]
+        dry_run: bool,
     },
     /// List your collection entries
     List {

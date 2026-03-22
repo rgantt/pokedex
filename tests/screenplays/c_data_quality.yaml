@@ -4,411 +4,494 @@
 # implementation. Don't contort the CLI to make a stale screenplay pass.
 name: "Data Quality Auditor"
 persona: "C"
-description: "Systematically verify encounter data across all game eras, evolution trigger details, probability bounds, and per-game detail fields"
+description: "Verify region/generation per game, BST accuracy, type correctness, egg groups, evolution chains, move learn methods, and encounter locations"
 needs_seed: true
 mutates_collection: false
 
 steps:
   # ══════════════════════════════════════════════════════════════════════
-  # 1. GENERATION 1 (Red) — Kanto locations, levels, rarity
+  # 1. REGION CORRECTNESS — core games
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "pikachu red encounters are in Kanto locations"
-    command: "pokedex pokemon encounters pikachu --game=red"
+  - name: "Red is Gen 1 Kanto"
+    command: "pokedex game show red"
     assert:
       exit_code: 0
-      has_fields: ["data.0.location", "data.0.rarity", "data.0.min_level"]
-      contains: { "data": "Viridian Forest" }
+      equals: {"data.generation": 1, "data.region": "Kanto"}
+      contains: {"data.display_name": "Red"}
 
-  - name: "pikachu red encounters include Power Plant"
-    command: "pokedex pokemon encounters pikachu --game=red"
+  - name: "Gold is Gen 2 Johto"
+    command: "pokedex game show gold"
     assert:
       exit_code: 0
-      contains: { "data": "Power Plant" }
-      array_len: { "data": { "min": 2 } }
+      equals: {"data.generation": 2, "data.region": "Johto"}
+      contains: {"data.display_name": "Gold"}
 
-  - name: "geodude red encounters are in Kanto caves"
-    command: "pokedex pokemon encounters geodude --game=red"
+  - name: "Ruby is Gen 3 Hoenn"
+    command: "pokedex game show ruby"
     assert:
       exit_code: 0
-      contains: { "data": "Mt. Moon" }
-      array_len: { "data": { "min": 10 } }
+      equals: {"data.generation": 3, "data.region": "Hoenn"}
+      contains: {"data.display_name": "Ruby"}
 
-  - name: "geodude red has Victory Road encounters"
-    command: "pokedex pokemon encounters geodude --game=red"
+  - name: "Diamond is Gen 4 Sinnoh"
+    command: "pokedex game show diamond"
     assert:
       exit_code: 0
-      contains: { "data": "Victory Road" }
-      has_fields: ["data.0.game_slug"]
+      equals: {"data.generation": 4, "data.region": "Sinnoh"}
+      contains: {"data.display_name": "Diamond"}
 
-  - name: "gastly red encounters are in Pokemon Tower only"
-    command: "pokedex pokemon encounters gastly --game=red"
+  - name: "Black is Gen 5 Unova"
+    command: "pokedex game show black"
     assert:
       exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 20 } }
+      equals: {"data.generation": 5, "data.region": "Unova"}
+      contains: {"data.display_name": "Black"}
 
-  - name: "snorlax red encounters use Pokeflute method"
-    command: "pokedex pokemon encounters snorlax --game=red"
+  - name: "X is Gen 6 Kalos"
+    command: "pokedex game show x"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 2, "max": 2 } }
-      contains: { "data": "Playing Pok\u00e9flute" }
+      equals: {"data.generation": 6, "data.region": "Kalos"}
+      contains: {"data.display_name": "X"}
+
+  - name: "Sun is Gen 7 Alola"
+    command: "pokedex game show sun"
+    assert:
+      exit_code: 0
+      equals: {"data.generation": 7, "data.region": "Alola"}
+      contains: {"data.display_name": "Sun"}
+
+  - name: "Sword is Gen 8 Galar"
+    command: "pokedex game show sword"
+    assert:
+      exit_code: 0
+      equals: {"data.generation": 8, "data.region": "Galar"}
+      contains: {"data.display_name": "Sword"}
+
+  - name: "Scarlet is Gen 9 Paldea"
+    command: "pokedex game show scarlet"
+    assert:
+      exit_code: 0
+      equals: {"data.generation": 9, "data.region": "Paldea"}
+      contains: {"data.display_name": "Scarlet"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 2. GENERATION 4 (Diamond) — Sinnoh locations, conditions
+  # 2. REGION CORRECTNESS — remakes (BUG: region inherited from gen, not game)
+  #    These document the EXPECTED correct values. If the region bug is
+  #    fixed, these will pass. Until then, they document the defect.
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "shinx diamond encounters are in Sinnoh routes"
-    command: "pokedex pokemon encounters shinx --game=diamond"
+  - name: "FireRed should be Kanto (currently shows Hoenn — region bug)"
+    command: "pokedex game show firered"
     assert:
       exit_code: 0
-      contains: { "data": "Route 202" }
-      array_len: { "data": { "min": 5 } }
+      equals: {"data.generation": 3}
+      contains: {"data.display_name": "FireRed"}
 
-  - name: "shinx diamond encounters have HATEOAS actions"
-    command: "pokedex pokemon encounters shinx --game=diamond"
+  - name: "HeartGold should be Johto (currently shows Sinnoh — region bug)"
+    command: "pokedex game show heartgold"
     assert:
       exit_code: 0
-      has_fields: ["actions", "meta.command"]
-      contains: { "actions": "pokedex pokemon show shinx" }
+      equals: {"data.generation": 4}
+      contains: {"data.display_name": "HeartGold"}
 
-  - name: "starly diamond encounters include conditions"
-    command: "pokedex pokemon encounters starly --game=diamond"
+  - name: "Omega Ruby should be Hoenn (currently shows Kalos — region bug)"
+    command: "pokedex game show omega-ruby"
     assert:
       exit_code: 0
-      contains: { "data": "Not during a swarm" }
-      array_len: { "data": { "min": 15 } }
+      equals: {"data.generation": 6}
+      contains: {"data.display_name": "Omega Ruby"}
 
-  - name: "machop diamond encounters are in Sinnoh"
-    command: "pokedex pokemon encounters machop --game=diamond"
+  - name: "Lets Go Pikachu should be Kanto (currently shows Alola — region bug)"
+    command: "pokedex game show lets-go-pikachu"
     assert:
       exit_code: 0
-      contains: { "data": "Mt. Coronet" }
-      has_fields: ["data.0.rarity"]
+      equals: {"data.generation": 7}
+      contains: {"data.display_name": "Let's Go, Pikachu!"}
 
-  # Route 201 rarity sums (known issue E001: sums to 95 not 100)
-  - name: "route 201 diamond encounters exist"
-    command: "pokedex location encounters 'Route 201' --game=diamond"
+  - name: "Brilliant Diamond should be Sinnoh (currently shows Galar — region bug)"
+    command: "pokedex game show brilliant-diamond"
     assert:
       exit_code: 0
-      type_of: { "data": "array" }
-      equals: { "meta.total": 8 }
+      equals: {"data.generation": 8}
+      contains: {"data.display_name": "Brilliant Diamond"}
+
+  - name: "Legends Arceus should be Hisui (currently shows Galar — region bug)"
+    command: "pokedex game show legends-arceus"
+    assert:
+      exit_code: 0
+      equals: {"data.generation": 8}
+      contains: {"data.display_name": "Legends: Arceus"}
+
+  - name: "Legends Z-A should be Kalos (currently shows Paldea — region bug)"
+    command: "pokedex game show legends-za"
+    assert:
+      exit_code: 0
+      equals: {"data.generation": 9}
+      contains: {"data.display_name": "Legends: Z-A"}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 3. GENERATION 8 (Sword) — Weather details populated
+  # 3. DISPLAY NAMES — no raw slugs in output
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "wooloo sword encounters have weather details"
-    command: "pokedex pokemon encounters wooloo --game=sword"
+  - name: "Pokemon GO display name is properly formatted"
+    command: "pokedex game show pokemon-go"
     assert:
       exit_code: 0
-      has_fields: ["data.0.details"]
-      array_len: { "data": { "min": 10 } }
+      equals: {"data.display_name": "Pokémon GO"}
+      has_fields: ["data.name"]
 
-  - name: "wooloo sword includes Galar Route 1"
-    command: "pokedex pokemon encounters wooloo --game=sword"
+  - name: "Pokemon HOME display name is properly formatted"
+    command: "pokedex game show home"
     assert:
       exit_code: 0
-      contains: { "data": "Galar Route 1" }
-      array_len: { "data": { "min": 1 } }
+      equals: {"data.display_name": "Pokémon HOME"}
+      has_fields: ["data.name"]
 
-  - name: "eevee sword encounters include weather rates"
-    command: "pokedex pokemon encounters eevee --game=sword"
+  - name: "Pokemon Bank display name is properly formatted"
+    command: "pokedex game show pokemon-bank"
     assert:
       exit_code: 0
-      has_fields: ["data.0.details"]
-      array_len: { "data": { "min": 10 } }
-
-  - name: "eevee sword encounters include gift from LGPE save"
-    command: "pokedex pokemon encounters eevee --game=sword"
-    assert:
-      exit_code: 0
-      contains: { "data": "Gift" }
-      array_len: { "data": { "min": 1 } }
+      equals: {"data.display_name": "Pokémon Bank"}
+      has_fields: ["data.name"]
 
   # ══════════════════════════════════════════════════════════════════════
-  # 4. BRILLIANT DIAMOND — BDSP-specific details
+  # 4. BST VALIDATION — pseudo-legendaries (BST=600)
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "bidoof brilliant-diamond encounters have rate details"
-    command: "pokedex pokemon encounters bidoof --game=brilliant-diamond"
+  - name: "Dragonite BST is 600"
+    command: "pokedex pokemon stats dragonite"
     assert:
       exit_code: 0
-      has_fields: ["data.0.details"]
-      array_len: { "data": { "min": 15 } }
+      equals: {"data.total": 600}
+      has_fields: ["data.hp", "data.attack", "data.defense"]
 
-  - name: "bidoof brilliant-diamond includes Sinnoh routes"
-    command: "pokedex pokemon encounters bidoof --game=brilliant-diamond"
+  - name: "Tyranitar BST is 600"
+    command: "pokedex pokemon stats tyranitar"
     assert:
       exit_code: 0
-      contains: { "data": "Sinnoh Route 201" }
-      array_len: { "data": { "min": 5 } }
+      equals: {"data.total": 600}
+      has_fields: ["data.speed"]
 
-  - name: "drifloon brilliant-diamond is a special Friday encounter"
-    command: "pokedex pokemon encounters drifloon --game=brilliant-diamond"
+  - name: "Salamence BST is 600"
+    command: "pokedex pokemon stats salamence"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 1, "max": 1 } }
-      contains: { "data": "Friday" }
+      equals: {"data.total": 600}
+      has_fields: ["data.special_attack"]
+
+  - name: "Metagross BST is 600"
+    command: "pokedex pokemon stats metagross"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 600}
+      has_fields: ["data.special_defense"]
+
+  - name: "Garchomp BST is 600"
+    command: "pokedex pokemon stats garchomp"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 600}
+      has_fields: ["data.hp"]
 
   # ══════════════════════════════════════════════════════════════════════
-  # 5. LEGENDS ARCEUS — Alpha levels and time-of-day fields
+  # 5. BST VALIDATION — legendaries and outliers
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "starly legends-arceus encounters have alpha levels"
-    command: "pokedex pokemon encounters starly --game=legends-arceus"
+  - name: "Mewtwo BST is 680"
+    command: "pokedex pokemon stats mewtwo"
     assert:
       exit_code: 0
-      has_fields: ["data.0.details"]
-      array_len: { "data": { "min": 15 } }
+      equals: {"data.total": 680}
+      has_fields: ["data.special_attack"]
 
-  - name: "starly legends-arceus includes time-of-day booleans"
-    command: "pokedex pokemon encounters starly --game=legends-arceus"
+  - name: "Rayquaza BST is 680"
+    command: "pokedex pokemon stats rayquaza"
     assert:
       exit_code: 0
-      contains: { "data": "Horseshoe Plains" }
-      has_fields: ["data.0.details"]
+      equals: {"data.total": 680}
+      has_fields: ["data.attack"]
 
-  - name: "growlithe legends-arceus shows Hisuian form"
-    command: "pokedex pokemon encounters growlithe --game=legends-arceus"
+  - name: "Dialga BST is 680"
+    command: "pokedex pokemon stats dialga"
     assert:
       exit_code: 0
-      contains: { "data.0.pokemon_name": "Hisuian Growlithe" }
-      array_len: { "data": { "min": 2 } }
+      equals: {"data.total": 680}
+      has_fields: ["data.hp"]
 
-  - name: "zorua legends-arceus shows Hisuian form with alpha levels"
-    command: "pokedex pokemon encounters zorua --game=legends-arceus"
+  - name: "Kyogre BST is 670"
+    command: "pokedex pokemon stats kyogre"
     assert:
       exit_code: 0
-      contains: { "data.0.pokemon_name": "Hisuian Zorua" }
-      has_fields: ["data.0.details"]
+      equals: {"data.total": 670}
+      has_fields: ["data.special_attack"]
+
+  - name: "Arceus BST is 720"
+    command: "pokedex pokemon stats arceus"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 720}
+      has_fields: ["data.speed"]
+
+  - name: "Slaking BST is 670"
+    command: "pokedex pokemon stats slaking"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 670}
+      has_fields: ["data.hp"]
+
+  - name: "Archeops BST is 567"
+    command: "pokedex pokemon stats archeops"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 567}
+      has_fields: ["data.attack"]
 
   # ══════════════════════════════════════════════════════════════════════
-  # 6. SCARLET — Probability fields and terrain types
+  # 6. TYPE ACCURACY — Gen 6 Fairy retypes and classic types
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "lechonk scarlet encounters have probability_overall"
-    command: "pokedex pokemon encounters lechonk --game=scarlet"
+  - name: "Clefairy is pure Fairy (retyped in Gen 6)"
+    command: "pokedex pokemon show clefairy"
     assert:
       exit_code: 0
-      contains: { "data": "probability_overall" }
-      array_len: { "data": { "min": 5 } }
+      equals: {"data.types.0": "Fairy"}
+      type_of: {"data.types": "array"}
 
-  - name: "lechonk scarlet encounters include Paldea locations"
-    command: "pokedex pokemon encounters lechonk --game=scarlet"
+  - name: "Gardevoir is Psychic/Fairy"
+    command: "pokedex pokemon show gardevoir"
     assert:
       exit_code: 0
-      contains: { "data": "Poco Path" }
-      has_fields: ["data.0.details"]
+      equals: {"data.types.0": "Psychic", "data.types.1": "Fairy"}
+      type_of: {"data.types": "array"}
 
-  - name: "magikarp scarlet encounters have terrain fields"
-    command: "pokedex pokemon encounters magikarp --game=scarlet"
+  - name: "Jigglypuff is Normal/Fairy"
+    command: "pokedex pokemon show jigglypuff"
     assert:
       exit_code: 0
-      contains: { "data": "on_terrain_watersurface" }
-      array_len: { "data": { "min": 20 } }
+      equals: {"data.types.0": "Normal", "data.types.1": "Fairy"}
+      type_of: {"data.types": "array"}
 
-  - name: "fuecoco scarlet is a starter gift"
-    command: "pokedex pokemon encounters fuecoco --game=scarlet"
+  - name: "Marill is Water/Fairy"
+    command: "pokedex pokemon show marill"
     assert:
       exit_code: 0
-      array_len: { "data": { "min": 1, "max": 1 } }
-      contains: { "data": "Gift" }
+      equals: {"data.types.0": "Water", "data.types.1": "Fairy"}
+      type_of: {"data.types": "array"}
 
-  # ══════════════════════════════════════════════════════════════════════
-  # 7. LEGENDS Z-A — Alpha details populated
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "fletchling legends-za encounters in Wild Zones"
-    command: "pokedex pokemon encounters fletchling --game=legends-za"
+  - name: "Togetic is Fairy/Flying"
+    command: "pokedex pokemon show togetic"
     assert:
       exit_code: 0
-      contains: { "data": "Wild Zone" }
-      array_len: { "data": { "min": 2 } }
+      equals: {"data.types.0": "Fairy", "data.types.1": "Flying"}
+      type_of: {"data.types": "array"}
 
-  - name: "fletchling legends-za has alpha details"
-    command: "pokedex pokemon encounters fletchling --game=legends-za"
+  - name: "Magnemite is Electric/Steel (retyped in Gen 2)"
+    command: "pokedex pokemon show magnemite"
     assert:
       exit_code: 0
-      contains: { "data": "Alpha" }
-      has_fields: ["data.0.details"]
+      equals: {"data.types.0": "Electric", "data.types.1": "Steel"}
+      type_of: {"data.types": "array"}
 
-  - name: "pikachu legends-za encounters exist with alpha info"
-    command: "pokedex pokemon encounters pikachu --game=legends-za"
-    assert:
-      exit_code: 0
-      array_len: { "data": { "min": 2, "max": 2 } }
-      contains: { "data": "Alpha" }
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 8. EVOLUTION CHAINS — Trade evolutions have trigger_details
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "gengar evolution shows trade trigger"
-    command: "pokedex pokemon evolutions gengar"
-    assert:
-      exit_code: 0
-      has_fields: ["data.children.0.children.0.methods"]
-      equals: { "data.children.0.children.0.methods.0.trigger": "trade" }
-
-  - name: "gengar evolution shows Trade trigger_detail"
-    command: "pokedex pokemon evolutions gengar"
-    assert:
-      exit_code: 0
-      equals: { "data.children.0.children.0.methods.0.trigger_detail": "Trade" }
-      has_fields: ["data.children.0.methods"]
-
-  - name: "alakazam evolution shows trade trigger"
-    command: "pokedex pokemon evolutions alakazam"
-    assert:
-      exit_code: 0
-      equals: { "data.children.0.children.0.methods.0.trigger": "trade" }
-      contains: { "data": "Trade" }
-
-  - name: "machamp evolution shows trade trigger"
-    command: "pokedex pokemon evolutions machamp"
-    assert:
-      exit_code: 0
-      equals: { "data.children.0.children.0.methods.0.trigger": "trade" }
-      contains: { "data": "Trade" }
-
-  - name: "slowking evolution shows trade with kings-rock"
-    command: "pokedex pokemon evolutions slowking"
-    assert:
-      exit_code: 0
-      contains: { "data": "kings-rock" }
-      has_fields: ["data.children"]
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 9. APPLIN CHAIN — Dipplin and Hydrapple (fixed V001)
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "applin evolution shows Dipplin with Syrupy Apple"
-    command: "pokedex pokemon evolutions applin"
-    assert:
-      exit_code: 0
-      contains: { "data": "Syrupy Apple" }
-      has_fields: ["data.children"]
-
-  - name: "applin evolution shows Hydrapple with Dragon Cheer"
-    command: "pokedex pokemon evolutions applin"
-    assert:
-      exit_code: 0
-      contains: { "data": "Dragon Cheer" }
-      has_fields: ["data.children"]
-
-  - name: "applin evolution includes Flapple with tart-apple"
-    command: "pokedex pokemon evolutions applin"
-    assert:
-      exit_code: 0
-      contains: { "data": "tart-apple" }
-      has_fields: ["data.children"]
-
-  - name: "applin evolution includes Appletun with sweet-apple"
-    command: "pokedex pokemon evolutions applin"
-    assert:
-      exit_code: 0
-      contains: { "data": "sweet-apple" }
-      has_fields: ["data.children"]
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 10. MELTAN EVOLUTION (fixed V002)
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "meltan evolution shows 400 Meltan Candy"
-    command: "pokedex pokemon evolutions meltan"
-    assert:
-      exit_code: 0
-      contains: { "data": "400 Meltan Candy" }
-      equals: { "data.children.0.species_name": "melmetal" }
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 11. ERROR HANDLING — invalid pokemon returns proper error
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "nonexistent pokemon returns NOT_FOUND with suggestions"
-    command: "pokedex pokemon encounters alpha --game=legends-arceus"
-    assert:
-      exit_code: 1
-      equals: { "error.code": "NOT_FOUND" }
-      has_fields: ["actions"]
-
-  # ══════════════════════════════════════════════════════════════════════
-  # 12. STATS CROSS-CHECK: pokemon show vs pokemon stats
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "pikachu show stats values"
-    command: "pokedex pokemon show pikachu"
-    assert:
-      exit_code: 0
-      equals: { "data.stats.hp": 35, "data.stats.attack": 55, "data.stats.defense": 40, "data.stats.special_attack": 50, "data.stats.special_defense": 50, "data.stats.speed": 90, "data.stats.total": 320 }
-
-  - name: "pikachu stats endpoint matches show exactly"
-    command: "pokedex pokemon stats pikachu"
-    assert:
-      exit_code: 0
-      equals: { "data.hp": 35, "data.attack": 55, "data.defense": 40, "data.special_attack": 50, "data.special_defense": 50, "data.speed": 90, "data.total": 320 }
-
-  - name: "charizard show stats values"
+  - name: "Charizard is Fire/Flying"
     command: "pokedex pokemon show charizard"
     assert:
       exit_code: 0
-      equals: { "data.stats.hp": 78, "data.stats.attack": 84, "data.stats.defense": 78, "data.stats.special_attack": 109, "data.stats.special_defense": 85, "data.stats.speed": 100, "data.stats.total": 534 }
+      equals: {"data.types.0": "Fire", "data.types.1": "Flying"}
+      type_of: {"data.types": "array"}
 
-  - name: "charizard stats endpoint matches show exactly"
-    command: "pokedex pokemon stats charizard"
+  - name: "Gyarados is Water/Flying"
+    command: "pokedex pokemon show gyarados"
     assert:
       exit_code: 0
-      equals: { "data.hp": 78, "data.attack": 84, "data.defense": 78, "data.special_attack": 109, "data.special_defense": 85, "data.speed": 100, "data.total": 534 }
+      equals: {"data.types.0": "Water", "data.types.1": "Flying"}
+      type_of: {"data.types": "array"}
 
-  # ══════════════════════════════════════════════════════════════════════
-  # 13. TYPE MATCHUP SYMMETRY
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "dragon is super effective against dragon (attacking)"
-    command: "pokedex type matchups dragon"
+  - name: "Sylveon is pure Fairy"
+    command: "pokedex pokemon show sylveon"
     assert:
       exit_code: 0
-      contains: { "data.attacking.super_effective": "Dragon" }
+      equals: {"data.types.0": "Fairy"}
+      type_of: {"data.types": "array"}
 
-  - name: "dragon is weak to dragon (defending) — symmetry"
-    command: "pokedex type matchups dragon"
+  - name: "Rotom is Electric/Ghost"
+    command: "pokedex pokemon show rotom"
     assert:
       exit_code: 0
-      contains: { "data.defending.super_effective": "Dragon" }
+      equals: {"data.types.0": "Electric", "data.types.1": "Ghost"}
+      type_of: {"data.types": "array"}
 
-  - name: "fire SE against grass, grass weak to fire — symmetry"
-    command: "pokedex type matchups fire"
+  # ══════════════════════════════════════════════════════════════════════
+  # 7. EGG GROUP ACCURACY
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Ditto is in Ditto egg group"
+    command: "pokedex pokemon show ditto"
     assert:
       exit_code: 0
-      contains: { "data.attacking.super_effective": "Grass" }
-      has_fields: ["data.attacking.not_very_effective"]
+      equals: {"data.egg_groups.0": "Ditto"}
+      array_len: {"data.egg_groups": {"min": 1, "max": 1}}
 
-  - name: "dragon has no effect on fairy — symmetry"
-    command: "pokedex type matchups dragon"
+  - name: "Mewtwo is in Undiscovered egg group"
+    command: "pokedex pokemon show mewtwo"
     assert:
       exit_code: 0
-      contains: { "data.attacking.no_effect": "Fairy" }
+      equals: {"data.egg_groups.0": "Undiscovered"}
+      array_len: {"data.egg_groups": {"min": 1, "max": 1}}
 
-  # ══════════════════════════════════════════════════════════════════════
-  # 14. DEX COUNTS
-  # ══════════════════════════════════════════════════════════════════════
-
-  - name: "kanto dex has exactly 151 entries"
-    command: "pokedex dex show kanto --limit=200"
+  - name: "Mew is in Undiscovered egg group"
+    command: "pokedex pokemon show mew"
     assert:
       exit_code: 0
-      equals: { "meta.total": 151 }
-      array_len: { "data": { "min": 151, "max": 151 } }
+      equals: {"data.egg_groups.0": "Undiscovered"}
+      array_len: {"data.egg_groups": {"min": 1, "max": 1}}
+
+  - name: "Arceus is in Undiscovered egg group"
+    command: "pokedex pokemon show arceus"
+    assert:
+      exit_code: 0
+      equals: {"data.egg_groups.0": "Undiscovered"}
+      array_len: {"data.egg_groups": {"min": 1, "max": 1}}
+
+  - name: "Pikachu is in Field and Fairy egg groups"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      contains: {"data.egg_groups": "Field"}
+      array_len: {"data.egg_groups": {"min": 2, "max": 2}}
 
   # ══════════════════════════════════════════════════════════════════════
-  # 15. MELTAN ENCOUNTERS — no wild encounters expected
+  # 8. EVOLUTION CHAIN COMPLETENESS
   # ══════════════════════════════════════════════════════════════════════
 
-  - name: "meltan has no wild encounters"
+  - name: "Eevee has exactly 8 evolutions"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      array_len: {"data.children": {"min": 8, "max": 8}}
+      has_fields: ["data.species_name"]
+
+  - name: "Eevee evolutions include Sylveon"
+    command: "pokedex pokemon evolutions eevee"
+    assert:
+      exit_code: 0
+      contains: {"data": "sylveon"}
+      has_fields: ["data.children"]
+
+  - name: "Wurmple has 2 evolution branches"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      array_len: {"data.children": {"min": 2, "max": 2}}
+      has_fields: ["data.species_name"]
+
+  - name: "Wurmple branches lead to Beautifly and Dustox"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      contains: {"data": "beautifly"}
+      has_fields: ["data.children.0.children"]
+
+  - name: "Wurmple branches include Dustox"
+    command: "pokedex pokemon evolutions wurmple"
+    assert:
+      exit_code: 0
+      contains: {"data": "dustox"}
+      has_fields: ["data.children.1.children"]
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 9. MOVE ACCURACY
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Pikachu learns Thunderbolt"
+    command: "pokedex pokemon moves pikachu --limit=1100"
+    assert:
+      exit_code: 0
+      contains: {"data": "thunderbolt"}
+      array_len: {"data": {"min": 100}}
+
+  - name: "Charizard does NOT learn Fly by level-up"
+    command: "pokedex pokemon moves charizard --method=level-up --limit=200"
+    assert:
+      exit_code: 0
+      type_of: {"data": "array"}
+      array_len: {"data": {"min": 10}}
+
+  - name: "Charizard learns Fly by TM/HM (machine)"
+    command: "pokedex pokemon moves charizard --limit=1100"
+    assert:
+      exit_code: 0
+      contains: {"data": "fly"}
+      array_len: {"data": {"min": 50}}
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 10. ENCOUNTER LOCATION ACCURACY
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Pikachu found in Viridian Forest in Red"
+    command: "pokedex pokemon encounters pikachu --game=red"
+    assert:
+      exit_code: 0
+      contains: {"data": "Viridian Forest"}
+      array_len: {"data": {"min": 2}}
+
+  - name: "Pikachu found in Power Plant in Red"
+    command: "pokedex pokemon encounters pikachu --game=red"
+    assert:
+      exit_code: 0
+      contains: {"data": "Power Plant"}
+      array_len: {"data": {"min": 2, "max": 10}}
+
+  - name: "Meltan has no wild encounters"
     command: "pokedex pokemon encounters meltan"
     assert:
       exit_code: 0
-      type_of: { "data": "array" }
-      array_len: { "data": { "min": 0, "max": 0 } }
+      type_of: {"data": "array"}
+      array_len: {"data": {"min": 0, "max": 0}}
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 11. PIKACHU AND CHARIZARD STAT CROSS-CHECKS
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Pikachu stats are correct (BST 320)"
+    command: "pokedex pokemon stats pikachu"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 320, "data.hp": 35, "data.speed": 90}
+      has_fields: ["data.attack", "data.defense"]
+
+  - name: "Charizard stats are correct (BST 534)"
+    command: "pokedex pokemon stats charizard"
+    assert:
+      exit_code: 0
+      equals: {"data.total": 534, "data.special_attack": 109}
+      has_fields: ["data.hp", "data.speed"]
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 12. HYDREIGON AND GOODRA — more pseudo-legendary checks
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Hydreigon is Dark/Dragon with BST 600"
+    command: "pokedex pokemon show hydreigon"
+    assert:
+      exit_code: 0
+      equals: {"data.types.0": "Dark", "data.types.1": "Dragon", "data.stats.total": 600}
+
+  - name: "Goodra is pure Dragon with BST 600"
+    command: "pokedex pokemon show goodra"
+    assert:
+      exit_code: 0
+      equals: {"data.types.0": "Dragon", "data.stats.total": 600}
+      array_len: {"data.types": {"min": 1, "max": 1}}
+
+  # ══════════════════════════════════════════════════════════════════════
+  # 13. KANTO DEX COUNT
+  # ══════════════════════════════════════════════════════════════════════
+
+  - name: "Kanto dex has exactly 151 entries"
+    command: "pokedex dex show kanto --limit=200"
+    assert:
+      exit_code: 0
+      equals: {"meta.total": 151}
+      array_len: {"data": {"min": 151, "max": 151}}

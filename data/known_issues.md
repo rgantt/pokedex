@@ -26,11 +26,11 @@ Issues are referenced by the exploratory test skill so testers don't re-report k
 - **Found**: Round 11 (Tester O)
 
 ### E005: Vullaby/Rufflet version exclusives swapped in Black/White
-- **Status**: WONTFIX (upstream)
+- **Status**: FIXED (override)
 - **Source**: PokeAPI encounters.csv
 - **Games**: Black, White
-- **Detail**: PokeAPI has Vullaby encounters in Black and Rufflet in White. In the actual games, Rufflet is Black-exclusive and Vullaby is White-exclusive. The version assignments are inverted in the upstream data. Black 2/White 2 assignments appear correct.
-- **Found**: Round 15 (Audit — Tester O screenplay)
+- **Detail**: PokeAPI has Vullaby encounters in Black and Rufflet in White. In the actual games, Rufflet is Black-exclusive and Vullaby is White-exclusive. Fixed via encounter override that swaps version_id assignments during seed.
+- **Found**: Round 15 (Audit — Tester O screenplay), Fixed: Round 15
 
 ### E003: Seafoam Islands meta.total disagrees with data length
 - **Status**: WONTFIX (not reproducible)

@@ -35,6 +35,10 @@ pub fn apply_overrides(conn: &mut Connection) -> Result<()> {
         .context("Failed to apply pokemon overrides")?;
     eprintln!("  pokemon overrides applied: {pokemon_count}");
 
+    let encounter_count = apply_encounter_overrides(conn)
+        .context("Failed to apply encounter overrides")?;
+    eprintln!("  encounter overrides applied: {encounter_count}");
+
     Ok(())
 }
 
@@ -113,6 +117,53 @@ fn apply_pokemon_overrides(conn: &mut Connection) -> Result<usize> {
                     count += rows;
                 }
             }
+        }
+    }
+
+    tx.commit()?;
+    Ok(count)
+}
+
+/// Fix encounter version assignments where PokeAPI has them swapped.
+/// E005: Vullaby/Rufflet are swapped in Black/White.
+fn apply_encounter_overrides(conn: &mut Connection) -> Result<usize> {
+    let tx = conn.transaction()?;
+    let mut count = 0;
+
+    // E005: Vullaby encounters assigned to Black but should be White;
+    // Rufflet encounters assigned to White but should be Black.
+    let black_id: Option<i64> = tx.query_row(
+        "SELECT id FROM versions WHERE name = 'black'",
+        [], |row| row.get(0),
+    ).ok();
+    let white_id: Option<i64> = tx.query_row(
+        "SELECT id FROM versions WHERE name = 'white'",
+        [], |row| row.get(0),
+    ).ok();
+
+    if let (Some(black), Some(white)) = (black_id, white_id) {
+        let vullaby_pid: Option<i64> = tx.query_row(
+            "SELECT p.id FROM pokemon p JOIN species s ON s.id = p.species_id \
+             WHERE s.name = 'vullaby' AND p.is_default = 1",
+            [], |row| row.get(0),
+        ).ok();
+        let rufflet_pid: Option<i64> = tx.query_row(
+            "SELECT p.id FROM pokemon p JOIN species s ON s.id = p.species_id \
+             WHERE s.name = 'rufflet' AND p.is_default = 1",
+            [], |row| row.get(0),
+        ).ok();
+
+        if let (Some(vullaby), Some(rufflet)) = (vullaby_pid, rufflet_pid) {
+            // Vullaby: Black → White
+            count += tx.execute(
+                "UPDATE encounters SET version_id = ?1 WHERE pokemon_id = ?2 AND version_id = ?3",
+                rusqlite::params![white, vullaby, black],
+            )?;
+            // Rufflet: White → Black
+            count += tx.execute(
+                "UPDATE encounters SET version_id = ?1 WHERE pokemon_id = ?2 AND version_id = ?3",
+                rusqlite::params![black, rufflet, white],
+            )?;
         }
     }
 

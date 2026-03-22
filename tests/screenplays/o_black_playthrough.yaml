@@ -721,11 +721,11 @@ steps:
       exit_code: 0
       equals: { "data.species_name": "bouffalant", "data.status": "caught" }
 
-  - name: "Victory Road -- catch Vullaby"
-    command: "pokedex collection add --pokemon=vullaby --game=black --method=catch"
+  - name: "Victory Road -- catch Rufflet (Black-exclusive)"
+    command: "pokedex collection add --pokemon=rufflet --game=black --method=catch"
     assert:
       exit_code: 0
-      equals: { "data.species_name": "vullaby", "data.status": "caught" }
+      equals: { "data.species_name": "rufflet", "data.status": "caught" }
 
   - name: "Victory Road -- catch Sawk"
     command: "pokedex collection add --pokemon=sawk --game=black --method=catch"

@@ -1,0 +1,218 @@
+name: HATEOAS Discovery Walker
+persona: A
+description: "Navigate purely via action links, testing discovery, pagination, error recovery, and link completeness"
+needs_seed: true
+mutates_collection: false
+
+steps:
+  - name: "Discovery:_root_no_args"
+    command: pokedex
+    assert:
+      exit_code: 0
+      has_fields: [data.name, data.entry_points, data.resources, actions]
+      equals: {data.name: pokedex}
+      type_of: {data.resources: array, data.entry_points: array}
+
+  - name: "Follow_entry_point:_pokemon_list"
+    command: pokedex pokemon list
+    assert:
+      exit_code: 0
+      has_fields: [data, actions, meta.total, meta.limit, meta.offset]
+      equals: {meta.offset: 0, meta.limit: 50}
+      array_len: {data: {min: 50, max: 50}}
+      type_of: {actions: array}
+
+  - name: "Pagination:_next_page"
+    command: pokedex pokemon list --limit=50 --offset=50
+    assert:
+      exit_code: 0
+      has_fields: [actions, meta.total, meta.limit, meta.offset]
+      equals: {meta.offset: 50, meta.limit: 50}
+      array_len: {data: {min: 50, max: 50}}
+
+  - name: "Follow_show_action:_pikachu"
+    command: pokedex pokemon show pikachu
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.name, data.types, data.stats, data.abilities, actions]
+      equals: {data.name: pikachu, data.id: 25, data.generation: 1}
+      type_of: {data.stats: object, data.abilities: array}
+
+  - name: Follow_evolutions_action
+    command: pokedex pokemon evolutions pikachu
+    assert:
+      exit_code: 0
+      has_fields: [data.species_name, data.children, actions]
+      equals: {data.species_name: pichu}
+      array_len: {data.children: {min: 1, max: 1}}
+      type_of: {actions: array}
+
+  - name: Follow_type_matchups_action
+    command: pokedex type matchups electric
+    assert:
+      exit_code: 0
+      has_fields: [data.type_name, data.attacking, data.defending, actions]
+      equals: {data.type_name: electric, data.display_name: Electric}
+      array_len: {data.attacking.super_effective: {min: 2, max: 2}}
+
+  - name: Follow_all_types_action
+    command: pokedex type list
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      array_len: {data: {min: 18}}
+      type_of: {actions: array}
+
+  - name: "Error_recovery:_typo_pikachuu"
+    command: pokedex pokemon show pikachuu
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {actions.0.cmd: pikachu}
+      array_len: {actions: {min: 1}}
+
+  - name: "Error_recovery:_typo_charzard"
+    command: pokedex pokemon show charzard
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {actions.0.cmd: charizard}
+
+  - name: "Follow_entry_point:_game_list"
+    command: pokedex game list
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      array_len: {data: {min: 10}}
+      type_of: {data: array, actions: array}
+
+  - name: "Follow_game_show_action:_scarlet"
+    command: pokedex game show scarlet
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.name, data.connects_to_home, actions]
+      equals: {data.name: scarlet, data.generation: 9, data.connects_to_home: true}
+
+  - name: "Error_recovery:_typo_mewto"
+    command: pokedex pokemon show mewto
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {actions.0.cmd: mewtwo}
+
+  - name: "Follow_entry_point:_dex_list"
+    command: pokedex dex list
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      array_len: {data: {min: 10}}
+      type_of: {data: array}
+
+  - name: "Follow_dex_show_action:_kanto"
+    command: pokedex dex show kanto
+    assert:
+      exit_code: 0
+      has_fields: [data, actions, meta.total, meta.limit, meta.offset]
+      equals: {meta.total: 151, meta.offset: 0}
+      array_len: {data: {min: 50, max: 50}}
+
+  - name: Follow_collection_stats
+    command: pokedex collection stats
+    assert:
+      exit_code: 0
+      has_fields: [data.total_entries, data.unique_species, data.by_status, data.by_game, actions]
+      type_of: {data.by_status: array, data.by_game: array}
+
+  - name: "Pagination:_dex_kanto_page_2"
+    command: pokedex dex show kanto --limit=50 --offset=50
+    assert:
+      exit_code: 0
+      has_fields: [actions]
+      equals: {meta.offset: 50, meta.total: 151}
+      array_len: {data: {min: 50, max: 50}}
+
+  - name: Follow_collection_list
+    command: pokedex collection list
+    assert:
+      exit_code: 0
+      has_fields: [data, actions, meta.total]
+      type_of: {data: array, actions: array}
+
+  - name: "Pagination:_kanto_last_page"
+    command: pokedex dex show kanto --limit=50 --offset=150
+    assert:
+      exit_code: 0
+      equals: {data.0.name: mew}
+      array_len: {data: {min: 1, max: 1}}
+
+  - name: "Follow_encounters_action:_pikachu"
+    command: pokedex pokemon encounters pikachu
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      array_len: {data: {min: 10}}
+      type_of: {data: array, actions: array}
+
+  - name: "Follow_filter_game:_encounters_yellow"
+    command: pokedex pokemon encounters pikachu --game=yellow
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      equals: {data.0.game: Yellow, data.0.method: Receive as a gift}
+      array_len: {data: {min: 1, max: 1}}
+
+  - name: "Follow_type_pokemon:_electric"
+    command: pokedex type pokemon electric
+    assert:
+      exit_code: 0
+      has_fields: [data, actions, meta.total]
+      equals: {meta.total: 69, meta.offset: 0}
+      array_len: {data: {min: 50, max: 50}}
+
+  - name: "Follow_entry_point:_home_status"
+    command: pokedex home status
+    assert:
+      exit_code: 0
+      has_fields: [data.total_in_home, data.unique_species_in_home, actions]
+      type_of: {data.by_game_origin: array}
+
+  - name: "Follow_forms_action:_pikachu"
+    command: pokedex pokemon forms pikachu
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      array_len: {data: {min: 10}}
+      type_of: {data: array}
+
+  - name: Follow_home_coverage_action
+    command: pokedex home coverage
+    assert:
+      exit_code: 0
+      has_fields: [data.dex_name, data.total, data.caught, data.percentage, actions]
+      equals: {data.total: 1025, data.dex_name: national}
+
+  - name: "Follow_moves_action:_pikachu"
+    command: pokedex pokemon moves pikachu
+    assert:
+      exit_code: 0
+      has_fields: [data, actions, meta.total]
+      equals: {meta.total: 1075}
+      array_len: {data: {min: 50, max: 50}}
+
+  - name: Follow_collection_show_action
+    command: pokedex collection show 5
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game, data.status, actions]
+      equals: {data.id: 5, data.species_name: pikachu}
+
+  - name: "Error:_invalid_type_filter"
+    command: pokedex pokemon list --type-filter=dragn
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {actions.0.cmd: type list}

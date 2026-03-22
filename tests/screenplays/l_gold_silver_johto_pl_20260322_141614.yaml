@@ -1,0 +1,116 @@
+name: Gold Silver Johto Playthrough
+persona: L
+description: "Complete Johto playthrough in Gold, catching pokemon route by route"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  - name: Discover Route 29 encounters
+    command: pokedex location encounters johto-route-29 --game=gold
+    assert:
+      exit_code: 0
+      has_fields: [data, actions, meta]
+      contains: {meta.command: location encounters}
+      array_len: {data: {min: 5}}
+
+  - name: Inspect Sentret
+    command: pokedex pokemon show sentret
+    assert:
+      exit_code: 0
+      has_fields: [data.name, data.types, actions]
+      equals: {data.name: sentret}
+      contains: {data.types.0: Normal}
+
+  - name: Catch Sentret on Route 29
+    command: pokedex collection add --pokemon=sentret --game=gold --method=catch
+    capture: {sentret_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, actions]
+      equals: {data.status: caught}
+
+  - name: Catch Pidgey on Route 29
+    command: pokedex collection add --pokemon=pidgey --game=gold --method=catch
+    capture: {pidgey_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+      equals: {data.method: catch}
+
+  - name: Discover Route 30 encounters
+    command: pokedex location encounters johto-route-30 --game=gold
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+      contains: {meta.command: route-30}
+      array_len: {data: {min: 10}}
+
+  - name: Catch Caterpie on Route 30
+    command: pokedex collection add --pokemon=caterpie --game=gold --method=catch
+    capture: {caterpie_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.status]
+      equals: {data.species_name: caterpie}
+
+  - name: Check Caterpie evolution chain
+    command: pokedex pokemon evolutions caterpie
+    assert:
+      exit_code: 0
+      has_fields: [data.children]
+      equals: {data.species_name: caterpie}
+      contains: {data.children.0.species_name: metapod}
+
+  - name: Discover Dark Cave encounters
+    command: pokedex location encounters dark-cave --game=gold
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+      contains: {data.0.location: Dark Cave}
+      array_len: {data: {min: 20}}
+
+  - name: Catch Geodude in Dark Cave
+    command: pokedex collection add --pokemon=geodude --game=gold --method=catch
+    capture: {geodude_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+      equals: {data.game: gold}
+
+  - name: First stats check
+    command: pokedex collection stats --game=gold
+    assert:
+      exit_code: 0
+      has_fields: [data.total_entries, data.unique_species, data.by_status]
+      type_of: {data.total_entries: number}
+
+  - name: Catch Gastly in Sprout Tower
+    command: pokedex collection add --pokemon=gastly --game=gold --method=catch
+    capture: {gastly_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+      equals: {data.species_name: gastly}
+
+  - name: Catch Mareep on Route 32
+    command: pokedex collection add --pokemon=mareep --game=gold --method=catch
+    capture: {mareep_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.method]
+      equals: {data.method: catch}
+
+  - name: Catch Onix in Union Cave
+    command: pokedex collection add --pokemon=onix --game=gold --method=catch
+    capture: {onix_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.display_name]
+      equals: {data.species_name: onix}
+
+  - name: Catch Oddish in Ilex Forest
+    command: pokedex collection add --pokemon=oddish --game=gold --method=catch
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+      equals: {data.game: gold}

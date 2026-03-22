@@ -271,7 +271,7 @@ steps:
       has_fields: ["data.0.move_name"]
 
   - name: "Follow filter_egg action"
-    command: "pokedex pokemon moves pikachu --method=egg --limit=5"
+    command: "pokedex pokemon moves pichu --method=egg --limit=5"
     assert:
       exit_code: 0
       array_len: {"data": {"min": 1}}

@@ -1,0 +1,257 @@
+name: Error and Edge Case Tester
+persona: D
+description: "Try to break the CLI with invalid inputs, edge cases, and error scenarios"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  - name: Non-existent pokemon name
+    command: pokedex pokemon show zzzznotreal
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      array_len: {actions: {min: 1, max: 10}}
+
+  - name: Negative pokemon ID
+    command: pokedex pokemon show -999
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      array_len: {actions: {min: 1, max: 5}}
+
+  - name: Misspelled pokemon name fuzzy match
+    command: pokedex pokemon show pikachoo
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {"actions[0].cmd": pikachu}
+
+  - name: Invalid type filter
+    command: pokedex pokemon list --type-filter=plasma
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {error.message: plasma}
+
+  - name: Invalid generation 99
+    command: pokedex pokemon list --generation=99
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {error.message: "99"}
+
+  - name: Limit zero
+    command: pokedex pokemon list --limit=0
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {error.message: Limit must be at least 1}
+
+  - name: Invalid game filter
+    command: pokedex pokemon encounters pikachu --game=fakegame
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: fakegame}
+
+  - name: Invalid collection status
+    command: pokedex collection add --pokemon=pikachu --game=sword --status=invalid_status
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {error.message: invalid_status}
+      array_len: {actions: {min: 5, max: 5}}
+
+  - name: Invalid collection method
+    command: pokedex collection add --pokemon=pikachu --game=sword --method=hacking
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {error.message: hacking}
+      array_len: {actions: {min: 8, max: 8}}
+
+  - name: Remove non-existent collection ID
+    command: pokedex collection remove 999999
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: "999999"}
+
+  - name: Non-existent dex
+    command: pokedex dex show fake-dex
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: fake-dex}
+
+  - name: Show non-existent collection entry
+    command: pokedex collection show 999999
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: "999999"}
+
+  - name: Invalid category filter
+    command: pokedex pokemon list --category=ultra_beast
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {error.message: ultra_beast}
+
+  - name: Invalid move method
+    command: pokedex pokemon moves pikachu --method=telepathy
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {error.message: telepathy}
+      array_len: {actions: {min: 1, max: 20}}
+
+  - name: Type matchups invalid type
+    command: pokedex type matchups plasma
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: plasma}
+
+  - name: Invalid form name in collection add
+    command: pokedex collection add --pokemon=pikachu --game=sword --form=mega-ultra --dry-run
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {"actions[0].cmd": pokedex pokemon forms pikachu}
+
+  - name: Non-existent game show
+    command: pokedex game show fakegame
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: fakegame}
+      array_len: {actions: {min: 1, max: 10}}
+
+  - name: Collection add non-existent pokemon
+    command: pokedex collection add --pokemon=notapokemon --game=sword --dry-run
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: notapokemon}
+
+  - name: Non-existent location encounters
+    command: pokedex location encounters nonexistent-place
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      array_len: {actions: {min: 1, max: 5}}
+
+  - name: Update non-existent collection entry
+    command: pokedex collection update 999999 --status=caught --dry-run
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: "999999"}
+
+  - name: Dex progress invalid status
+    command: pokedex dex progress national --status=invalid_status
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      contains: {error.message: invalid_status}
+      array_len: {actions: {min: 5, max: 5}}
+
+  - name: Home transferable non-existent pokemon
+    command: pokedex home transferable notapokemon
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      array_len: {actions: {min: 1, max: 5}}
+
+  - name: Pokemon show ID zero
+    command: pokedex pokemon show 0
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      array_len: {actions: {min: 1, max: 5}}
+
+  - name: Pokemon show very large ID
+    command: pokedex pokemon show 99999
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      array_len: {actions: {min: 1, max: 5}}
+
+  - name: Collection add dry-run valid
+    command: pokedex collection add --pokemon=bulbasaur --game=sword --dry-run
+    assert:
+      exit_code: 0
+      has_fields: [data.pokemon, data.game, data.dry_run, actions]
+      equals: {data.dry_run: true}
+
+  - name: Collection list invalid status
+    command: pokedex collection list --status=invalid_status
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: INVALID_PARAMETER}
+      array_len: {actions: {min: 5, max: 5}}
+
+  - name: Home missing invalid dex
+    command: pokedex home missing --dex=nonexistent
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: nonexistent}
+
+  - name: Collection add then verify
+    command: pokedex collection add --pokemon=bulbasaur --game=sword
+    capture: {added_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game, data.status, actions]
+      equals: {data.status: caught}
+
+  - name: Remove just-added entry
+    command: pokedex collection remove $added_id
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.removed, actions]
+      equals: {data.removed: true}
+
+  - name: Type pokemon with invalid type
+    command: pokedex type pokemon plasma
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: plasma}
+
+  - name: Evolutions for non-existent pokemon
+    command: pokedex pokemon evolutions notreal
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      array_len: {actions: {min: 1, max: 10}}

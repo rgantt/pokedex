@@ -69,8 +69,17 @@ struct ArrayBound {
 fn resolve_path<'a>(json: &'a Value, path: &str) -> Option<&'a Value> {
     let mut current = json;
     for segment in path.split('.') {
-        // Handle array index like "data.0.species.name"
-        if let Ok(idx) = segment.parse::<usize>() {
+        // Handle bracket notation like "data.types[0]" or "actions[2].cmd"
+        if let Some(bracket_start) = segment.find('[') {
+            let key = &segment[..bracket_start];
+            let idx_str = &segment[bracket_start + 1..segment.len() - 1];
+            if !key.is_empty() {
+                current = current.get(key)?;
+            }
+            let idx: usize = idx_str.parse().ok()?;
+            current = current.get(idx)?;
+        } else if let Ok(idx) = segment.parse::<usize>() {
+            // Handle dot notation like "data.0.species.name"
             current = current.get(idx)?;
         } else {
             current = current.get(segment)?;
@@ -100,6 +109,48 @@ fn substitute_vars(cmd: &str, vars: &HashMap<String, String>) -> String {
     result
 }
 
+// ---- Shell-style argument splitting ----
+
+fn shell_split(input: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut chars = input.chars().peekable();
+    let mut in_double_quote = false;
+    let mut in_single_quote = false;
+
+    while let Some(c) = chars.next() {
+        match c {
+            '"' if !in_single_quote => {
+                in_double_quote = !in_double_quote;
+            }
+            '\'' if !in_double_quote => {
+                in_single_quote = !in_single_quote;
+            }
+            '\\' if in_double_quote => {
+                if let Some(&next) = chars.peek() {
+                    if next == '"' || next == '\\' {
+                        current.push(chars.next().unwrap());
+                    } else {
+                        current.push('\\');
+                    }
+                }
+            }
+            c if c.is_whitespace() && !in_double_quote && !in_single_quote => {
+                if !current.is_empty() {
+                    args.push(std::mem::take(&mut current));
+                }
+            }
+            _ => {
+                current.push(c);
+            }
+        }
+    }
+    if !current.is_empty() {
+        args.push(current);
+    }
+    args
+}
+
 // ---- Assertion evaluation ----
 
 struct StepResult {
@@ -111,21 +162,15 @@ fn evaluate_step(step: &Step, vars: &mut HashMap<String, String>) -> StepResult 
     let mut failures = Vec::new();
     let command_str = substitute_vars(&step.command, vars);
 
-    // Parse command into program + args
-    let parts: Vec<&str> = command_str.split_whitespace().collect();
+    // Parse command into program + args (supports shell-style quoting)
+    let parts = shell_split(&command_str);
     if parts.is_empty() {
         failures.push("Empty command".to_string());
         return StepResult { step_name: step.name.clone(), failures };
     }
 
-    // Handle flags with = (e.g., --game=sword)
-    let mut args: Vec<String> = Vec::new();
-    for part in &parts[1..] {
-        args.push(part.to_string());
-    }
-
-    let output = Command::new(parts[0])
-        .args(&args)
+    let output = Command::new(&parts[0])
+        .args(&parts[1..])
         .output();
 
     let output = match output {

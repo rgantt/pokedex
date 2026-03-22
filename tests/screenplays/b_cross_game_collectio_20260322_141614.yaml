@@ -1,0 +1,188 @@
+name: Cross-Game Collection Builder
+persona: B
+description: "Build collections across multiple games, test HOME transfers, filtering, and status tracking"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  - name: Add Pikachu to Sword
+    command: pokedex collection add --pokemon=pikachu --game=sword --status=caught --method=catch
+    capture: {pikachu_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game, data.status]
+      equals: {data.species_name: pikachu, data.game: sword, data.status: caught}
+
+  - name: Add Charizard to Sword as living_dex
+    command: pokedex collection add --pokemon=charizard --game=sword --status=living_dex --method=breed
+    capture: {charizard_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.status, data.method]
+      equals: {data.status: living_dex, data.method: breed}
+
+  - name: Add Eevee to Scarlet
+    command: pokedex collection add --pokemon=eevee --game=scarlet --status=caught --method=catch
+    capture: {eevee_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game]
+      equals: {data.species_name: eevee, data.game: scarlet}
+
+  - name: Add Garchomp to Brilliant Diamond
+    command: pokedex collection add --pokemon=garchomp --game=brilliant-diamond --status=caught --method=catch
+    capture: {garchomp_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game]
+      equals: {data.species_name: garchomp, data.game: brilliant-diamond}
+
+  - name: Add alpha Rowlet to Legends Arceus
+    command: pokedex collection add --pokemon=rowlet --game=legends-arceus --status=caught --method=catch --alpha
+    capture: {rowlet_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.is_alpha, data.game]
+      equals: {data.is_alpha: true, data.game: legends-arceus}
+
+  - name: Add Lucario to Legends ZA
+    command: pokedex collection add --pokemon=lucario --game=legends-za --status=living_dex --method=catch
+    capture: {lucario_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game, data.status]
+      equals: {data.game: legends-za, data.status: living_dex}
+
+  - name: Add Gengar to Sword as traded_away
+    command: pokedex collection add --pokemon=gengar --game=sword --status=traded_away --method=trade
+    capture: {gengar_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.status]
+      equals: {data.status: traded_away, data.method: trade}
+
+  - name: Add Dragapult to Scarlet
+    command: pokedex collection add --pokemon=dragapult --game=scarlet --status=caught --method=catch
+    capture: {dragapult_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game]
+      equals: {data.species_name: dragapult, data.game: scarlet}
+
+  - name: Add Sylveon evolved in Sword
+    command: pokedex collection add --pokemon=sylveon --game=sword --status=evolved --method=breed
+    capture: {sylveon_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.status, data.method]
+      equals: {data.status: evolved, data.species_name: sylveon}
+
+  - name: Add Steelix traded in Brilliant Diamond
+    command: pokedex collection add --pokemon=steelix --game=brilliant-diamond --status=caught --method=trade
+    capture: {steelix_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game]
+      equals: {data.species_name: steelix, data.game: brilliant-diamond}
+
+  - name: Add Hisuian Growlithe to Legends Arceus
+    command: pokedex collection add --pokemon=growlithe-hisui --game=legends-arceus --status=caught --method=catch
+    capture: {growlithe_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.display_name, data.form_name]
+      equals: {data.display_name: Hisuian Growlithe, data.form_name: hisui}
+
+  - name: Add Mewtwo transferred to HOME
+    command: pokedex collection add --pokemon=mewtwo --game=brilliant-diamond --status=transferred --method=transfer --in-home
+    capture: {mewtwo_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.in_home, data.status]
+      equals: {data.in_home: true, data.status: transferred}
+
+  - name: Add Ralts to Legends ZA
+    command: pokedex collection add --pokemon=ralts --game=legends-za --status=caught --method=catch
+    capture: {ralts_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.game]
+      equals: {data.species_name: ralts, data.game: legends-za}
+
+  - name: Transfer Pikachu to HOME
+    command: pokedex collection update --status=transferred --in-home=true $pikachu_id
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.in_home, data.status]
+      equals: {data.in_home: true, data.status: transferred}
+
+  - name: Update Garchomp method to breed
+    command: pokedex collection update --method=breed $garchomp_id
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.method]
+      equals: {data.method: breed}
+
+  - name: Stats filtered by Sword
+    command: pokedex collection stats --game=sword
+    assert:
+      exit_code: 0
+      has_fields: [data.total_entries, data.unique_species, data.by_status]
+      type_of: {data.by_status: array}
+
+  - name: List collection sorted by dex
+    command: pokedex collection list --sort=dex
+    assert:
+      exit_code: 0
+      has_fields: [data, actions, meta.total]
+      type_of: {data: array}
+
+  - name: Check HOME status
+    command: pokedex home status
+    assert:
+      exit_code: 0
+      has_fields: [data.total_in_home, data.unique_species_in_home, data.by_game_origin]
+      type_of: {data.by_game_origin: array}
+
+  - name: Check HOME coverage
+    command: pokedex home coverage
+    assert:
+      exit_code: 0
+      has_fields: [data.dex_name, data.total, data.caught, data.percentage]
+      equals: {data.dex_name: national}
+
+  - name: HOME missing shows owned_elsewhere correctly
+    command: pokedex home missing --limit=5 --offset=1
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+      array_len: {data: {min: 5, max: 5}}
+      type_of: {data: array}
+
+  - name: Stats filtered by Scarlet
+    command: pokedex collection stats --game=scarlet
+    assert:
+      exit_code: 0
+      has_fields: [data.total_entries, data.unique_species, data.by_status]
+      type_of: {data.by_status: array}
+
+  - name: Invalid game error has recovery actions
+    command: pokedex collection stats --game=fakegame
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+
+  - name: List Legends Arceus collection sorted by dex
+    command: pokedex collection list --game=legends-arceus --sort=dex
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+      type_of: {data: array}
+
+  - name: Update Garchomp game to scarlet
+    command: pokedex collection update --game=scarlet $garchomp_id
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.game]
+      equals: {data.game: scarlet}

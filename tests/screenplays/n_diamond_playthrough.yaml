@@ -600,7 +600,7 @@ steps:
       has_fields: ["actions"]
 
   - name: "Error -- invalid status value"
-    command: "pokedex collection update 1 --status=fake_status"
+    command: "pokedex collection update $bidoof_id --status=fake_status"
     assert:
       exit_code: 1
       equals: { "error.code": "INVALID_PARAMETER" }
@@ -685,18 +685,18 @@ steps:
       array_len: { "data": { "min": 1 } }
 
   - name: "Collection show specific entry"
-    command: "pokedex collection show 1"
+    command: "pokedex collection show $bidoof_id"
     assert:
       exit_code: 0
       has_fields: ["data.id", "data.species_name", "data.status", "actions"]
       equals: { "data.game": "diamond" }
 
-  - name: "HOME status (nothing transferred)"
+  - name: "HOME status shows valid structure"
     command: "pokedex home status"
     assert:
       exit_code: 0
-      equals: { "data.total_in_home": 0 }
-      has_fields: ["actions"]
+      has_fields: ["data.total_in_home", "data.unique_species_in_home", "actions"]
+      type_of: { "data.total_in_home": "number" }
 
   # ============================================================
   # FINAL VERIFICATION

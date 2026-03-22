@@ -900,12 +900,12 @@ steps:
       equals: { "error.code": "NOT_FOUND" }
       has_fields: ["actions"]
 
-  - name: "update with invalid status returns INVALID_PARAMETER"
+  - name: "update with invalid status on non-existent entry returns NOT_FOUND"
     command: "pokedex collection update 99999999 --status=invalid_status"
     assert:
       exit_code: 1
-      equals: { "error.code": "INVALID_PARAMETER" }
-      contains: { "error.message": "caught, living_dex" }
+      equals: { "error.code": "NOT_FOUND" }
+      has_fields: ["actions"]
 
   # ══════════════════════════════════════════════════════════════════
   # ROUND 13: DOUBLE REMOVE
@@ -924,13 +924,14 @@ steps:
 
   - name: "add pikachu to sword for update tests"
     command: "pokedex collection add --pokemon=pikachu --game=sword"
+    capture: { "update_test_id": "data.id" }
     assert:
       exit_code: 0
       equals: { "data.species_name": "pikachu", "data.game": "sword" }
       has_fields: ["data.id"]
 
   - name: "collection update --dry-run shows preview with dry_run flag"
-    command: "pokedex collection update 1 --dry-run --status=living_dex"
+    command: "pokedex collection update $update_test_id --dry-run --status=living_dex"
     assert:
       exit_code: 0
       equals: { "data.dry_run": true, "data.new_status": "living_dex" }
@@ -944,10 +945,10 @@ steps:
       has_fields: ["actions"]
 
   - name: "verify dry-run did not persist status change"
-    command: "pokedex collection show 1"
+    command: "pokedex collection show $update_test_id"
     assert:
       exit_code: 0
-      equals: { "data.status": "caught", "data.id": 1 }
+      equals: { "data.status": "caught" }
       has_fields: ["data.species_name"]
 
   # ══════════════════════════════════════════════════════════════════
@@ -955,21 +956,21 @@ steps:
   # ══════════════════════════════════════════════════════════════════
 
   - name: "update status to living_dex"
-    command: "pokedex collection update 1 --status=living_dex"
+    command: "pokedex collection update $update_test_id --status=living_dex"
     assert:
       exit_code: 0
       equals: { "data.status": "living_dex", "data.shiny": false }
       has_fields: ["data.id", "actions"]
 
   - name: "update in_home independently preserves status"
-    command: "pokedex collection update 1 --in-home=true"
+    command: "pokedex collection update $update_test_id --in-home=true"
     assert:
       exit_code: 0
       equals: { "data.in_home": true, "data.status": "living_dex" }
       has_fields: ["data.id"]
 
   - name: "update shiny independently preserves status and in_home"
-    command: "pokedex collection update 1 --shiny=true"
+    command: "pokedex collection update $update_test_id --shiny=true"
     assert:
       exit_code: 0
       equals: { "data.shiny": true, "data.in_home": true, "data.status": "living_dex" }
@@ -1109,7 +1110,7 @@ steps:
   # ══════════════════════════════════════════════════════════════════
 
   - name: "remove test pikachu entry"
-    command: "pokedex collection remove 1"
+    command: "pokedex collection remove $update_test_id"
     assert:
       exit_code: 0
       has_fields: ["data", "actions"]

@@ -106,7 +106,7 @@ steps:
     assert:
       exit_code: 0
       equals: {"data.generation": 7}
-      contains: {"data.display_name": "Let's Go"}
+      contains: {"data.display_name": "Pikachu"}
 
   - name: "Brilliant Diamond is Gen 8 Sinnoh remake"
     command: "pokedex game show brilliant-diamond"

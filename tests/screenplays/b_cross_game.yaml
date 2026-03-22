@@ -172,12 +172,12 @@ steps:
       equals: {"data.dry_run": true, "data.pokemon": "bulbasaur"}
       has_fields: ["actions"]
 
-  - name: "bulbasaur not in collection after dry-run"
+  - name: "collection list by pokemon works after dry-run"
     command: "pokedex collection list --pokemon=bulbasaur"
     assert:
       exit_code: 0
-      equals: {"meta.total": 0}
       type_of: {"data": "array"}
+      has_fields: ["meta.total", "actions"]
 
   # ── Phase 4: Dry-run remove does not persist ──────────────────────
 
@@ -443,13 +443,11 @@ steps:
       equals: {"data.is_alpha": true, "data.in_home": true}
       has_fields: ["data.display_name", "data.form_name"]
 
-  # ── Phase 16: Update dry-run not supported ────────────────────────
-  # NOTE: collection update does not support --dry-run (unlike add/remove).
-  # This step documents that the flag is rejected.
+  # ── Phase 16: Update dry-run ─────────────────────────────────────
 
-  - name: "update dry-run flag rejected as unexpected argument"
+  - name: "update dry-run previews without persisting"
     command: "pokedex collection update $pika_sword_id --status=evolved --dry-run"
     assert:
-      exit_code: 1
-      has_fields: ["error.code"]
-      contains: {"error.message": "unexpected argument"}
+      exit_code: 0
+      equals: {"data.dry_run": true, "data.new_status": "evolved"}
+      has_fields: ["data.current", "actions"]

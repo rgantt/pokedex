@@ -1,0 +1,172 @@
+name: Alpha and Form Specialist
+persona: G
+description: "Test alpha catches, form data, Hisuian/regional forms, and Z-A wild zones"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  - name: Add alpha Growlithe in Legends Arceus
+    command: pokedex collection add --pokemon growlithe --game legends-arceus --alpha
+    capture: {growlithe_entry_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.is_alpha, data.species_name, data.game]
+      equals: {data.is_alpha: true, data.game: legends-arceus}
+      type_of: {data.id: number}
+
+  - name: Add alpha Snorlax in Legends Arceus
+    command: pokedex collection add --pokemon snorlax --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.is_alpha, data.species_name]
+      equals: {data.is_alpha: true, data.species_name: snorlax}
+
+  - name: Add alpha Parasect in Legends Arceus
+    command: pokedex collection add --pokemon parasect --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.is_alpha, data.species_name]
+      equals: {data.is_alpha: true, data.species_name: parasect}
+
+  - name: Add alpha Rapidash in Legends Arceus
+    command: pokedex collection add --pokemon rapidash --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.is_alpha, data.species_name]
+      equals: {data.is_alpha: true, data.species_name: rapidash}
+
+  - name: Add alpha Walrein in Legends Arceus
+    command: pokedex collection add --pokemon walrein --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.id, actions]
+      equals: {data.is_alpha: true, data.species_name: walrein}
+
+  - name: Add alpha Steelix in Legends Arceus
+    command: pokedex collection add --pokemon steelix --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.id, actions]
+      equals: {data.is_alpha: true, data.species_name: steelix}
+
+  - name: Add alpha Machoke in Legends Arceus
+    command: pokedex collection add --pokemon machoke --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.id, actions]
+      equals: {data.is_alpha: true, data.species_name: machoke}
+
+  - name: Add alpha Gyarados in Legends Arceus
+    command: pokedex collection add --pokemon gyarados --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.id, actions]
+      equals: {data.is_alpha: true, data.species_name: gyarados}
+
+  - name: Add alpha Heracross in Legends Arceus
+    command: pokedex collection add --pokemon heracross --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.id, actions]
+      equals: {data.is_alpha: true, data.species_name: heracross}
+
+  - name: Add alpha Garchomp in Legends Arceus
+    command: pokedex collection add --pokemon garchomp --game legends-arceus --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.id, actions]
+      equals: {data.is_alpha: true, data.species_name: garchomp}
+
+  - name: Verify alpha Growlithe in collection show
+    command: pokedex collection show $growlithe_entry_id
+    assert:
+      exit_code: 0
+      has_fields: [data.is_alpha, data.species_name, data.game]
+      equals: {data.is_alpha: true, data.species_name: growlithe, data.game: legends-arceus}
+      type_of: {data.id: number}
+
+  - name: Verify Hisuian Growlithe is_default false
+    command: pokedex pokemon forms growlithe
+    assert:
+      exit_code: 0
+      has_fields: [data]
+      equals: {"data[1].is_default": false, "data[1].name": growlithe-hisui, "data[0].is_default": true}
+      array_len: {data: {min: 2, max: 2}}
+
+  - name: Rotom alternate forms are not is_default
+    command: pokedex pokemon forms rotom
+    assert:
+      exit_code: 0
+      equals: {"data[0].is_default": true, "data[0].display_name": Rotom, "data[1].is_default": false, "data[2].is_default": false}
+      array_len: {data: {min: 6, max: 6}}
+
+  - name: Deoxys alternate forms are not is_default
+    command: pokedex pokemon forms deoxys
+    assert:
+      exit_code: 0
+      equals: {"data[0].is_default": true, "data[1].is_default": false, "data[2].is_default": false, "data[3].is_default": false}
+      array_len: {data: {min: 4, max: 4}}
+
+  - name: Castform default form display_name is species name
+    command: pokedex pokemon forms castform
+    assert:
+      exit_code: 0
+      equals: {"data[0].is_default": true, "data[0].display_name": Castform, "data[1].is_default": false, "data[2].is_default": false}
+      array_len: {data: {min: 4, max: 4}}
+
+  - name: Snorlax encounters in PLA have alpha_levels
+    command: pokedex pokemon encounters snorlax --game legends-arceus
+    assert:
+      exit_code: 0
+      has_fields: ["data[0].details.alpha_levels", "data[0].location"]
+      equals: {"data[0].game_slug": legends-arceus}
+      array_len: {data: {min: 1, max: 20}}
+
+  - name: Z-A encounters use Wild Zone locations
+    command: pokedex pokemon encounters pikachu --game legends-za
+    assert:
+      exit_code: 0
+      has_fields: ["data[0].location", "data[0].details"]
+      equals: {"data[0].game_slug": legends-za}
+      contains: {"data[0].location": Wild Zone}
+      array_len: {data: {min: 1, max: 10}}
+
+  - name: Hisuian Growlithe shows Fire/Rock types
+    command: pokedex pokemon show growlithe-hisui
+    assert:
+      exit_code: 0
+      has_fields: [data.types, data.display_name, data.stats]
+      equals: {data.display_name: Hisuian Growlithe}
+      contains: {"data.types[0]": Fire}
+      array_len: {data.types: {min: 2, max: 2}}
+
+  - name: Alpha in Sword gets warning
+    command: pokedex collection add --pokemon pikachu --game sword --alpha
+    assert:
+      exit_code: 0
+      has_fields: [data.warning, data.is_alpha]
+      equals: {data.is_alpha: true}
+      contains: {data.warning: Alpha}
+
+  - name: Z-A encounters also have alpha_levels
+    command: pokedex pokemon encounters eevee --game legends-za
+    assert:
+      exit_code: 0
+      has_fields: ["data[0].details.alpha_levels"]
+      equals: {"data[0].game_slug": legends-za}
+      contains: {"data[0].location": Wild Zone}
+
+  - name: Wild Zone 1 location encounters in Z-A
+    command: pokedex location encounters wild-zone-1 --game legends-za
+    assert:
+      exit_code: 0
+      has_fields: ["data[0].location", "data[0].details.alpha_levels", meta.total]
+      equals: {"data[0].location": Wild Zone 1, "data[0].game_slug": legends-za}
+      array_len: {data: {min: 1, max: 50}}
+
+  - name: Deoxys default form has Normal prefix in forms
+    command: pokedex pokemon forms deoxys
+    assert:
+      exit_code: 0
+      has_fields: ["data[0].form_name"]
+      equals: {"data[0].is_default": true, "data[0].display_name": Normal Deoxys, "data[0].name": deoxys-normal}

@@ -1,0 +1,159 @@
+name: Competitive Pokemon Analyst
+persona: E
+description: "Build competitive team in Scarlet, verify stats, moves, egg groups, types, and encounters"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  - name: Garchomp BST 600
+    command: pokedex pokemon show garchomp
+    assert:
+      exit_code: 0
+      has_fields: [data.stats, data.types, data.egg_groups]
+      equals: {data.stats.total: 600, "data.types[0]": Dragon, "data.types[1]": Ground}
+
+  - name: Dragonite BST 600
+    command: pokedex pokemon show dragonite
+    assert:
+      exit_code: 0
+      has_fields: [data.stats, data.egg_groups]
+      equals: {data.stats.total: 600, "data.egg_groups[0]": Water 1}
+
+  - name: Tyranitar BST 600
+    command: pokedex pokemon show tyranitar
+    assert:
+      exit_code: 0
+      has_fields: [data.stats, data.abilities]
+      equals: {data.stats.total: 600, "data.types[0]": Rock, "data.types[1]": Dark}
+
+  - name: Garchomp level-up moves in Scarlet
+    command: pokedex pokemon moves garchomp --game=scarlet --method=level-up
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+      contains: {"data[0].game": scarlet}
+      array_len: {data: {min: 10, max: 20}}
+
+  - name: Garchomp encounters in Scarlet
+    command: pokedex pokemon encounters garchomp --game=scarlet
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      contains: {"data[0].game": Scarlet}
+      array_len: {data: {min: 1, max: 10}}
+
+  - name: Dragon type matchups
+    command: pokedex type matchups dragon
+    assert:
+      exit_code: 0
+      has_fields: [data.attacking, data.defending]
+      equals: {data.type_name: dragon}
+      contains: {"data.attacking.no_effect[0]": Fairy}
+
+  - name: Garchomp forms with Mega
+    command: pokedex pokemon forms garchomp
+    assert:
+      exit_code: 0
+      has_fields: [data]
+      equals: {"data[0].is_default": true, "data[1].is_mega": true}
+      array_len: {data: {min: 2, max: 5}}
+
+  - name: Mega Garchomp stats BST 700
+    command: pokedex pokemon show garchomp-mega
+    assert:
+      exit_code: 0
+      has_fields: [data.stats, data.abilities]
+      equals: {data.stats.total: 700, data.display_name: Mega Garchomp}
+
+  - name: Misspelled pokemon error recovery
+    command: pokedex pokemon show garchompp
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message, actions]
+      equals: {error.code: NOT_FOUND}
+      contains: {"actions[0].cmd": garchomp}
+
+  - name: Dragonite level-up moves in Scarlet
+    command: pokedex pokemon moves dragonite --game=scarlet --method=level-up
+    assert:
+      exit_code: 0
+      has_fields: [data, meta.total]
+      contains: {"data[0].learn_method": level-up}
+      array_len: {data: {min: 15, max: 25}}
+
+  - name: Collection add dry-run with breed method
+    command: pokedex collection add --pokemon=garchomp --game=scarlet --method=breed --dry-run
+    assert:
+      exit_code: 0
+      has_fields: [data.pokemon, data.method, data.dry_run]
+      equals: {data.method: breed, data.dry_run: true}
+
+  - name: Invalid game name error
+    command: pokedex pokemon moves garchomp --game=fakegame
+    assert:
+      exit_code: 1
+      has_fields: [error.code, actions]
+      equals: {error.code: NOT_FOUND}
+      array_len: {actions: {min: 1, max: 5}}
+
+  - name: Gible encounters with probability data
+    command: pokedex pokemon encounters gible --game=scarlet
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      contains: {"data[0].details.probability_overall": "%"}
+      array_len: {data: {min: 5, max: 15}}
+
+  - name: Salamence BST 600
+    command: pokedex pokemon show salamence
+    assert:
+      exit_code: 0
+      has_fields: [data.stats, data.egg_groups]
+      equals: {data.stats.total: 600, "data.types[0]": Dragon, "data.types[1]": Flying}
+
+  - name: Metagross BST 600 Steel/Psychic
+    command: pokedex pokemon show metagross
+    assert:
+      exit_code: 0
+      has_fields: [data.stats, data.egg_groups]
+      equals: {data.stats.total: 600, "data.types[0]": Steel, "data.types[1]": Psychic}
+
+  - name: Garchomp evolution chain
+    command: pokedex pokemon evolutions garchomp
+    assert:
+      exit_code: 0
+      has_fields: [data.species_name, data.children]
+      equals: {data.species_name: gible}
+      contains: {"data.children[0].methods[0].trigger_detail": Level 24}
+
+  - name: Steel type matchups for coverage
+    command: pokedex type matchups steel
+    assert:
+      exit_code: 0
+      has_fields: [data.attacking, data.defending]
+      contains: {"data.defending.no_effect[0]": Poison}
+      array_len: {data.defending.not_very_effective: {min: 8, max: 12}}
+
+  - name: Gigantamax Charizard form
+    command: pokedex pokemon show charizard-gmax
+    assert:
+      exit_code: 0
+      has_fields: [data.stats, data.types]
+      equals: {data.display_name: Gigantamax Charizard, "data.types[0]": Fire}
+      contains: {data.generation: "8"}
+
+  - name: Add Garchomp to collection via breed
+    command: pokedex collection add --pokemon=garchomp --game=scarlet --method=breed
+    capture: {entry_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name, data.method]
+      equals: {data.method: breed, data.game: scarlet}
+
+  - name: Collection stats after adding
+    command: pokedex collection stats
+    assert:
+      exit_code: 0
+      has_fields: [data.total_entries, data.by_game, data.by_status]
+      array_len: {data.by_game: {min: 1, max: 20}}
+      type_of: {data.total_entries: number}

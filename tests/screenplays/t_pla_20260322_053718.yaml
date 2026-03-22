@@ -149,8 +149,8 @@ steps:
     command: "pokedex pokemon evolutions graveler"
     assert:
       exit_code: 0
-      equals: { "data.children.0.species_name": "golem" }
-      contains: { "data.children.0.methods.0.trigger": "trade" }
+      equals: { "data.children.0.children.0.species_name": "golem" }
+      contains: { "data.children.0.children.0.methods.0.trigger": "trade" }
 
   - name: "Evolve Graveler to Golem via Linking Cord"
     command: "pokedex collection add --pokemon=golem --game=legends-arceus --method=evolve"

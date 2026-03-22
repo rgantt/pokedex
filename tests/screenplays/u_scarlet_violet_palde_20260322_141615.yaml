@@ -1,0 +1,114 @@
+name: Scarlet Violet Paldea Playthrough
+persona: U
+description: "Complete Paldea playthrough in Scarlet, catching pokemon area by area with probability verification"
+needs_seed: true
+mutates_collection: true
+
+steps:
+  - name: discover south province area 1 prairie
+    command: pokedex location encounters south-province-area-one-prairie --game=scarlet
+    assert:
+      exit_code: 0
+      has_fields: [data, actions, meta]
+      array_len: {data: {min: 1}}
+      type_of: {data: array}
+
+  - name: inspect lechonk
+    command: pokedex pokemon show lechonk
+    assert:
+      exit_code: 0
+      has_fields: [data.name, data.types]
+      equals: {data.name: lechonk}
+      contains: {data.types.0: Normal}
+
+  - name: catch lechonk
+    command: pokedex collection add --pokemon=lechonk --game=scarlet --method=catch
+    capture: {lechonk_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: catch fletchling
+    command: pokedex collection add --pokemon=fletchling --game=scarlet --method=catch
+    capture: {fletchling_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: catch tarountula
+    command: pokedex collection add --pokemon=tarountula --game=scarlet --method=catch
+    capture: {tarountula_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: catch pawmi
+    command: pokedex collection add --pokemon=pawmi --game=scarlet --method=catch
+    capture: {pawmi_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: lechonk evolutions
+    command: pokedex pokemon evolutions lechonk
+    assert:
+      exit_code: 0
+      has_fields: [data.species_name, data.children]
+      equals: {data.species_name: lechonk}
+      array_len: {data.children: {min: 1, max: 1}}
+
+  - name: discover south province area 2 prairie
+    command: pokedex location encounters south-province-area-two-prairie --game=scarlet
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      array_len: {data: {min: 1}}
+
+  - name: catch mareep
+    command: pokedex collection add --pokemon=mareep --game=scarlet --method=catch
+    capture: {mareep_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: catch maschiff
+    command: pokedex collection add --pokemon=maschiff --game=scarlet --method=catch
+    capture: {maschiff_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: catch starly
+    command: pokedex collection add --pokemon=starly --game=scarlet --method=catch
+    capture: {starly_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: discover south province area 3
+    command: pokedex location encounters south-province-area-three-rocky-area --game=scarlet
+    assert:
+      exit_code: 0
+      has_fields: [data, actions]
+      array_len: {data: {min: 5}}
+
+  - name: catch shinx
+    command: pokedex collection add --pokemon=shinx --game=scarlet --method=catch
+    capture: {shinx_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: catch charcadet
+    command: pokedex collection add --pokemon=charcadet --game=scarlet --method=catch
+    capture: {charcadet_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]
+
+  - name: catch nacli
+    command: pokedex collection add --pokemon=nacli --game=scarlet --method=catch
+    capture: {nacli_id: data.id}
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.species_name]

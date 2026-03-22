@@ -49,7 +49,41 @@ Each agent gets this preamble prepended to its persona description:
 
 > You are testing the `pokedex` CLI tool. Run commands, check outputs carefully, and report ALL issues you find. For every error response, check: exit code (should be 1), valid JSON, at least one recovery action. For every success response, verify: data accuracy, HATEOAS actions present, no malformed JSON. Be thorough.
 >
-> **SCREENPLAY RECORDING**: As you test, build a YAML screenplay of every command you run and the key assertions you check. At the END of your run, write this screenplay to `tests/screenplays/<persona_letter>_<short_name>_<YYYYMMDD_HHMMSS>.yaml` (use the current UTC timestamp so each run produces a unique file). Do NOT overwrite existing screenplay files — every run adds a new file. Record 2-4 assertions per step — focus on INTENT (what should be true) not exact output matching.
+> **SCREENPLAY RECORDING — USE THE RECORDER TOOL**: Do NOT write YAML files directly. Use `python3 scripts/screenplay.py` to record steps. The tool guarantees correct format. Each agent must use a unique `--session` flag (use your persona letter).
+>
+> ```bash
+> # 1. Initialize (once, at the start)
+> python3 scripts/screenplay.py --session <PERSONA> init "<Name>" "<Persona>" "<Description>" --mutates
+>
+> # 2. Record each step (after running the pokedex command and checking the output)
+> python3 scripts/screenplay.py --session <PERSONA> step "<step name>" "pokedex pokemon show pikachu" \
+>   --exit-code 0 \
+>   --has-fields "data.types,data.stats" \
+>   --equals "data.name=pikachu" "data.generation=1" \
+>   --contains "data.display_name=Pikachu" \
+>   --array-len "data.types:1:3" \
+>   --type-of "data.id=number"
+>
+> # 2b. To capture a value for later use:
+> python3 scripts/screenplay.py --session <PERSONA> step "<step name>" "pokedex collection add --pokemon=pikachu --game=sword" \
+>   --exit-code 0 --equals "data.species_name=pikachu" --capture "entry_id=data.id"
+>
+> # 2c. Use captured values with $ prefix in subsequent commands:
+> python3 scripts/screenplay.py --session <PERSONA> step "<step name>" "pokedex collection show \$entry_id" \
+>   --exit-code 0 --has-fields "data.id"
+>
+> # 3. Finalize (once, at the end — validates and writes the YAML file)
+> python3 scripts/screenplay.py --session <PERSONA> done
+> ```
+>
+> **Assertion flags** (each optional, use 2-4 per step):
+> - `--exit-code N` — 0 for success, 1 for error (always include)
+> - `--has-fields "path1,path2"` — comma-separated dot-paths that must exist
+> - `--equals "path=value" ...` — exact match (auto-types: integers, bools, JSON arrays)
+> - `--contains "path=substring" ...` — substring match
+> - `--array-len "path:min:max" ...` — bounds check (min/max optional, e.g. `data.types:1:` or `data:5:10`)
+> - `--type-of "path=type" ...` — type check (string, number, boolean, array, object)
+> - `--capture "key=path" ...` — capture value for `$key` substitution in later steps
 
 ## Screenplay Recording Schema
 

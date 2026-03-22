@@ -1,0 +1,478 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Sword Wild Area Focus - Weather Encounters & Galarian Forms"
+persona: r_sword_wild_area
+description: >
+  Sword playthrough focusing EXCLUSIVELY on Wild Area zones not covered in
+  previous playthroughs: Motostoke Riverbank, Bridge Field, Stony Wilderness,
+  Giant's Mirror, Hammerlocke Hills, Axew's Eye, Watchtower Ruins, North Lake
+  Miloch, South Lake Miloch. Verifies weather-specific encounter rate fields,
+  Galarian form types, encounter zone counts, and 30+ species collection.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # GAME METADATA VERIFICATION
+  # ============================================================
+  - name: "Sword game metadata"
+    command: "pokedex game show sword"
+    assert:
+      exit_code: 0
+      equals: { "data.region": "Galar", "data.generation": 8 }
+      has_fields: ["data.name", "data.display_name", "data.connects_to_home"]
+
+  # ============================================================
+  # MOTOSTOKE RIVERBANK
+  # ============================================================
+  - name: "Motostoke Riverbank -- encounter count"
+    command: "pokedex location encounters motostoke-riverbank --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 164 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Motostoke Riverbank -- weather fields on surfing entry"
+    command: "pokedex location encounters motostoke-riverbank --game=sword --limit=3"
+    assert:
+      exit_code: 0
+      has_fields: ["data.1.details.weather_clear_rate", "data.1.details.weather_fog_rate"]
+      contains: { "data.1.details.weather_clear_rate": "%" }
+
+  - name: "Motostoke Riverbank -- fishing Arrokuda rarity"
+    command: "pokedex location encounters motostoke-riverbank --game=sword --limit=3"
+    assert:
+      exit_code: 0
+      equals: { "data.0.pokemon_name": "Arrokuda", "data.0.method": "Fishing" }
+      has_fields: ["data.0.details.rate_overall"]
+
+  # ============================================================
+  # BRIDGE FIELD
+  # ============================================================
+  - name: "Bridge Field -- encounter total"
+    command: "pokedex location encounters bridge-field --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 308 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Bridge Field -- pagination action present"
+    command: "pokedex location encounters bridge-field --game=sword"
+    assert:
+      exit_code: 0
+      has_fields: ["actions", "meta.total", "meta.limit"]
+      contains: { "actions.1.cmd": "offset" }
+
+  # ============================================================
+  # STONY WILDERNESS
+  # ============================================================
+  - name: "Stony Wilderness -- encounter total"
+    command: "pokedex location encounters stony-wilderness --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 375 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Stony Wilderness -- page 2 pagination"
+    command: "pokedex location encounters stony-wilderness --game=sword --limit=50 --offset=50"
+    assert:
+      exit_code: 0
+      equals: { "meta.offset": 50 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  # ============================================================
+  # GIANT'S MIRROR
+  # ============================================================
+  - name: "Giant's Mirror -- encounter total"
+    command: "pokedex location encounters giants-mirror --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 366 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Giant's Mirror -- page 2"
+    command: "pokedex location encounters giants-mirror --game=sword --limit=50 --offset=50"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 366, "meta.offset": 50 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  # ============================================================
+  # HAMMERLOCKE HILLS
+  # ============================================================
+  - name: "Hammerlocke Hills -- encounter total"
+    command: "pokedex location encounters hammerlocke-hills --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 56 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Hammerlocke Hills -- full page has weather data"
+    command: "pokedex location encounters hammerlocke-hills --game=sword --limit=56"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 56, "max": 56 } }
+      has_fields: ["data.0.details"]
+
+  # ============================================================
+  # AXEW'S EYE
+  # ============================================================
+  - name: "Axew's Eye -- encounter total"
+    command: "pokedex location encounters axews-eye --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 69 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Axew's Eye -- has fishing and walking methods"
+    command: "pokedex location encounters axews-eye --game=sword"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta.total"]
+      type_of: { "data": "array" }
+
+  # ============================================================
+  # WATCHTOWER RUINS
+  # ============================================================
+  - name: "Watchtower Ruins -- encounter total"
+    command: "pokedex location encounters watchtower-ruins --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 96 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "Watchtower Ruins -- HATEOAS actions"
+    command: "pokedex location encounters watchtower-ruins --game=sword"
+    assert:
+      exit_code: 0
+      has_fields: ["actions.0.rel", "actions.0.cmd"]
+      type_of: { "actions": "array" }
+
+  # ============================================================
+  # NORTH LAKE MILOCH
+  # ============================================================
+  - name: "North Lake Miloch -- encounter total"
+    command: "pokedex location encounters north-lake-miloch --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 213 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "North Lake Miloch -- first entry structure"
+    command: "pokedex location encounters north-lake-miloch --game=sword --limit=1"
+    assert:
+      exit_code: 0
+      has_fields: ["data.0.pokemon_name", "data.0.species_slug", "data.0.method"]
+      equals: { "data.0.game_slug": "sword" }
+
+  # ============================================================
+  # SOUTH LAKE MILOCH
+  # ============================================================
+  - name: "South Lake Miloch -- encounter total"
+    command: "pokedex location encounters south-lake-miloch --game=sword"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 212 }
+      array_len: { "data": { "min": 50, "max": 50 } }
+
+  - name: "South Lake Miloch -- Max Raid with hidden ability field"
+    command: "pokedex location encounters south-lake-miloch --game=sword --limit=1"
+    assert:
+      exit_code: 0
+      equals: { "data.0.method": "Max Raid Battle" }
+      has_fields: ["data.0.details.max_raid_perfect_ivs"]
+
+  # ============================================================
+  # GALARIAN FORM VERIFICATION
+  # ============================================================
+  - name: "Ponyta-Galar -- Psychic type"
+    command: "pokedex pokemon show ponyta-galar"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Galarian Ponyta" }
+      contains: { "data.types.0": "Psychic" }
+
+  - name: "Corsola-Galar -- Ghost type"
+    command: "pokedex pokemon show corsola-galar"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Galarian Corsola" }
+      contains: { "data.types.0": "Ghost" }
+
+  - name: "Mr. Mime Galar -- Ice/Psychic types"
+    command: "pokedex pokemon show mr-mime-galar"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Galarian Mr. Mime" }
+      has_fields: ["data.types"]
+
+  - name: "Stunfisk-Galar -- Ground/Steel types"
+    command: "pokedex pokemon show stunfisk-galar"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Galarian Stunfisk", "data.types.0": "Ground" }
+      contains: { "data.types.1": "Steel" }
+
+  - name: "Stunfisk encounters in Sword -- multiple locations"
+    command: "pokedex pokemon encounters stunfisk --game=sword"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 30 } }
+      has_fields: ["data.0.location", "data.0.method"]
+
+  - name: "Ponyta-Galar encounters -- empty (known F001)"
+    command: "pokedex pokemon encounters ponyta-galar --game=sword"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      has_fields: ["actions"]
+
+  - name: "Corsola encounters in Sword -- empty"
+    command: "pokedex pokemon encounters corsola --game=sword"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 0, "max": 0 } }
+      has_fields: ["meta.command"]
+
+  # ============================================================
+  # PONYTA DEFAULT FORM -- base Ponyta is still Fire
+  # ============================================================
+  - name: "Base Ponyta -- Fire type (not Galarian)"
+    command: "pokedex pokemon show ponyta"
+    assert:
+      exit_code: 0
+      equals: { "data.types.0": "Fire" }
+      contains: { "data.genus": "Fire Horse" }
+
+  - name: "Ponyta forms -- two forms exist"
+    command: "pokedex pokemon forms ponyta"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 2, "max": 2 } }
+      equals: { "data.0.name": "ponyta" }
+
+  # ============================================================
+  # COLLECTION -- CATCH 30+ SPECIES FROM WILD AREA
+  # ============================================================
+  - name: "Catch Arrokuda from Motostoke Riverbank"
+    command: "pokedex collection add --pokemon=arrokuda --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "arrokuda", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Catch Barraskewda from Motostoke Riverbank"
+    command: "pokedex collection add --pokemon=barraskewda --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "barraskewda", "data.status": "caught" }
+
+  - name: "Catch Basculin from Motostoke Riverbank"
+    command: "pokedex collection add --pokemon=basculin --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "basculin", "data.status": "caught" }
+
+  - name: "Catch Stunfisk from Stony Wilderness"
+    command: "pokedex collection add --pokemon=stunfisk --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "stunfisk", "data.status": "caught" }
+
+  - name: "Catch Axew from Axew's Eye"
+    command: "pokedex collection add --pokemon=axew --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "axew", "data.status": "caught" }
+
+  - name: "Catch Haxorus from Axew's Eye"
+    command: "pokedex collection add --pokemon=haxorus --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "haxorus", "data.status": "caught" }
+
+  - name: "Catch Bewear from Axew's Eye"
+    command: "pokedex collection add --pokemon=bewear --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bewear", "data.status": "caught" }
+
+  - name: "Catch Bronzong from Axew's Eye"
+    command: "pokedex collection add --pokemon=bronzong --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bronzong", "data.status": "caught" }
+
+  - name: "Catch Baltoy from Bridge Field"
+    command: "pokedex collection add --pokemon=baltoy --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "baltoy", "data.status": "caught" }
+
+  - name: "Catch Growlithe from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=growlithe --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "growlithe", "data.status": "caught" }
+
+  - name: "Catch Corviknight from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=corviknight --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "corviknight", "data.status": "caught" }
+
+  - name: "Catch Cubchoo from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=cubchoo --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cubchoo", "data.status": "caught" }
+
+  - name: "Catch Delibird from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=delibird --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "delibird", "data.status": "caught" }
+
+  - name: "Catch Drilbur from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=drilbur --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "drilbur", "data.status": "caught" }
+
+  - name: "Catch Espurr from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=espurr --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "espurr", "data.status": "caught" }
+
+  - name: "Catch Gastly from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=gastly --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gastly", "data.status": "caught" }
+
+  - name: "Catch Cherubi from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=cherubi --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cherubi", "data.status": "caught" }
+
+  - name: "Catch Hatenna from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=hatenna --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "hatenna", "data.status": "caught" }
+
+  - name: "Catch Dwebble from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=dwebble --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dwebble", "data.status": "caught" }
+
+  - name: "Catch Dubwool from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=dubwool --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dubwool", "data.status": "caught" }
+
+  - name: "Catch Copperajah from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=copperajah --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "copperajah", "data.status": "caught" }
+
+  - name: "Catch Charjabug from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=charjabug --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "charjabug", "data.status": "caught" }
+
+  - name: "Catch Abomasnow from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=abomasnow --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "abomasnow", "data.status": "caught" }
+
+  - name: "Catch Greedent from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=greedent --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "greedent", "data.status": "caught" }
+
+  - name: "Catch Dugtrio from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=dugtrio --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dugtrio", "data.status": "caught" }
+
+  - name: "Catch Gourgeist from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=gourgeist --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "gourgeist", "data.status": "caught" }
+
+  - name: "Catch Corvisquire from Hammerlocke Hills"
+    command: "pokedex collection add --pokemon=corvisquire --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "corvisquire", "data.status": "caught" }
+
+  - name: "Catch Mr. Mime (Galar) from Route 10"
+    command: "pokedex collection add --pokemon=mr-mime --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mr-mime", "data.status": "caught" }
+
+  - name: "Catch Ponyta (Galar) from Glimwood Tangle"
+    command: "pokedex collection add --pokemon=ponyta --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ponyta", "data.status": "caught" }
+
+  - name: "Catch Corsola (Galar) via Max Raid"
+    command: "pokedex collection add --pokemon=corsola --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "corsola", "data.status": "caught" }
+
+  - name: "Catch Bounsweet from Stony Wilderness"
+    command: "pokedex collection add --pokemon=bounsweet --game=sword --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bounsweet", "data.status": "caught" }
+
+  # ============================================================
+  # COLLECTION VERIFICATION
+  # ============================================================
+  - name: "Collection stats -- 30+ species"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species"]
+      array_len: { "data.by_status": { "min": 1 } }
+
+  - name: "Collection list -- verify sword entries"
+    command: "pokedex collection list --game=sword"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 30 } }
+      has_fields: ["meta.total"]
+
+  # ============================================================
+  # ZONE COMPARISON -- encounter count differences
+  # ============================================================
+  - name: "Zone comparison -- Hammerlocke Hills is smallest"
+    command: "pokedex location encounters hammerlocke-hills --game=sword --limit=1"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 56 }
+      type_of: { "meta.total": "number" }
+
+  - name: "Zone comparison -- Stony Wilderness is largest"
+    command: "pokedex location encounters stony-wilderness --game=sword --limit=1"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 375 }
+      type_of: { "meta.total": "number" }

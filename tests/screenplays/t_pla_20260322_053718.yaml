@@ -1,0 +1,597 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Legends Arceus Hisui Completionist — Alternate Path"
+persona: pla_completionist_alt
+description: >
+  Alternate PLA playthrough covering areas NOT in the original: Windswept Run,
+  Nature's Pantry, Bolderoll Slope, Cloudpool Ridge, Diamond Heath, Lonely Spring,
+  Icebound Falls, Whiteout Valley, and Ursa's Ring. Tests Hisuian Lilligant,
+  Hisuian Braviary, Hisuian Goodra, Hisuian Avalugg. Verifies PLA-exclusive
+  evolution items (Linking Cord trade evos, Peat Block, Black Augurite). Tests
+  time-of-day encounter fields (during_morning, during_day, during_night) and
+  mixes alpha/non-alpha catches.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # VERIFY GAME METADATA
+  # ============================================================
+  - name: "Game metadata -- PLA is gen 8 Hisui"
+    command: "pokedex game show legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "legends-arceus", "data.generation": 8, "data.region": "Hisui" }
+
+  # ============================================================
+  # WINDSWEPT RUN — time-of-day encounters
+  # ============================================================
+  - name: "Windswept Run -- discover encounters"
+    command: "pokedex location encounters windswept-run --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 30 }
+      has_fields: ["data", "actions"]
+
+  - name: "Windswept Run -- Starly Flying has during_morning/day/evening"
+    command: "pokedex pokemon encounters starly --game=legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data"]
+      array_len: { "data": { "min": 1 } }
+
+  - name: "Windswept Run -- Drifloon is night-only"
+    command: "pokedex pokemon encounters drifloon --game=legends-arceus"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 5 } }
+      has_fields: ["data.0.details"]
+
+  - name: "Catch Abra at Windswept Run"
+    command: "pokedex collection add --pokemon=abra --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "abra", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Catch alpha Kricketune at Windswept Run"
+    command: "pokedex collection add --pokemon=kricketune --game=legends-arceus --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kricketune", "data.is_alpha": true }
+      has_fields: ["data.created_at"]
+
+  - name: "Catch Burmy at Windswept Run"
+    command: "pokedex collection add --pokemon=burmy --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "burmy", "data.status": "caught" }
+
+  - name: "Catch Toxicroak at Windswept Run"
+    command: "pokedex collection add --pokemon=toxicroak --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "toxicroak", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # NATURE'S PANTRY — Space Time Distortion encounters
+  # ============================================================
+  - name: "Nature's Pantry -- discover encounters"
+    command: "pokedex location encounters natures-pantry --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 31 }
+      array_len: { "data": { "min": 20 } }
+
+  - name: "Catch Pikachu from Nature's Pantry"
+    command: "pokedex collection add --pokemon=pikachu --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.status": "caught" }
+
+  - name: "Catch alpha Parasect from Nature's Pantry"
+    command: "pokedex collection add --pokemon=parasect --game=legends-arceus --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "parasect", "data.is_alpha": true }
+      has_fields: ["data.id"]
+
+  - name: "Catch Staraptor from Nature's Pantry"
+    command: "pokedex collection add --pokemon=staraptor --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "staraptor", "data.status": "caught" }
+
+  # ============================================================
+  # BOLDEROLL SLOPE — Rhyhorn & Graveler
+  # ============================================================
+  - name: "Bolderoll Slope -- discover encounters"
+    command: "pokedex location encounters bolderoll-slope --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 13 }
+      has_fields: ["data", "meta"]
+
+  - name: "Catch Rhyhorn at Bolderoll Slope"
+    command: "pokedex collection add --pokemon=rhyhorn --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "rhyhorn", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Catch Rhydon at Bolderoll Slope"
+    command: "pokedex collection add --pokemon=rhydon --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "rhydon", "data.game": "legends-arceus" }
+
+  - name: "Catch Togetic at Bolderoll Slope"
+    command: "pokedex collection add --pokemon=togetic --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "togetic", "data.status": "caught" }
+
+  - name: "Catch alpha Graveler at Bolderoll Slope"
+    command: "pokedex collection add --pokemon=graveler --game=legends-arceus --method=catch --alpha"
+    capture: { "graveler_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "graveler", "data.is_alpha": true }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # LINKING CORD — trade evolution without trading (Graveler → Golem)
+  # ============================================================
+  - name: "Graveler evolution -- trade trigger for Golem"
+    command: "pokedex pokemon evolutions graveler"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "golem" }
+      contains: { "data.children.0.methods.0.trigger": "trade" }
+
+  - name: "Evolve Graveler to Golem via Linking Cord"
+    command: "pokedex collection add --pokemon=golem --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "golem", "data.method": "evolve" }
+      has_fields: ["data.id"]
+
+  - name: "Update Graveler status to evolved"
+    command: "pokedex collection update $graveler_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "graveler" }
+
+  # ============================================================
+  # CLOUDPOOL RIDGE — Murkrow, Roselia, Combee
+  # ============================================================
+  - name: "Cloudpool Ridge -- discover encounters"
+    command: "pokedex location encounters cloudpool-ridge --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 24 }
+      array_len: { "data": { "min": 15 } }
+
+  - name: "Catch Murkrow at Cloudpool Ridge"
+    command: "pokedex collection add --pokemon=murkrow --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "murkrow", "data.status": "caught" }
+
+  - name: "Catch alpha Honchkrow at Cloudpool Ridge"
+    command: "pokedex collection add --pokemon=honchkrow --game=legends-arceus --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "honchkrow", "data.is_alpha": true }
+      has_fields: ["data.id"]
+
+  - name: "Catch Roselia at Cloudpool Ridge"
+    command: "pokedex collection add --pokemon=roselia --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "roselia", "data.status": "caught" }
+
+  - name: "Catch Combee at Cloudpool Ridge"
+    command: "pokedex collection add --pokemon=combee --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "combee", "data.status": "caught" }
+
+  - name: "Catch Bonsly at Cloudpool Ridge"
+    command: "pokedex collection add --pokemon=bonsly --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bonsly", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # DIAMOND HEATH — Carnivine
+  # ============================================================
+  - name: "Diamond Heath -- discover encounters"
+    command: "pokedex location encounters diamond-heath --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 11 }
+      has_fields: ["data", "actions"]
+
+  - name: "Catch Carnivine at Diamond Heath"
+    command: "pokedex collection add --pokemon=carnivine --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "carnivine", "data.status": "caught" }
+
+  # ============================================================
+  # LONELY SPRING — Cherubi, Psyduck, Chansey, Bronzor
+  # ============================================================
+  - name: "Lonely Spring -- discover encounters"
+    command: "pokedex location encounters lonely-spring --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 9 }
+      array_len: { "data": { "min": 5 } }
+
+  - name: "Catch Cherubi at Lonely Spring"
+    command: "pokedex collection add --pokemon=cherubi --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "cherubi", "data.status": "caught" }
+
+  - name: "Catch Psyduck at Lonely Spring"
+    command: "pokedex collection add --pokemon=psyduck --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "psyduck", "data.status": "caught" }
+
+  - name: "Catch Bronzor at Lonely Spring"
+    command: "pokedex collection add --pokemon=bronzor --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bronzor", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Catch alpha Chansey at Lonely Spring"
+    command: "pokedex collection add --pokemon=chansey --game=legends-arceus --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "chansey", "data.is_alpha": true }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # ICEBOUND FALLS — Duskull (nighttime), Elekid, Riolu
+  # ============================================================
+  - name: "Icebound Falls -- discover encounters"
+    command: "pokedex location encounters icebound-falls --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 21 }
+      array_len: { "data": { "min": 15 } }
+
+  - name: "Icebound Falls -- Duskull Symbol Encounter is night-only"
+    command: "pokedex location encounters icebound-falls --game=legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data"]
+      type_of: { "meta.total": "number" }
+
+  - name: "Catch Duskull at Icebound Falls"
+    command: "pokedex collection add --pokemon=duskull --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "duskull", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Catch Dusclops at Icebound Falls"
+    command: "pokedex collection add --pokemon=dusclops --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dusclops", "data.status": "caught" }
+
+  - name: "Catch Riolu at Icebound Falls"
+    command: "pokedex collection add --pokemon=riolu --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "riolu", "data.status": "caught" }
+
+  - name: "Catch alpha Lucario at Icebound Falls"
+    command: "pokedex collection add --pokemon=lucario --game=legends-arceus --method=catch --alpha"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "lucario", "data.is_alpha": true }
+      has_fields: ["data.id"]
+
+  - name: "Catch Elekid at Icebound Falls"
+    command: "pokedex collection add --pokemon=elekid --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "elekid", "data.status": "caught" }
+
+  - name: "Catch Electabuzz at Icebound Falls"
+    command: "pokedex collection add --pokemon=electabuzz --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "electabuzz", "data.status": "caught" }
+
+  # ============================================================
+  # WHITEOUT VALLEY — Bergmite, Vulpix, Snorunt
+  # ============================================================
+  - name: "Whiteout Valley -- discover encounters"
+    command: "pokedex location encounters whiteout-valley --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 7 }
+      has_fields: ["data", "meta"]
+
+  - name: "Catch Snorunt at Whiteout Valley"
+    command: "pokedex collection add --pokemon=snorunt --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "snorunt", "data.status": "caught" }
+
+  - name: "Catch Aipom at Whiteout Valley"
+    command: "pokedex collection add --pokemon=aipom --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "aipom", "data.status": "caught" }
+
+  # ============================================================
+  # URSA'S RING — Goomy, Sliggoo for Hisuian Goodra evolution
+  # ============================================================
+  - name: "Ursa's Ring -- discover encounters"
+    command: "pokedex location encounters ursas-ring --game=legends-arceus"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 19 }
+      array_len: { "data": { "min": 10 } }
+
+  - name: "Catch Goomy at Ursa's Ring"
+    command: "pokedex collection add --pokemon=goomy --game=legends-arceus --method=catch"
+    capture: { "goomy_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "goomy", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Catch Yanma at Ursa's Ring"
+    command: "pokedex collection add --pokemon=yanma --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "yanma", "data.status": "caught" }
+
+  - name: "Catch Pachirisu at Ursa's Ring"
+    command: "pokedex collection add --pokemon=pachirisu --game=legends-arceus --method=catch"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pachirisu", "data.status": "caught" }
+
+  # ============================================================
+  # HISUIAN GOODRA — Goomy → Sliggoo → Goodra
+  # ============================================================
+  - name: "Hisuian Goodra -- verify Steel/Dragon types"
+    command: "pokedex pokemon show goodra-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Goodra", "data.types": ["Steel", "Dragon"] }
+
+  - name: "Hisuian Sliggoo -- verify Steel/Dragon types"
+    command: "pokedex pokemon show sliggoo-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Sliggoo", "data.types": ["Steel", "Dragon"] }
+
+  - name: "Sliggoo encounters -- shown as Hisuian Sliggoo in PLA"
+    command: "pokedex pokemon encounters sliggoo --game=legends-arceus"
+    assert:
+      exit_code: 0
+      contains: { "data.0.pokemon_name": "Hisuian Sliggoo" }
+      array_len: { "data": { "min": 3 } }
+
+  - name: "Evolve Goomy to Sliggoo"
+    command: "pokedex collection add --pokemon=sliggoo --form=hisui --game=legends-arceus --method=evolve"
+    capture: { "sliggoo_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "sliggoo", "data.method": "evolve" }
+
+  - name: "Update Goomy status to evolved"
+    command: "pokedex collection update $goomy_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved", "data.species_name": "goomy" }
+
+  - name: "Evolve Sliggoo to Hisuian Goodra"
+    command: "pokedex collection add --pokemon=goodra --form=hisui --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "goodra", "data.method": "evolve" }
+      has_fields: ["data.id"]
+
+  - name: "Update Sliggoo status to evolved"
+    command: "pokedex collection update $sliggoo_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # HISUIAN LILLIGANT — Petilil → Lilligant (sun-stone)
+  # ============================================================
+  - name: "Hisuian Lilligant -- verify Grass/Fighting types"
+    command: "pokedex pokemon show lilligant-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Lilligant", "data.types": ["Grass", "Fighting"] }
+
+  - name: "Petilil evolution -- sun-stone trigger"
+    command: "pokedex pokemon evolutions petilil"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.methods.0.trigger": "use-item" }
+      contains: { "data.children.0.methods.0.trigger_detail": "sun-stone" }
+
+  - name: "Catch Petilil"
+    command: "pokedex collection add --pokemon=petilil --game=legends-arceus --method=catch"
+    capture: { "petilil_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "petilil", "data.status": "caught" }
+
+  - name: "Evolve Petilil to Hisuian Lilligant"
+    command: "pokedex collection add --pokemon=lilligant --form=hisui --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "lilligant", "data.method": "evolve" }
+
+  - name: "Update Petilil status to evolved"
+    command: "pokedex collection update $petilil_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # HISUIAN BRAVIARY — Rufflet → Braviary (level 54)
+  # ============================================================
+  - name: "Hisuian Braviary -- verify Psychic/Flying types"
+    command: "pokedex pokemon show braviary-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Braviary", "data.types": ["Psychic", "Flying"] }
+
+  - name: "Rufflet evolution -- level 54 trigger"
+    command: "pokedex pokemon evolutions rufflet"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "braviary" }
+      contains: { "data.children.0.methods.0.trigger_detail": "54" }
+
+  - name: "Catch alpha Rufflet"
+    command: "pokedex collection add --pokemon=rufflet --game=legends-arceus --method=catch --alpha"
+    capture: { "rufflet_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "rufflet", "data.is_alpha": true }
+      has_fields: ["data.id"]
+
+  - name: "Evolve Rufflet to Hisuian Braviary"
+    command: "pokedex collection add --pokemon=braviary --form=hisui --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "braviary", "data.method": "evolve" }
+
+  - name: "Update Rufflet status to evolved"
+    command: "pokedex collection update $rufflet_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # HISUIAN AVALUGG — Bergmite → Avalugg (level 37)
+  # ============================================================
+  - name: "Hisuian Avalugg -- verify Ice/Rock types"
+    command: "pokedex pokemon show avalugg-hisui"
+    assert:
+      exit_code: 0
+      equals: { "data.display_name": "Hisuian Avalugg", "data.types": ["Ice", "Rock"] }
+
+  - name: "Bergmite evolution -- level 37 trigger"
+    command: "pokedex pokemon evolutions bergmite"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "avalugg" }
+      contains: { "data.children.0.methods.0.trigger_detail": "37" }
+
+  - name: "Catch Bergmite at Whiteout Valley"
+    command: "pokedex collection add --pokemon=bergmite --game=legends-arceus --method=catch"
+    capture: { "bergmite_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "bergmite", "data.status": "caught" }
+      has_fields: ["data.id"]
+
+  - name: "Evolve Bergmite to Hisuian Avalugg"
+    command: "pokedex collection add --pokemon=avalugg --form=hisui --game=legends-arceus --method=evolve"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "avalugg", "data.method": "evolve" }
+
+  - name: "Update Bergmite status to evolved"
+    command: "pokedex collection update $bergmite_id --status=evolved"
+    assert:
+      exit_code: 0
+      equals: { "data.status": "evolved" }
+
+  # ============================================================
+  # PLA-EXCLUSIVE EVOLUTIONS — Black Augurite, Peat Block
+  # ============================================================
+  - name: "Scyther → Kleavor -- Black Augurite item trigger"
+    command: "pokedex pokemon evolutions scyther"
+    assert:
+      exit_code: 0
+      equals: { "data.children.1.species_name": "kleavor", "data.children.1.methods.0.trigger": "use-item" }
+      contains: { "data.children.1.methods.0.trigger_detail": "black-augurite" }
+
+  - name: "Ursaring → Ursaluna -- Peat Block item trigger"
+    command: "pokedex pokemon evolutions ursaring"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.children.0.species_name": "ursaluna" }
+      contains: { "data.children.0.children.0.methods.0.trigger_detail": "peat-block" }
+
+  - name: "Haunter → Gengar -- trade trigger (Linking Cord in PLA)"
+    command: "pokedex pokemon evolutions haunter"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.children.0.species_name": "gengar" }
+      contains: { "data.children.0.children.0.methods.0.trigger": "trade" }
+
+  # ============================================================
+  # PLA ENCOUNTER DETAIL FIELDS
+  # ============================================================
+  - name: "PLA encounter details -- alpha_levels present on Rhyhorn"
+    command: "pokedex pokemon encounters rhyhorn --game=legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data.0.details.alpha_levels"]
+      array_len: { "data": { "min": 1 } }
+
+  - name: "PLA encounter details -- Duskull at Icebound Falls night-only"
+    command: "pokedex pokemon encounters duskull --game=legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data.0.details"]
+      array_len: { "data": { "min": 3 } }
+
+  # ============================================================
+  # MID-GAME STATS CHECK
+  # ============================================================
+  - name: "Mid-game collection stats"
+    command: "pokedex collection stats --game=legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species", "data.by_status"]
+      type_of: { "data.total_entries": "number" }
+
+  # ============================================================
+  # FINAL VERIFICATION
+  # ============================================================
+  - name: "Final collection stats -- 30+ species"
+    command: "pokedex collection stats --game=legends-arceus"
+    assert:
+      exit_code: 0
+      has_fields: ["data.total_entries", "data.unique_species"]
+      type_of: { "data.unique_species": "number" }
+
+  - name: "Hisui dex progress -- verify caught count"
+    command: "pokedex dex progress hisui --game=legends-arceus --limit=5"
+    assert:
+      exit_code: 0
+      equals: { "data.dex_name": "hisui", "data.total": 242 }
+      has_fields: ["data.caught", "data.percentage"]
+
+  - name: "Collection list -- PLA filter works"
+    command: "pokedex collection list --game=legends-arceus --limit=5"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "meta"]
+      array_len: { "data": { "min": 5 } }

@@ -1,0 +1,675 @@
+# Screenplays are CHEAP regression tests produced by exploratory test agents.
+# If a step fails, investigate: is it a real bug (fix the code) or a stale
+# assertion (update or delete this file)? The INTENT matters, not the exact
+# implementation. Don't contort the CLI to make a stale screenplay pass.
+name: "Red Playthrough - Water Routes, Fishing, Power Plant, Cerulean Cave"
+persona: red_alternate
+description: >
+  Alternate Red playthrough focusing on water routes 19-21 (Seafoam to
+  Cinnabar), fishing encounters in Cerulean City and Fuchsia City, Safari
+  Zone fishing deep dive, Power Plant electric paradise, Cerulean Cave
+  post-game, and Red version exclusives (Ekans, Growlithe, Scyther,
+  Electabuzz). Targets 30+ species from areas NOT covered in previous
+  Red playthroughs.
+needs_seed: true
+mutates_collection: true
+
+steps:
+  # ============================================================
+  # AREA 1: Sea Route 19 — surfing & fishing south of Fuchsia
+  # ============================================================
+  - name: "Sea Route 19 -- discover encounters"
+    command: "pokedex location encounters kanto-sea-route-19 --game=red"
+    assert:
+      exit_code: 0
+      has_fields: ["data", "actions", "meta"]
+      equals: { "meta.total": 14 }
+
+  - name: "Sea Route 19 -- inspect Tentacool (surf encounter)"
+    command: "pokedex pokemon show tentacool"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "tentacool", "data.generation": 1, "data.types": ["Water", "Poison"] }
+
+  - name: "Sea Route 19 -- catch Tentacool"
+    command: "pokedex collection add --pokemon=tentacool --game=red --method=catch"
+    capture: { "tentacool_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tentacool", "data.status": "caught" }
+      has_fields: ["data.id", "data.created_at"]
+
+  - name: "Sea Route 19 -- catch Staryu via Super Rod"
+    command: "pokedex collection add --pokemon=staryu --game=red --method=catch"
+    capture: { "staryu_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "staryu", "data.game": "red" }
+
+  # ============================================================
+  # AREA 2: Sea Route 20 — Seafoam to Cinnabar
+  # ============================================================
+  - name: "Sea Route 20 -- discover encounters"
+    command: "pokedex location encounters kanto-sea-route-20 --game=red"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 14 }
+      array_len: { "data": { "min": 10, "max": 14 } }
+
+  - name: "Sea Route 20 -- catch Shellder via fishing"
+    command: "pokedex collection add --pokemon=shellder --game=red --method=catch"
+    capture: { "shellder_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "shellder", "data.status": "caught" }
+
+  - name: "Sea Route 20 -- catch Horsea via fishing"
+    command: "pokedex collection add --pokemon=horsea --game=red --method=catch"
+    capture: { "horsea_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "horsea" }
+      has_fields: ["data.id"]
+
+  # ============================================================
+  # AREA 3: Sea Route 21 — Cinnabar to Pallet
+  # ============================================================
+  - name: "Sea Route 21 -- discover encounters"
+    command: "pokedex location encounters kanto-sea-route-21 --game=red"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 24 }
+      has_fields: ["data", "meta.command"]
+
+  - name: "Sea Route 21 -- inspect Tangela (rare grass encounter)"
+    command: "pokedex pokemon show tangela"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "tangela", "data.types": ["Grass"] }
+      has_fields: ["data.stats"]
+
+  - name: "Sea Route 21 -- catch Tangela"
+    command: "pokedex collection add --pokemon=tangela --game=red --method=catch"
+    capture: { "tangela_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tangela", "data.status": "caught" }
+
+  # ============================================================
+  # AREA 4: Cerulean City — fishing encounters
+  # ============================================================
+  - name: "Cerulean City -- discover fishing encounters"
+    command: "pokedex location encounters cerulean-city --game=red"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 6 }
+      array_len: { "data": { "min": 6, "max": 6 } }
+
+  - name: "Cerulean City -- catch Psyduck via Super Rod"
+    command: "pokedex collection add --pokemon=psyduck --game=red --method=catch"
+    capture: { "psyduck_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "psyduck", "data.status": "caught" }
+
+  - name: "Cerulean City -- catch Krabby via fishing"
+    command: "pokedex collection add --pokemon=krabby --game=red --method=catch"
+    capture: { "krabby_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "krabby" }
+      has_fields: ["data.id", "data.game"]
+
+  # ============================================================
+  # AREA 5: Fuchsia City — fishing encounters
+  # ============================================================
+  - name: "Fuchsia City -- discover encounters"
+    command: "pokedex location encounters fuchsia-city --game=red"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 7 }
+      has_fields: ["data", "actions"]
+
+  - name: "Fuchsia City -- catch Seaking via Super Rod"
+    command: "pokedex collection add --pokemon=seaking --game=red --method=catch"
+    capture: { "seaking_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "seaking", "data.game": "red" }
+
+  - name: "Fuchsia City -- catch Poliwag via Good Rod"
+    command: "pokedex collection add --pokemon=poliwag --game=red --method=catch"
+    capture: { "poliwag_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "poliwag", "data.status": "caught" }
+
+  # ============================================================
+  # AREA 6: Safari Zone — fishing deep dive
+  # ============================================================
+  - name: "Safari Zone -- discover encounters (page 1)"
+    command: "pokedex location encounters kanto-safari-zone --game=red"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 68 }
+      has_fields: ["actions"]
+
+  - name: "Safari Zone -- page 2 encounters"
+    command: "pokedex location encounters kanto-safari-zone --game=red --limit=50 --offset=50"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 15, "max": 20 } }
+      has_fields: ["meta.offset"]
+
+  - name: "Safari Zone -- catch Dratini via Super Rod fishing"
+    command: "pokedex collection add --pokemon=dratini --game=red --method=catch"
+    capture: { "dratini_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dratini", "data.status": "caught" }
+
+  - name: "Dratini -- check evolution chain"
+    command: "pokedex pokemon evolutions dratini"
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dratini", "data.children.0.species_name": "dragonair" }
+      has_fields: ["data.children.0.children.0.species_name"]
+
+  - name: "Safari Zone -- catch Kangaskhan (rare)"
+    command: "pokedex collection add --pokemon=kangaskhan --game=red --method=catch"
+    capture: { "kangaskhan_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kangaskhan" }
+      has_fields: ["data.id"]
+
+  - name: "Safari Zone -- catch Tauros (rare)"
+    command: "pokedex collection add --pokemon=tauros --game=red --method=catch"
+    capture: { "tauros_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "tauros", "data.status": "caught" }
+
+  - name: "Safari Zone -- catch Rhyhorn"
+    command: "pokedex collection add --pokemon=rhyhorn --game=red --method=catch"
+    capture: { "rhyhorn_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "rhyhorn" }
+
+  - name: "Safari Zone -- catch Slowpoke via Super Rod"
+    command: "pokedex collection add --pokemon=slowpoke --game=red --method=catch"
+    capture: { "slowpoke_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "slowpoke", "data.game": "red" }
+
+  - name: "Safari Zone -- catch Exeggcute"
+    command: "pokedex collection add --pokemon=exeggcute --game=red --method=catch"
+    capture: { "exeggcute_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "exeggcute", "data.status": "caught" }
+
+  # ============================================================
+  # AREA 7: Power Plant — electric paradise
+  # ============================================================
+  - name: "Power Plant -- discover encounters"
+    command: "pokedex location encounters power-plant --game=red"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 13 }
+      has_fields: ["data", "meta"]
+
+  - name: "Power Plant -- catch Voltorb"
+    command: "pokedex collection add --pokemon=voltorb --game=red --method=catch"
+    capture: { "voltorb_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "voltorb", "data.status": "caught" }
+
+  - name: "Power Plant -- catch Magnemite"
+    command: "pokedex collection add --pokemon=magnemite --game=red --method=catch"
+    capture: { "magnemite_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "magnemite" }
+      has_fields: ["data.id"]
+
+  - name: "Power Plant -- catch Pikachu"
+    command: "pokedex collection add --pokemon=pikachu --game=red --method=catch"
+    capture: { "pikachu_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "pikachu", "data.game": "red" }
+
+  - name: "Pikachu -- inspect type"
+    command: "pokedex pokemon show pikachu"
+    assert:
+      exit_code: 0
+      equals: { "data.types": ["Electric"], "data.name": "pikachu" }
+      has_fields: ["data.stats"]
+
+  - name: "Power Plant -- catch Electabuzz (Red exclusive)"
+    command: "pokedex collection add --pokemon=electabuzz --game=red --method=catch"
+    capture: { "electabuzz_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "electabuzz", "data.status": "caught" }
+
+  - name: "Electabuzz -- verify Red-exclusive encounter"
+    command: "pokedex pokemon encounters electabuzz --game=red"
+    assert:
+      exit_code: 0
+      contains: { "data.0.location": "Power Plant" }
+      array_len: { "data": { "min": 2, "max": 2 } }
+
+  - name: "Power Plant -- catch Zapdos (legendary)"
+    command: "pokedex collection add --pokemon=zapdos --game=red --method=catch"
+    capture: { "zapdos_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "zapdos", "data.status": "caught" }
+
+  - name: "Zapdos -- verify legendary status"
+    command: "pokedex pokemon show zapdos"
+    assert:
+      exit_code: 0
+      equals: { "data.is_legendary": true, "data.types": ["Electric", "Flying"] }
+
+  # ============================================================
+  # AREA 8: Seafoam Islands — ice cave encounters
+  # ============================================================
+  - name: "Seafoam Islands -- discover encounters"
+    command: "pokedex location encounters seafoam-islands --game=red"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 65 }
+      has_fields: ["data", "actions"]
+
+  - name: "Seafoam Islands -- catch Seel"
+    command: "pokedex collection add --pokemon=seel --game=red --method=catch"
+    capture: { "seel_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "seel", "data.status": "caught" }
+
+  - name: "Seafoam Islands -- catch Dewgong"
+    command: "pokedex collection add --pokemon=dewgong --game=red --method=catch"
+    capture: { "dewgong_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "dewgong" }
+
+  - name: "Seafoam Islands -- catch Articuno (legendary)"
+    command: "pokedex collection add --pokemon=articuno --game=red --method=catch"
+    capture: { "articuno_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "articuno", "data.status": "caught" }
+
+  # ============================================================
+  # AREA 9: Cerulean Cave — post-game high-level
+  # ============================================================
+  - name: "Cerulean Cave -- discover encounters"
+    command: "pokedex location encounters cerulean-cave --game=red"
+    assert:
+      exit_code: 0
+      equals: { "meta.total": 45 }
+      has_fields: ["data", "meta"]
+
+  - name: "Cerulean Cave -- catch Ditto"
+    command: "pokedex collection add --pokemon=ditto --game=red --method=catch"
+    capture: { "ditto_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ditto", "data.status": "caught" }
+
+  - name: "Cerulean Cave -- catch Kadabra"
+    command: "pokedex collection add --pokemon=kadabra --game=red --method=catch"
+    capture: { "kadabra_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "kadabra" }
+      has_fields: ["data.id"]
+
+  - name: "Cerulean Cave -- catch Rhydon"
+    command: "pokedex collection add --pokemon=rhydon --game=red --method=catch"
+    capture: { "rhydon_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "rhydon", "data.status": "caught" }
+
+  - name: "Cerulean Cave -- catch Wigglytuff"
+    command: "pokedex collection add --pokemon=wigglytuff --game=red --method=catch"
+    capture: { "wigglytuff_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "wigglytuff" }
+
+  - name: "Cerulean Cave -- catch Mewtwo (legendary)"
+    command: "pokedex collection add --pokemon=mewtwo --game=red --method=catch"
+    capture: { "mewtwo_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mewtwo", "data.status": "caught" }
+
+  - name: "Mewtwo -- verify legendary and type"
+    command: "pokedex pokemon show mewtwo"
+    assert:
+      exit_code: 0
+      equals: { "data.is_legendary": true, "data.is_mythical": false, "data.types": ["Psychic"] }
+
+  # ============================================================
+  # RED VERSION EXCLUSIVES
+  # ============================================================
+  - name: "Ekans -- verify encounters in Red"
+    command: "pokedex pokemon encounters ekans --game=red"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 10, "max": 20 } }
+      has_fields: ["data.0.location"]
+
+  - name: "Ekans -- catch Red exclusive"
+    command: "pokedex collection add --pokemon=ekans --game=red --method=catch"
+    capture: { "ekans_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "ekans", "data.status": "caught" }
+
+  - name: "Growlithe -- verify encounters in Red"
+    command: "pokedex pokemon encounters growlithe --game=red"
+    assert:
+      exit_code: 0
+      array_len: { "data": { "min": 5, "max": 15 } }
+      contains: { "meta.command": "growlithe" }
+
+  - name: "Growlithe -- catch Red exclusive"
+    command: "pokedex collection add --pokemon=growlithe --game=red --method=catch"
+    capture: { "growlithe_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "growlithe", "data.status": "caught" }
+
+  - name: "Growlithe -- check evolution to Arcanine"
+    command: "pokedex pokemon evolutions growlithe"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "arcanine", "data.children.0.methods.0.trigger": "use-item" }
+      contains: { "data.children.0.methods.0.trigger_detail": "fire-stone" }
+
+  - name: "Scyther -- catch Safari Zone Red exclusive"
+    command: "pokedex collection add --pokemon=scyther --game=red --method=catch"
+    capture: { "scyther_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "scyther", "data.status": "caught" }
+
+  - name: "Oddish -- catch Red exclusive"
+    command: "pokedex collection add --pokemon=oddish --game=red --method=catch"
+    capture: { "oddish_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "oddish" }
+      has_fields: ["data.id"]
+
+  - name: "Mankey -- catch Red exclusive"
+    command: "pokedex collection add --pokemon=mankey --game=red --method=catch"
+    capture: { "mankey_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "mankey", "data.status": "caught" }
+
+  # ============================================================
+  # STARYU EVOLUTION & ADDITIONAL CATCHES
+  # ============================================================
+  - name: "Staryu -- check evolution to Starmie"
+    command: "pokedex pokemon evolutions staryu"
+    assert:
+      exit_code: 0
+      equals: { "data.children.0.species_name": "starmie", "data.children.0.methods.0.trigger": "use-item" }
+      contains: { "data.children.0.methods.0.trigger_detail": "water-stone" }
+
+  - name: "Catch Goldeen (ubiquitous fishing)"
+    command: "pokedex collection add --pokemon=goldeen --game=red --method=catch"
+    capture: { "goldeen_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "goldeen", "data.status": "caught" }
+
+  - name: "Catch Magikarp (Old Rod everywhere)"
+    command: "pokedex collection add --pokemon=magikarp --game=red --method=catch"
+    capture: { "magikarp_id": "data.id" }
+    assert:
+      exit_code: 0
+      equals: { "data.species_name": "magikarp" }
+
+  # ============================================================
+  # GAME METADATA & COLLECTION STATS
+  # ============================================================
+  - name: "Game show Red -- verify metadata"
+    command: "pokedex game show red"
+    assert:
+      exit_code: 0
+      equals: { "data.name": "red", "data.generation": 1, "data.region": "Kanto" }
+      has_fields: ["data.display_name"]
+
+  - name: "Collection stats -- verify 30+ species caught"
+    command: "pokedex collection stats"
+    assert:
+      exit_code: 0
+      has_fields: ["data"]
+      type_of: { "data": "object" }
+
+  # ============================================================
+  # CLEANUP — remove all collection entries
+  # ============================================================
+  - name: "Cleanup -- remove Tentacool"
+    command: "pokedex collection remove $tentacool_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Staryu"
+    command: "pokedex collection remove $staryu_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Shellder"
+    command: "pokedex collection remove $shellder_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Horsea"
+    command: "pokedex collection remove $horsea_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Tangela"
+    command: "pokedex collection remove $tangela_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Psyduck"
+    command: "pokedex collection remove $psyduck_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Krabby"
+    command: "pokedex collection remove $krabby_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Seaking"
+    command: "pokedex collection remove $seaking_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Poliwag"
+    command: "pokedex collection remove $poliwag_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Dratini"
+    command: "pokedex collection remove $dratini_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Kangaskhan"
+    command: "pokedex collection remove $kangaskhan_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Tauros"
+    command: "pokedex collection remove $tauros_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Rhyhorn"
+    command: "pokedex collection remove $rhyhorn_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Slowpoke"
+    command: "pokedex collection remove $slowpoke_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Exeggcute"
+    command: "pokedex collection remove $exeggcute_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Voltorb"
+    command: "pokedex collection remove $voltorb_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Magnemite"
+    command: "pokedex collection remove $magnemite_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Pikachu"
+    command: "pokedex collection remove $pikachu_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Electabuzz"
+    command: "pokedex collection remove $electabuzz_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Zapdos"
+    command: "pokedex collection remove $zapdos_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Seel"
+    command: "pokedex collection remove $seel_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Dewgong"
+    command: "pokedex collection remove $dewgong_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Articuno"
+    command: "pokedex collection remove $articuno_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Ditto"
+    command: "pokedex collection remove $ditto_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Kadabra"
+    command: "pokedex collection remove $kadabra_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Rhydon"
+    command: "pokedex collection remove $rhydon_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Wigglytuff"
+    command: "pokedex collection remove $wigglytuff_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Mewtwo"
+    command: "pokedex collection remove $mewtwo_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Ekans"
+    command: "pokedex collection remove $ekans_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Growlithe"
+    command: "pokedex collection remove $growlithe_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Scyther"
+    command: "pokedex collection remove $scyther_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Oddish"
+    command: "pokedex collection remove $oddish_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Mankey"
+    command: "pokedex collection remove $mankey_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Goldeen"
+    command: "pokedex collection remove $goldeen_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }
+
+  - name: "Cleanup -- remove Magikarp"
+    command: "pokedex collection remove $magikarp_id"
+    assert:
+      exit_code: 0
+      equals: { "data.removed": true }

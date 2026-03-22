@@ -454,8 +454,8 @@ steps:
     command: "pokedex pokemon evolutions ursaring"
     assert:
       exit_code: 0
-      contains: { "data.children.0.species_name": "ursaluna" }
-      has_fields: ["data.children.0.methods"]
+      equals: { "data.children.0.children.0.species_name": "ursaluna" }
+      has_fields: ["data.children.0.children.0.methods"]
 
   - name: "Ursaluna -- verify Ground/Normal gen 8"
     command: "pokedex pokemon show ursaluna"

@@ -25,6 +25,13 @@ Issues are referenced by the exploratory test skill so testers don't re-report k
 - **Detail**: Fishing/surfing encounters include pre-Gen-5 species (Feebas, Goldeen, Krabby, etc.) that are only available post-National Dex. PokeAPI doesn't model pre/post-game availability.
 - **Found**: Round 11 (Tester O)
 
+### E005: Vullaby/Rufflet version exclusives swapped in Black/White
+- **Status**: WONTFIX (upstream)
+- **Source**: PokeAPI encounters.csv
+- **Games**: Black, White
+- **Detail**: PokeAPI has Vullaby encounters in Black and Rufflet in White. In the actual games, Rufflet is Black-exclusive and Vullaby is White-exclusive. The version assignments are inverted in the upstream data. Black 2/White 2 assignments appear correct.
+- **Found**: Round 15 (Audit — Tester O screenplay)
+
 ### E003: Seafoam Islands meta.total disagrees with data length
 - **Status**: WONTFIX (not reproducible)
 - **Source**: Location encounters query

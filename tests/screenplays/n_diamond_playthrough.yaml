@@ -135,7 +135,7 @@ steps:
       equals: { "data.species_name": "staravia", "data.status": "living_dex" }
 
   - name: "Update Starly to evolved status"
-    command: "pokedex collection update {starly_id} --status=evolved"
+    command: "pokedex collection update $starly_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }
@@ -281,7 +281,7 @@ steps:
       equals: { "data.species_name": "luxio", "data.status": "living_dex" }
 
   - name: "Update Shinx to evolved"
-    command: "pokedex collection update {shinx_id} --status=evolved"
+    command: "pokedex collection update $shinx_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }
@@ -357,7 +357,7 @@ steps:
       equals: { "data.species_name": "graveler", "data.status": "living_dex" }
 
   - name: "Update Geodude to evolved"
-    command: "pokedex collection update {geodude_id} --status=evolved"
+    command: "pokedex collection update $geodude_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }
@@ -376,7 +376,7 @@ steps:
       equals: { "data.species_name": "bibarel", "data.status": "living_dex" }
 
   - name: "Update Bidoof to evolved"
-    command: "pokedex collection update {bidoof_id} --status=evolved"
+    command: "pokedex collection update $bidoof_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }
@@ -560,7 +560,7 @@ steps:
       equals: { "data.species_name": "weavile", "data.status": "living_dex" }
 
   - name: "Update Sneasel to evolved"
-    command: "pokedex collection update {sneasel_id} --status=evolved"
+    command: "pokedex collection update $sneasel_id --status=evolved"
     assert:
       exit_code: 0
       equals: { "data.status": "evolved" }

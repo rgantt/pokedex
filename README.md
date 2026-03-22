@@ -3,11 +3,6 @@
 [![Coverage](https://github.com/rgantt/pokedex/actions/workflows/coverage.yml/badge.svg)](https://github.com/rgantt/pokedex/actions/workflows/coverage.yml)
 [![codecov](https://codecov.io/gh/rgantt/pokedex/graph/badge.svg)](https://codecov.io/gh/rgantt/pokedex)
 
-> **TODO — Activate Codecov badge:**
-> 1. Sign in at [codecov.io](https://codecov.io) with GitHub
-> 2. Add the `rgantt/pokedex` repo
-> 3. Copy the upload token → add as repo secret `CODECOV_TOKEN` (Settings > Secrets > Actions)
-
 A SQLite-backed CLI for tracking your Pokémon collection across HOME-compatible games. Designed to be used by AI agents — every command outputs structured JSON with navigable action links, so an agent can discover and traverse the entire command tree without documentation.
 
 ## Quick Start
@@ -212,8 +207,10 @@ Modern games have richer encounter metadata than a simple rarity percentage. The
 ## Testing
 
 ```bash
-cargo test --test run_screenplays        # 2000+ regression steps across 26 screenplays
+cargo test --test run_screenplays        # 2200+ regression steps across 34 screenplays
 cargo test --test validate_encounters    # encounter data integrity checks
+cargo test --test test_seed              # seed pipeline tests (no network needed)
+./scripts/coverage.sh                    # code coverage (requires cargo-llvm-cov)
 ```
 
 The screenplay tests replay recorded CLI interactions with assertions on exit codes, field presence, value equality, and array bounds. Each screenplay represents a different testing perspective — game playthroughs (Red through Scarlet), edge cases, competitive analysis, form variants, HOME transfers, and more. New screenplays accumulate over time with timestamped filenames.

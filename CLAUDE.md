@@ -11,11 +11,14 @@ cargo run -- <command>         # run with args
 cargo run -- --discover        # show full command tree
 ```
 
-Run tests (requires a seeded DB):
+Run tests (requires a seeded DB for validate_encounters and screenplays):
 ```bash
+cargo test --test test_seed              # seed pipeline tests (uses bundled fixtures, no DB needed)
 POKEDEX_DB_PATH=/tmp/test.db cargo run -- db seed
 POKEDEX_DB_PATH=/tmp/test.db cargo test --test validate_encounters
-cargo test --test run_screenplays    # runs 2000+ screenplay regression steps
+cargo test --test run_screenplays        # runs 2200+ screenplay regression steps
+./scripts/coverage.sh                    # code coverage report (requires cargo-llvm-cov)
+./scripts/coverage.sh --html             # HTML coverage report
 ```
 
 No linter config — use `cargo clippy` for linting.
@@ -44,7 +47,7 @@ User collection data (`collection` and `games` tables) is preserved across `--re
 
 ### Command Dispatch
 
-`main.rs` → `Cli::try_parse()` → match on `Commands` enum → call handler in `commands/` module → handler calls `db::queries` → wraps result in `output::Response<T>` → prints JSON. Clap parse errors are caught and converted to JSON error envelopes.
+`main.rs` → `Cli::try_parse()` → `lib::dispatch()` → match on `Commands` enum → call handler in `commands/` module → handler calls `db::queries` → wraps result in `output::Response<T>` → prints JSON. `main.rs` is a thin wrapper (~15 lines); dispatch logic lives in `lib.rs` for testability. Clap parse errors are caught and converted to JSON error envelopes.
 
 Most handlers follow this pattern:
 1. `resolve_pokemon(conn, identifier)` — try as ID, then species name, then pokemon name (form-specific like `growlithe-hisui`), then `pokemon_forms.name` (cosmetic forms like `vivillon-polar`)
@@ -73,7 +76,11 @@ Most handlers follow this pattern:
 
 ### Testing
 
-- **Screenplay regression tests** — 2000+ steps across 26 YAML files in `tests/screenplays/`. Run with `cargo test --test run_screenplays`. Each file is a sequence of CLI commands with assertions (exit codes, field presence, value equality, array bounds). Strict schema enforcement via `deny_unknown_fields`.
+- **Seed pipeline tests** — `cargo test --test test_seed`. 39 tests using bundled CSV fixtures in `tests/fixtures/pokeapi-csv/` (77 files, 13 species). Tests all 4 seeding phases, dedup, overrides, Z-A encounters, refresh, and the extracted `seed_decision`/`resolve_db_path` functions. No network or pre-seeded DB needed.
+- **Encounter validation tests** — `cargo test --test validate_encounters`. 78 tests verifying encounter data integrity, species resolution, form handling, collection CRUD, and query correctness. Requires a seeded DB.
+- **Screenplay regression tests** — `cargo test --test run_screenplays`. 2200+ steps across 34 YAML files in `tests/screenplays/`. Each file is a sequence of CLI commands with assertions (exit codes, field presence, value equality, array bounds). Strict mode: `SCREENPLAY_STRICT=1`. The test runner supports shell-style quoting and bracket notation for JSON paths (`data[0].name`).
 - **Screenplay recorder** — `scripts/screenplay.py` is a companion tool that agents use to record steps instead of hand-writing YAML. Supports concurrent sessions via `--session` flag. Run `python3 scripts/screenplay.py --help` for usage.
+- **Code coverage** — `./scripts/coverage.sh` runs all 3 test suites with `cargo-llvm-cov`, installing the instrumented binary so screenplay subprocess calls contribute coverage. Current: ~92% line coverage. CI uploads to Codecov on every push.
 - **Exploratory test skill** — `.claude/skills/exploratory-test/` launches parallel agent personas to test the CLI from different player perspectives. Each run produces new timestamped screenplay files that accumulate.
-- **Audit skill** — `.claude/skills/audit-screenplays/` launches Pokemon expert agents to verify screenplay accuracy against the CLI. Experts verify every claim by running commands before reporting.
+- **Coverage rationalization skill** — `.claude/skills/rationalize-coverage/` analyzes coverage gaps, writes screenplays to cover them, flags dead code, and proposes relayering refactors.
+- **Audit skill** — `.claude/skills/audit-screenplays/` launches Pokemon expert agents to verify screenplay accuracy against the CLI.

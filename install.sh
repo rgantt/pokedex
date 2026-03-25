@@ -22,4 +22,4 @@ else
     sudo chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
 fi
 
-echo "Installed $(${BINARY_NAME} --version 2>/dev/null || echo "${BINARY_NAME}") to ${INSTALL_DIR}/${BINARY_NAME}"
+echo "Installed ${BINARY_NAME} to ${INSTALL_DIR}/${BINARY_NAME}"

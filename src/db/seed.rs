@@ -1527,7 +1527,21 @@ fn seed_pokedb_encounters(conn: &mut Connection) -> Result<()> {
 
     eprintln!("  pokedb encounters inserted: {encounter_count} rows");
 
-    // Step 8: Normalize probability_overall weights to percentages (D3)
+    // Step 8: Enrich PokeAPI-sourced encounters with PokeDB rate data.
+    // Some versions (e.g., LGPE) have encounters from PokeAPI but lack
+    // meaningful rarity data. PokeDB provides rate_overall for these.
+    let enriched = enrich_pokeapi_encounters_with_pokedb_rates(
+        &tx,
+        &pokedb_encounters,
+        &location_area_id_map,
+        &method_id_map,
+        &version_id_map,
+        &pokemon_id_map,
+        &pokeapi_versions,
+    )?;
+    eprintln!("  pokeapi encounters enriched with pokedb rates: {enriched} rows");
+
+    // Step 9: Normalize probability_overall weights to percentages (D3)
     normalize_probability_weights(&tx)?;
 
     tx.commit()?;
@@ -1947,6 +1961,104 @@ fn parse_level_range(levels: &str) -> (i64, i64) {
     } else {
         (1, 1)
     }
+}
+
+/// For versions covered by PokeAPI, PokeDB may still have useful rate data
+/// that PokeAPI lacks (e.g., LGPE has all-100 placeholder rarities in PokeAPI).
+/// This matches PokeDB encounters to existing PokeAPI encounters by
+/// (pokemon, version, location_area) and inserts encounter_details with rate info.
+fn enrich_pokeapi_encounters_with_pokedb_rates(
+    tx: &rusqlite::Transaction,
+    encounters: &[serde_json::Value],
+    location_area_map: &HashMap<String, i64>,
+    _method_map: &HashMap<String, i64>,
+    version_map: &HashMap<String, i64>,
+    pokemon_map: &HashMap<String, i64>,
+    pokeapi_covered_versions: &std::collections::HashSet<i64>,
+) -> Result<usize> {
+    let mut detail_stmt = tx.prepare(
+        "INSERT OR IGNORE INTO encounter_details \
+         (encounter_id, rate_overall, note) VALUES (?1, ?2, ?3)"
+    )?;
+
+    let mut enriched = 0;
+
+    for enc in encounters {
+        let rate_overall = match json_str(enc, "rate_overall") {
+            Some(r) => r,
+            None => continue, // no rate data to add
+        };
+
+        let form_id = enc["pokemon_form_identifier"].as_str().unwrap_or("");
+        let area_id = enc["location_area_identifier"].as_str().unwrap_or("");
+
+        let pokemon_id = match pokemon_map.get(&form_id.to_lowercase()) {
+            Some(&id) => id,
+            None => {
+                let species = form_id.strip_suffix("-default").unwrap_or(form_id);
+                match pokemon_map.get(&format!("{species}-default")) {
+                    Some(&id) => id,
+                    None => continue,
+                }
+            }
+        };
+
+        let location_area_id = match location_area_map.get(&area_id.to_lowercase()) {
+            Some(&id) => id,
+            None => continue,
+        };
+
+        let version_ids: Vec<i64> = match enc["version_identifiers"].as_array() {
+            Some(arr) => arr.iter()
+                .filter_map(|v| v.as_str())
+                .filter_map(|name| version_map.get(&name.to_lowercase()).copied())
+                .filter(|id| pokeapi_covered_versions.contains(id)) // ONLY covered versions
+                .collect(),
+            None => continue,
+        };
+
+        let note = json_str(enc, "note_markup");
+
+        // Get the location name from the PokeDB area to match against PokeAPI locations
+        let location_name: Option<String> = tx.query_row(
+            "SELECT l.name FROM location_areas la JOIN locations l ON l.id = la.location_id WHERE la.id = ?1",
+            rusqlite::params![location_area_id],
+            |row| row.get(0),
+        ).ok();
+
+        for &version_id in &version_ids {
+            // Match PokeAPI encounters by pokemon + version + location name similarity.
+            // PokeAPI and PokeDB use different location_area IDs for the same place
+            // (e.g., area 304 vs route-10-kanto both refer to Kanto Route 10).
+            let enc_ids: Vec<i64> = if let Some(ref loc_name) = location_name {
+                // Try matching by location name — normalize by extracting the route/area
+                // identifier: "kanto-route-10" and "route-10-kanto" share "route-10"
+                let mut stmt = tx.prepare_cached(
+                    "SELECT e.id FROM encounters e \
+                     JOIN location_areas la ON la.id = e.location_area_id \
+                     JOIN locations l ON l.id = la.location_id \
+                     WHERE e.pokemon_id = ?1 AND e.version_id = ?2 \
+                     AND (l.name = ?3 OR l.name LIKE '%' || ?4 || '%' OR ?3 LIKE '%' || REPLACE(l.name, 'kanto-', '') || '%') \
+                     AND NOT EXISTS (SELECT 1 FROM encounter_details ed WHERE ed.encounter_id = e.id)"
+                )?;
+                // Extract a core identifier: "route-10-kanto" -> "route-10", "kanto-route-10" -> "route-10"
+                let core = loc_name.replace("-kanto", "").replace("kanto-", "");
+                stmt.query_map(
+                    rusqlite::params![pokemon_id, version_id, loc_name, core],
+                    |row| row.get(0),
+                )?.filter_map(|r| r.ok()).collect()
+            } else {
+                vec![]
+            };
+
+            for eid in enc_ids {
+                detail_stmt.execute(rusqlite::params![eid, rate_overall, note])?;
+                enriched += 1;
+            }
+        }
+    }
+
+    Ok(enriched)
 }
 
 fn parse_rate(rate: Option<&str>) -> Option<i64> {

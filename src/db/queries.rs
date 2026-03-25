@@ -723,11 +723,7 @@ pub fn get_encounters(
          COALESCE(la.name, '') as area_name, \
          COALESCE(vn.name, v.name) as game_name, \
          COALESCE(emn.name, em.name) as method_name, \
-         e.min_level, e.max_level, \
-         CASE WHEN (SELECT MIN(es2.rarity) FROM encounter_slots es2 WHERE es2.version_group_id = es.version_group_id) = 100 \
-              AND (SELECT MAX(es2.rarity) FROM encounter_slots es2 WHERE es2.version_group_id = es.version_group_id) = 100 \
-              THEN NULL ELSE es.rarity END as rarity, \
-         e.id, \
+         e.min_level, e.max_level, es.rarity, e.id, \
          v.name as game_slug \
          FROM encounters e \
          JOIN encounter_slots es ON es.id = e.encounter_slot_id \
@@ -801,6 +797,13 @@ pub fn get_encounters(
             } else {
                 display_name.clone()
             };
+            // Prefer rate_overall from encounter_details over slot rarity
+            // (e.g., LGPE has slot rarity=100 placeholder but PokeDB has real rates)
+            let effective_rarity = details.as_ref()
+                .and_then(|d| d.rate_overall.as_ref())
+                .and_then(|r| r.trim_end_matches('%').parse::<i64>().ok())
+                .or(rarity);
+
             Encounter {
                 pokemon_name: annotated_name,
                 species_slug: species_name.clone(),
@@ -811,7 +814,7 @@ pub fn get_encounters(
                 method,
                 min_level: final_min,
                 max_level: final_max,
-                rarity,
+                rarity: effective_rarity,
                 conditions,
                 details,
             }
@@ -892,11 +895,7 @@ pub fn get_location_encounters(
          COALESCE(la.name, '') as area_name, \
          COALESCE(vn.name, v.name) as game_name, \
          COALESCE(emn.name, em.name) as method_name, \
-         e.min_level, e.max_level, \
-         CASE WHEN (SELECT MIN(es2.rarity) FROM encounter_slots es2 WHERE es2.version_group_id = es.version_group_id) = 100 \
-              AND (SELECT MAX(es2.rarity) FROM encounter_slots es2 WHERE es2.version_group_id = es.version_group_id) = 100 \
-              THEN NULL ELSE es.rarity END as rarity, \
-         e.id, \
+         e.min_level, e.max_level, es.rarity, e.id, \
          v.name as game_slug, \
          s.name as species_slug \
          {base_sql} \
@@ -956,6 +955,12 @@ pub fn get_location_encounters(
             } else {
                 pokemon_name
             };
+            // Prefer rate_overall from encounter_details over slot rarity
+            let effective_rarity = details.as_ref()
+                .and_then(|d| d.rate_overall.as_ref())
+                .and_then(|r| r.trim_end_matches('%').parse::<i64>().ok())
+                .or(rarity);
+
             Encounter {
                 pokemon_name: annotated_name,
                 species_slug: species_slug.clone(),
@@ -966,7 +971,7 @@ pub fn get_location_encounters(
                 method,
                 min_level: final_min,
                 max_level: final_max,
-                rarity,
+                rarity: effective_rarity,
                 conditions,
                 details,
             }

@@ -359,7 +359,7 @@ steps:
       equals: {"error.code": "NOT_FOUND"}
 
   - name: "update nonexistent entry returns NOT_FOUND"
-    command: "pokedex collection update 999 --status=caught"
+    command: "pokedex collection update 99999999 --status=caught"
     assert:
       exit_code: 1
       has_fields: ["error.code", "actions"]
@@ -421,14 +421,14 @@ steps:
   # ── Phase 14: Error handling edge cases ───────────────────────────
 
   - name: "show nonexistent collection entry"
-    command: "pokedex collection show 999"
+    command: "pokedex collection show 99999999"
     assert:
       exit_code: 1
       has_fields: ["error.code", "actions"]
       equals: {"error.code": "NOT_FOUND"}
 
   - name: "remove nonexistent collection entry"
-    command: "pokedex collection remove 999"
+    command: "pokedex collection remove 99999999"
     assert:
       exit_code: 1
       has_fields: ["error.code", "actions"]

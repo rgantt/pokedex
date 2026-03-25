@@ -190,11 +190,7 @@ pub fn get_species(conn: &Connection, species_id: i64) -> Result<Species> {
         |row| row.get::<_, Option<String>>(0),
     ).unwrap_or(None);
 
-    let evolves_from = if let Some(eid) = evolves_from_id {
-        Some(get_display_name(conn, eid).unwrap_or_default())
-    } else {
-        None
-    };
+    let evolves_from = evolves_from_id.map(|eid| get_display_name(conn, eid).unwrap_or_default());
 
     let mut egg_stmt = conn.prepare(
         "SELECT COALESCE(egn.name, eg.name) FROM pokemon_egg_groups peg \
@@ -484,12 +480,10 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
 
         // Deduplicate methods by (trigger, trigger_detail) — keep unique methods only
         let mut seen = std::collections::HashSet::new();
-        for row in rows {
-            if let Ok(method) = row {
-                let key = (method.trigger.clone(), method.trigger_detail.clone());
-                if seen.insert(key) {
-                    methods.push(method);
-                }
+        for method in rows.flatten() {
+            let key = (method.trigger.clone(), method.trigger_detail.clone());
+            if seen.insert(key) {
+                methods.push(method);
             }
         }
     }
@@ -779,7 +773,7 @@ pub fn get_encounters(
             // Filter out misleading level-1 data for static/fixed/raid encounters
             let has_uncatchable_note = details.as_ref()
                 .and_then(|d| d.note.as_ref())
-                .map_or(false, |n| n.contains("Can not be caught"));
+                .is_some_and(|n| n.contains("Can not be caught"));
             let is_bogus_level = min_level == 1 && max_level == 1
                 && (method == "Static Encounter" || method == "Fixed Encounter" || method == "Max Raid Battle"
                     || method == "Special Encounter"
@@ -820,13 +814,11 @@ pub fn get_encounters(
         })
         .filter(|enc| {
             // Filter out uncatchable encounters
-            if let Some(ref det) = enc.details {
-                if let Some(ref note) = det.note {
-                    if note.contains("Can not be caught") {
+            if let Some(ref det) = enc.details
+                && let Some(ref note) = det.note
+                    && note.contains("Can not be caught") {
                         return false;
                     }
-                }
-            }
             true
         })
         .collect();
@@ -933,7 +925,7 @@ pub fn get_location_encounters(
             let details = get_encounter_details(conn, encounter_id);
             let has_uncatchable_note = details.as_ref()
                 .and_then(|d| d.note.as_ref())
-                .map_or(false, |n| n.contains("Can not be caught"));
+                .is_some_and(|n| n.contains("Can not be caught"));
             let is_bogus_level = min_level == 1 && max_level == 1
                 && (method == "Static Encounter" || method == "Fixed Encounter" || method == "Max Raid Battle"
                     || method == "Special Encounter"
@@ -972,13 +964,11 @@ pub fn get_location_encounters(
             }
         })
         .filter(|enc| {
-            if let Some(ref det) = enc.details {
-                if let Some(ref note) = det.note {
-                    if note.contains("Can not be caught") {
+            if let Some(ref det) = enc.details
+                && let Some(ref note) = det.note
+                    && note.contains("Can not be caught") {
                         return false;
                     }
-                }
-            }
             true
         })
         .collect();
@@ -1572,7 +1562,7 @@ pub fn update_collection_entry(
         return Ok(false);
     }
 
-    sets.push(format!("updated_at = datetime('now')"));
+    sets.push("updated_at = datetime('now')".to_string());
 
     let sql = format!("UPDATE collection SET {} WHERE id = ?{idx}", sets.join(", "));
     bind_values.push(Box::new(id));

@@ -1,3 +1,7 @@
+// Command handlers and query functions pass through CLI flags directly —
+// parameter counts mirror clap struct fields, so splitting would add indirection.
+#![allow(clippy::too_many_arguments)]
+
 pub mod cli;
 pub mod commands;
 pub mod db;

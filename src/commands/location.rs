@@ -30,10 +30,10 @@ pub fn encounters(
 
     if encounters.is_empty() && total == 0 {
         // Check if the location exists but has no encounters for this specific game
-        let msg = if game.is_some() {
+        let msg = if let Some(g) = game {
             let (_all_encounters, all_total) = queries::get_location_encounters(conn, location, None, 1, 0)?;
             if all_total > 0 {
-                format!("No encounters at '{location}' in game '{}'. This location has {all_total} encounters in other games.", game.unwrap())
+                format!("No encounters at '{location}' in game '{g}'. This location has {all_total} encounters in other games.")
             } else {
                 format!("No encounters found for location '{location}'. Try a region prefix (e.g., 'hoenn-{location}', 'kanto-{location}') or a sub-area name.")
             }

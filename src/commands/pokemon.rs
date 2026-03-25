@@ -23,23 +23,21 @@ pub fn list(
             return Ok(());
         }
     }
-    if let Some(g) = generation {
-        if !(1..=9).contains(&g) {
+    if let Some(g) = generation
+        && !(1..=9).contains(&g) {
             ErrorResponse::invalid_parameter(
                 &format!("Invalid generation '{g}'. Valid values: 1-9"),
                 vec![Action::new("list", "pokedex pokemon list")],
             ).print()?;
             return Ok(());
         }
-    }
-    if let Some(ref c) = category {
-        if !VALID_CATEGORIES.iter().any(|v| v.eq_ignore_ascii_case(c)) {
+    if let Some(ref c) = category
+        && !VALID_CATEGORIES.iter().any(|v| v.eq_ignore_ascii_case(c)) {
             ErrorResponse::invalid_parameter(
                 &format!("Invalid category '{c}'. Valid values: {}", VALID_CATEGORIES.join(", ")),
                 vec![Action::new("list", "pokedex pokemon list")],
             ).print()?;
         }
-    }
     let limit = super::validate_limit(limit)?;
     let (species, total) = queries::list_species(conn, type_filter, generation, category, limit, offset)?;
 
@@ -121,11 +119,10 @@ pub fn show(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<(
         }
 
         // Override abilities
-        if let Ok(abilities) = queries::get_pokemon_abilities_by_id(conn, form_pokemon_id) {
-            if !abilities.is_empty() {
+        if let Ok(abilities) = queries::get_pokemon_abilities_by_id(conn, form_pokemon_id)
+            && !abilities.is_empty() {
                 species.abilities = abilities;
             }
-        }
 
         // For cosmetic forms (same pokemon_id as default), get display name from pokemon_forms
         if default_pokemon_id == Some(form_pokemon_id) {
@@ -298,14 +295,13 @@ pub fn forms(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<
     ];
     let mut seen_forms = std::collections::HashSet::new();
     for form in &forms {
-        if let Some(ref form_name) = form.form_name {
-            if seen_forms.insert(form_name.clone()) {
+        if let Some(ref form_name) = form.form_name
+            && seen_forms.insert(form_name.clone()) {
                 actions.push(Action::new(
                     "add_form_to_collection",
                     &format!("pokedex collection add --pokemon={name} --form={form_name} --game=<game>"),
                 ));
             }
-        }
     }
 
     let response = Response::new(
@@ -496,11 +492,10 @@ pub fn stats(conn: &Connection, pokemon: &str, format: &OutputFormat) -> Result<
     };
 
     // Override pokemon_name with form-specific display name when querying a form
-    if pokemon.to_lowercase() != name {
-        if let Ok(Some(form_display)) = queries::get_form_display_name(conn, form_pokemon_id) {
+    if pokemon.to_lowercase() != name
+        && let Ok(Some(form_display)) = queries::get_form_display_name(conn, form_pokemon_id) {
             stats.pokemon_name = form_display;
         }
-    }
 
     // Preserve form context in actions (stats/moves use form name, evolutions uses species)
     let action_name = if pokemon.to_lowercase() != name {

@@ -89,8 +89,8 @@ pub fn add(
     }
 
     // Validate method with full command context
-    if let Some(m) = method {
-        if !VALID_METHODS.contains(&m) {
+    if let Some(m) = method
+        && !VALID_METHODS.contains(&m) {
             let suggestions: Vec<Action> = VALID_METHODS.iter().map(|vm| {
                 Action::new("did_you_mean", &format!(
                     "pokedex collection add --pokemon={} --game={} --method={vm}", species_name, game_name
@@ -102,7 +102,6 @@ pub fn add(
             ).print()?;
             return Ok(());
         }
-    }
 
     // Auto-detect form from pokemon name when no explicit --form is given
     let auto_form = if form.is_none() && pokemon.to_lowercase() != species_name.to_lowercase() {
@@ -377,8 +376,8 @@ pub fn update(
     }
 
     // Validate status if provided
-    if let Some(s) = status {
-        if !VALID_STATUSES.contains(&s) {
+    if let Some(s) = status
+        && !VALID_STATUSES.contains(&s) {
             let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|vs| {
                 Action::new("did_you_mean", &format!("pokedex collection update {id} --status={vs}"))
             }).collect();
@@ -388,11 +387,10 @@ pub fn update(
             ).print()?;
             return Ok(());
         }
-    }
 
     // Validate method if provided
-    if let Some(m) = method {
-        if !VALID_METHODS.contains(&m) {
+    if let Some(m) = method
+        && !VALID_METHODS.contains(&m) {
             let suggestions: Vec<Action> = VALID_METHODS.iter().map(|vm| {
                 Action::new("did_you_mean", &format!("pokedex collection update {id} --method={vm}"))
             }).collect();
@@ -402,7 +400,6 @@ pub fn update(
             ).print()?;
             return Ok(());
         }
-    }
 
     // Resolve game name to game_id if provided
     let game_id = if let Some(game_name) = game {
@@ -492,8 +489,8 @@ pub fn list_entries(
         validate_game_filter(conn, g, "pokedex collection list")?;
     }
 
-    if let Some(s) = status {
-        if !VALID_STATUSES.contains(&s) {
+    if let Some(s) = status
+        && !VALID_STATUSES.contains(&s) {
             let suggestions: Vec<Action> = VALID_STATUSES.iter().map(|vs| {
                 Action::new("did_you_mean", &format!("pokedex collection list --status={vs}"))
             }).collect();
@@ -503,7 +500,6 @@ pub fn list_entries(
             ).print()?;
             return Ok(());
         }
-    }
 
     let valid_sorts = ["id", "dex"];
     if !valid_sorts.contains(&sort) {

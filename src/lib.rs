@@ -5,7 +5,7 @@ pub mod discover;
 pub mod output;
 
 use anyhow::Result;
-use output::{OutputFormat, ErrorResponse, Action};
+use output::OutputFormat;
 
 /// Run the CLI with pre-parsed arguments. Testable without subprocess.
 pub fn dispatch(command: Option<cli::Commands>, format: &OutputFormat, conn: &mut rusqlite::Connection) -> Result<()> {

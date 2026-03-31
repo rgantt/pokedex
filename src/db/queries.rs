@@ -33,6 +33,22 @@ fn build_regional_form_map() -> HashMap<(String, String), String> {
     map
 }
 
+// ---- Form-dependent evolution mapping ----
+
+#[derive(serde::Deserialize)]
+struct FormEvolutionEntry {
+    species: String,
+    form_requirement: String,
+}
+
+/// Build a lookup: species_name -> form_requirement
+/// for annotating evolution methods that require a specific regional form.
+fn build_form_evolution_map() -> HashMap<String, String> {
+    let json_str = include_str!("../../data/overrides/form_evolutions.json");
+    let entries: Vec<FormEvolutionEntry> = serde_json::from_str(json_str).unwrap_or_default();
+    entries.into_iter().map(|e| (e.species, e.form_requirement)).collect()
+}
+
 // ---- Pokemon queries ----
 
 pub fn resolve_pokemon(conn: &Connection, identifier: &str) -> Result<Option<(i64, String)>> {
@@ -432,16 +448,20 @@ pub fn get_evolution_chain(conn: &Connection, species_id: i64) -> Result<Evoluti
         |row| row.get(0),
     )?;
 
-    build_evolution_node(conn, root_id)
+    let form_evo_map = build_form_evolution_map();
+    build_evolution_node(conn, root_id, &form_evo_map)
 }
 
-fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionNode> {
+fn build_evolution_node(conn: &Connection, species_id: i64, form_evo_map: &HashMap<String, String>) -> Result<EvolutionNode> {
     let name: String = conn.query_row(
         "SELECT name FROM species WHERE id = ?1",
         params![species_id],
         |row| row.get(0),
     )?;
     let display_name = get_display_name(conn, species_id)?;
+
+    // Look up form requirement for this species
+    let form_requirement = form_evo_map.get(&name).cloned();
 
     // Get ALL evolution methods for this species (may differ by game/generation)
     let mut methods = Vec::new();
@@ -475,6 +495,7 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
                 trigger_detail: if detail.is_empty() { None } else { Some(detail) },
                 location,
                 item,
+                form_requirement: form_requirement.clone(),
             })
         })?;
 
@@ -499,7 +520,7 @@ fn build_evolution_node(conn: &Connection, species_id: i64) -> Result<EvolutionN
 
     let mut children = Vec::new();
     for child_id in child_ids {
-        children.push(build_evolution_node(conn, child_id)?);
+        children.push(build_evolution_node(conn, child_id, form_evo_map)?);
     }
 
     Ok(EvolutionNode {

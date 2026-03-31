@@ -78,6 +78,8 @@ pub struct EvolutionMethod {
     pub location: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub form_requirement: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

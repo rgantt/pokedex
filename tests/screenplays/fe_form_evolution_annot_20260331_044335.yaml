@@ -1,0 +1,44 @@
+name: Form Evolution Annotations
+persona: FE
+description: Verify form_requirement annotations on regional form evolution branches
+needs_seed: true
+mutates_collection: false
+
+steps:
+  - name: Sneasler shows Hisuian Sneasel form requirement
+    command: pokedex pokemon evolutions sneasel
+    assert:
+      exit_code: 0
+      has_fields: [data.children]
+      contains: {data: form_requirement}
+
+  - name: Weavile has no form requirement
+    command: pokedex pokemon evolutions sneasel
+    assert:
+      exit_code: 0
+      equals: {"data.children[0].species_name": weavile}
+
+  - name: Clodsire shows Paldean Wooper requirement
+    command: pokedex pokemon evolutions wooper
+    assert:
+      exit_code: 0
+      contains: {data: Paldean Wooper}
+
+  - name: Perrserker shows Galarian Meowth requirement
+    command: pokedex pokemon evolutions meowth
+    assert:
+      exit_code: 0
+      contains: {data: Galarian Meowth}
+
+  - name: Raichu has no form requirement
+    command: pokedex pokemon evolutions pikachu
+    assert:
+      exit_code: 0
+      has_fields: ["data.children[0].children[0].methods[0].trigger"]
+      equals: {"data.children[0].children[0].species_name": raichu}
+
+  - name: Obstagoon shows Galarian Linoone requirement
+    command: pokedex pokemon evolutions zigzagoon
+    assert:
+      exit_code: 0
+      contains: {data: Galarian Linoone}

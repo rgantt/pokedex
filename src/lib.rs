@@ -113,6 +113,7 @@ fn dispatch_dex(cmd: cli::DexCommands, conn: &rusqlite::Connection, format: &Out
     match cmd {
         cli::DexCommands::List => commands::dex::list(conn, format)?,
         cli::DexCommands::Show { dex, limit, offset } => commands::dex::show(conn, &dex, limit, offset, format)?,
+        cli::DexCommands::Lookup { dex, number } => commands::dex::lookup(conn, &dex, number, format)?,
         cli::DexCommands::Progress { dex, missing, caught, game, status, limit, offset } => {
             commands::dex::progress(conn, &dex, missing, caught, game.as_deref(), status.as_deref(), limit, offset, format)?;
         }

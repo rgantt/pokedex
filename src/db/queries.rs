@@ -2039,3 +2039,150 @@ pub fn get_dex_total(conn: &Connection, pokedex_id: i64) -> Result<u64> {
     )?;
     Ok(total as u64)
 }
+
+// ---- Item queries ----
+
+pub fn resolve_item(conn: &Connection, identifier: &str) -> Result<Option<(i64, String)>> {
+    // Try as ID
+    if let Ok(id) = identifier.parse::<i64>() {
+        let result = conn.query_row(
+            "SELECT id, name FROM items WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        );
+        if let Ok(r) = result {
+            return Ok(Some(r));
+        }
+    }
+    // Try by slug (items.name)
+    let name = identifier.to_lowercase().replace(' ', "-");
+    let result = conn.query_row(
+        "SELECT id, name FROM items WHERE LOWER(name) = ?1",
+        params![name],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+    );
+    if let Ok(r) = result {
+        return Ok(Some(r));
+    }
+    // Try by display name (item_names)
+    let result = conn.query_row(
+        "SELECT i.id, i.name FROM items i \
+         JOIN item_names itn ON itn.item_id = i.id \
+         WHERE LOWER(itn.name) = LOWER(?1)",
+        params![identifier],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+    );
+    if let Ok(r) = result {
+        return Ok(Some(r));
+    }
+    Ok(None)
+}
+
+pub fn search_items(conn: &Connection, query: &str) -> Vec<(String, String, f64)> {
+    let mut stmt = conn.prepare(
+        "SELECT i.name, COALESCE(itn.name, i.name) FROM items i \
+         LEFT JOIN item_names itn ON itn.item_id = i.id"
+    ).unwrap();
+    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).unwrap().filter_map(|r| r.ok()).collect();
+
+    let query_lower = query.to_lowercase();
+    let mut scored: Vec<(String, String, f64)> = rows.into_iter()
+        .map(|(slug, display)| {
+            let score = strsim::jaro_winkler(&query_lower, &slug.to_lowercase())
+                .max(strsim::jaro_winkler(&query_lower, &display.to_lowercase()));
+            (slug, display, score)
+        })
+        .filter(|(_, _, score)| *score > 0.7)
+        .collect();
+    scored.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+    scored.truncate(5);
+    scored
+}
+
+pub fn get_item(conn: &Connection, item_id: i64, game_filter: Option<&str>) -> Result<ItemInfo> {
+    let name: String = conn.query_row(
+        "SELECT name FROM items WHERE id = ?1",
+        params![item_id],
+        |row| row.get(0),
+    )?;
+
+    let display_name: String = conn.query_row(
+        "SELECT COALESCE(itn.name, i.name) FROM items i \
+         LEFT JOIN item_names itn ON itn.item_id = i.id \
+         WHERE i.id = ?1",
+        params![item_id],
+        |row| row.get(0),
+    )?;
+
+    let category: String = conn.query_row(
+        "SELECT COALESCE(icn.name, ic.name) FROM items i \
+         JOIN item_categories ic ON ic.id = i.category_id \
+         LEFT JOIN item_category_names icn ON icn.item_category_id = ic.id \
+         WHERE i.id = ?1",
+        params![item_id],
+        |row| row.get(0),
+    ).unwrap_or_else(|_| "unknown".to_string());
+
+    let cost: Option<i64> = conn.query_row(
+        "SELECT cost FROM items WHERE id = ?1",
+        params![item_id],
+        |row| row.get(0),
+    ).ok().and_then(|c: i64| if c > 0 { Some(c) } else { None });
+
+    let short_effect: Option<String> = conn.query_row(
+        "SELECT short_effect FROM item_prose WHERE item_id = ?1",
+        params![item_id],
+        |row| row.get(0),
+    ).ok();
+
+    let effect: Option<String> = conn.query_row(
+        "SELECT effect FROM item_prose WHERE item_id = ?1",
+        params![item_id],
+        |row| row.get(0),
+    ).ok();
+
+    // Get Pokémon that hold this item
+    let mut holder_sql = String::from(
+        "SELECT DISTINCT COALESCE(sn.name, s.name), s.name, pi.rarity, \
+         COALESCE(vn.name, v.name), v.name \
+         FROM pokemon_items pi \
+         JOIN pokemon p ON p.id = pi.pokemon_id \
+         JOIN species s ON s.id = p.species_id \
+         LEFT JOIN species_names sn ON sn.species_id = s.id \
+         JOIN versions v ON v.id = pi.version_id \
+         LEFT JOIN version_names vn ON vn.version_id = v.id \
+         WHERE pi.item_id = ?1"
+    );
+    let mut bind_values: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(item_id)];
+
+    if let Some(game) = game_filter {
+        holder_sql.push_str(" AND LOWER(v.name) = LOWER(?2)");
+        bind_values.push(Box::new(game.to_string()));
+    }
+    holder_sql.push_str(" ORDER BY s.id, v.id");
+
+    let mut stmt = conn.prepare(&holder_sql)?;
+    let params: Vec<&dyn rusqlite::types::ToSql> = bind_values.iter().map(|b| b.as_ref()).collect();
+    let held_by: Vec<ItemHolder> = stmt.query_map(params.as_slice(), |row| {
+        Ok(ItemHolder {
+            pokemon_name: row.get(0)?,
+            pokemon_slug: row.get(1)?,
+            rarity: row.get(2)?,
+            game: row.get(3)?,
+            game_slug: row.get(4)?,
+        })
+    })?.filter_map(|r| r.ok()).collect();
+
+    Ok(ItemInfo {
+        id: item_id,
+        name,
+        display_name,
+        category,
+        cost,
+        short_effect,
+        effect,
+        held_by,
+    })
+}

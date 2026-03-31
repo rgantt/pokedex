@@ -1,0 +1,48 @@
+name: Item Commands
+persona: ITEM
+description: "Verify item show command with lookup, fuzzy match, held-by data, and game filter"
+needs_seed: true
+mutates_collection: false
+
+steps:
+  - name: Show Thunder Stone by slug
+    command: pokedex item show thunder-stone
+    assert:
+      exit_code: 0
+      has_fields: [data.id, data.name, data.display_name, data.category, data.short_effect]
+      equals: {data.name: thunder-stone}
+      contains: {data.display_name: Thunder Stone, data.category: Evolution}
+
+  - name: Fuzzy match suggests corrections
+    command: pokedex item show thundar-ston
+    assert:
+      exit_code: 1
+      has_fields: [error.code, error.message]
+      equals: {error.code: NOT_FOUND}
+      contains: {actions: thunder-stone}
+
+  - name: Lucky Egg shows held-by data
+    command: pokedex item show lucky-egg
+    assert:
+      exit_code: 0
+      has_fields: [data.display_name]
+      contains: {data.held_by: Chansey}
+      array_len: {data.held_by: {min: 1}}
+
+  - name: Game filter narrows held-by results
+    command: pokedex item show lucky-egg --game=emerald
+    assert:
+      exit_code: 0
+      contains: {data.held_by: Emerald}
+
+  - name: Item discoverable via --discover
+    command: pokedex --discover
+    assert:
+      exit_code: 0
+      contains: {data: pokedex item show}
+
+  - name: Invalid game filter returns error
+    command: pokedex item show thunder-stone --game=fakegame
+    assert:
+      exit_code: 1
+      equals: {error.code: NOT_FOUND}

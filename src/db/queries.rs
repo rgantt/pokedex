@@ -802,7 +802,16 @@ pub fn get_encounters(
             let effective_rarity = details.as_ref()
                 .and_then(|d| d.rate_overall.as_ref())
                 .and_then(|r| r.trim_end_matches('%').parse::<i64>().ok())
-                .or(rarity);
+                .or(rarity)
+                .or_else(|| {
+                    // Fixed/static/special/gift encounters are guaranteed spawns
+                    let m = method.to_lowercase();
+                    if m.contains("fixed") || m.contains("static") || m.contains("special") || m.contains("gift") {
+                        Some(100)
+                    } else {
+                        None
+                    }
+                });
 
             Encounter {
                 pokemon_name: annotated_name,

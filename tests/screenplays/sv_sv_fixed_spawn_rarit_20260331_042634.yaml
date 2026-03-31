@@ -1,0 +1,46 @@
+name: SV Fixed Spawn Rarity
+persona: SV
+description: Verify fixed/static/special/gift encounters show rarity 100 in SV
+needs_seed: true
+mutates_collection: false
+
+steps:
+  - name: Lechonk fixed encounter has rarity 100
+    command: pokedex pokemon encounters lechonk --game=violet
+    assert:
+      exit_code: 0
+      has_fields: [data]
+      contains: {data: "100"}
+
+  - name: Miraidon special encounter has rarity 100
+    command: pokedex pokemon encounters miraidon --game=violet
+    assert:
+      exit_code: 0
+      contains: {data: rarity}
+      array_len: {data: {min: 1}}
+
+  - name: Miraidon gift encounter has rarity 100
+    command: pokedex pokemon encounters miraidon --game=violet
+    assert:
+      exit_code: 0
+      contains: {data: "100"}
+
+  - name: Symbol encounters still have null rarity with probability in details
+    command: pokedex pokemon encounters pikachu --game=violet
+    assert:
+      exit_code: 0
+      has_fields: ["data[0].details.probability_overall"]
+      equals: {"data[0].rarity": null}
+
+  - name: Gen 1 walk encounters still show slot rarity
+    command: pokedex pokemon encounters pikachu --game=red
+    assert:
+      exit_code: 0
+      has_fields: ["data[0].rarity"]
+      type_of: {"data[0].rarity": number}
+
+  - name: Tauros static encounter has rarity 100
+    command: pokedex pokemon encounters tauros --game=violet
+    assert:
+      exit_code: 0
+      contains: {data: "100"}

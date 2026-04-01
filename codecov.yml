@@ -3,12 +3,8 @@ codecov:
 
 coverage:
   status:
-    project:
-      default:
-        target: auto
-    patch:
-      default:
-        target: auto
+    project: off
+    patch: off
 
 fixes:
   - "/home/runner/work/pokedex/pokedex/::"

@@ -278,6 +278,20 @@ pub fn print_discovery() -> anyhow::Result<()> {
                 ],
             },
             Resource {
+                name: "item".to_string(),
+                description: "Query item data".to_string(),
+                commands: vec![
+                    CommandInfo {
+                        name: "show".to_string(),
+                        usage: "pokedex item show <name-or-id> [--game=<game>]".to_string(),
+                        description: "Show item details, effect, and which Pokémon hold it".to_string(),
+                        flags: vec![
+                            FlagInfo { flag: "--game".to_string(), description: "Filter held-by data to a specific game".to_string(), default: None },
+                        ],
+                    },
+                ],
+            },
+            Resource {
                 name: "db".to_string(),
                 description: "Database management".to_string(),
                 commands: vec![
@@ -304,6 +318,7 @@ pub fn print_discovery() -> anyhow::Result<()> {
             "pokedex game list".to_string(),
             "pokedex home status".to_string(),
             "pokedex location encounters <location>".to_string(),
+            "pokedex item show <name>".to_string(),
         ],
     };
 

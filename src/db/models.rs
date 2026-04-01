@@ -423,3 +423,28 @@ pub struct SearchResult {
     pub species: SpeciesSummary,
     pub score: f64,
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ItemInfo {
+    pub id: i64,
+    pub name: String,
+    pub display_name: String,
+    pub category: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub short_effect: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effect: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub held_by: Vec<ItemHolder>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ItemHolder {
+    pub pokemon_name: String,
+    pub pokemon_slug: String,
+    pub rarity: i64,
+    pub game: String,
+    pub game_slug: String,
+}

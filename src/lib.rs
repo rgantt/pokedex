@@ -57,6 +57,14 @@ pub fn dispatch(command: Option<cli::Commands>, format: &OutputFormat, conn: &mu
                 }
             }
         }
+        cli::Commands::Item { command: item_cmd } => {
+            require_seeded(conn)?;
+            match item_cmd {
+                cli::ItemCommands::Show { item, game } => {
+                    commands::item::show(conn, &item, game.as_deref(), format)?;
+                }
+            }
+        }
         cli::Commands::Home { command: home_cmd } => {
             match home_cmd {
                 cli::HomeCommands::Status => commands::home::status(conn, format)?,

@@ -52,10 +52,29 @@ pub enum Commands {
         #[command(subcommand)]
         command: LocationCommands,
     },
+    /// Query item data
+    Item {
+        #[command(subcommand)]
+        command: ItemCommands,
+    },
     /// Database management
     Db {
         #[command(subcommand)]
         command: DbCommands,
+    },
+}
+
+// -- Item subcommands --
+
+#[derive(Subcommand)]
+pub enum ItemCommands {
+    /// Show detailed info for an item
+    Show {
+        /// Item name or ID (e.g. thunder-stone, 83)
+        item: String,
+        /// Filter held-by data to a specific game
+        #[arg(long)]
+        game: Option<String>,
     },
 }
 

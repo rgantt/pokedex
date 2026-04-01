@@ -1,0 +1,45 @@
+name: Game Encounters and Exclusives
+persona: GE
+description: Verify game encounters listing and version exclusive comparison
+needs_seed: true
+mutates_collection: false
+
+steps:
+  - name: Violet encounters returns species list
+    command: pokedex game encounters violet --limit=5
+    assert:
+      exit_code: 0
+      has_fields: ["data[0].species_id", "data[0].name", "data[0].display_name", "data[0].encounter_count", "data[0].methods"]
+      array_len: {data: {min: 5, max: 5}}
+      type_of: {meta.total: number}
+
+  - name: Red encounters works for Gen 1
+    command: pokedex game encounters red --limit=3
+    assert:
+      exit_code: 0
+      array_len: {data: {min: 1}}
+
+  - name: Violet exclusives includes Miraidon
+    command: pokedex game exclusives violet
+    assert:
+      exit_code: 0
+      contains: {data: Miraidon}
+      type_of: {meta.total: number}
+
+  - name: Exclusives has other_version action
+    command: pokedex game exclusives violet
+    assert:
+      exit_code: 0
+      contains: {actions: pokedex game exclusives scarlet}
+
+  - name: Invalid game returns error
+    command: pokedex game encounters fakegame
+    assert:
+      exit_code: 1
+      equals: {error.code: NOT_FOUND}
+
+  - name: Game show now has encounters action
+    command: pokedex game show violet
+    assert:
+      exit_code: 0
+      contains: {actions: pokedex game encounters violet}

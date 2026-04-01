@@ -4,6 +4,7 @@ use rusqlite::Connection;
 use crate::db::queries;
 use crate::output::*;
 use strsim;
+use super::{validate_game_filter, validate_limit};
 
 pub fn list(conn: &Connection, home_compatible: bool, format: &OutputFormat) -> Result<()> {
     let games = queries::list_games(conn, home_compatible)?;
@@ -64,6 +65,8 @@ pub fn show(conn: &Connection, game: &str, format: &OutputFormat) -> Result<()> 
 
     if let Some(info) = game_info {
         let actions = vec![
+            Action::new("encounters", &format!("pokedex game encounters {game_name}")),
+            Action::new("exclusives", &format!("pokedex game exclusives {game_name}")),
             Action::new("collection_for_game", &format!("pokedex collection list --game={game_name}")),
             Action::new("all_games", "pokedex game list"),
         ];
@@ -72,4 +75,76 @@ pub fn show(conn: &Connection, game: &str, format: &OutputFormat) -> Result<()> 
     }
 
     Ok(())
+}
+
+pub fn encounters(conn: &Connection, game: &str, limit: u64, offset: u64, format: &OutputFormat) -> Result<()> {
+    validate_game_filter(conn, game, "pokedex game encounters")?;
+    let limit = validate_limit(limit)?;
+
+    let (entries, total) = queries::get_game_encounters(conn, game, limit, offset)?;
+
+    if entries.is_empty() && total == 0 {
+        ErrorResponse::not_found(
+            &format!("No encounter data found for game '{game}'"),
+            vec![
+                Action::new("game_list", "pokedex game list"),
+                Action::new("discover", "pokedex --discover"),
+            ],
+        ).print()?;
+        return Ok(());
+    }
+
+    let cmd = format!("pokedex game encounters {game}");
+    let mut actions = vec![
+        Action::new("show", "pokedex pokemon show {name}"),
+        Action::new("encounters", &format!("pokedex pokemon encounters {{name}} --game={game}")),
+        Action::new("exclusives", &format!("pokedex game exclusives {game}")),
+    ];
+    if offset + limit < total {
+        actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
+    }
+    if offset > 0 {
+        let prev_offset = offset.saturating_sub(limit);
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={prev_offset}")));
+    }
+
+    let response = Response::new(entries, actions, Meta::paginated(&cmd, total, limit, offset));
+    response.print(format)
+}
+
+pub fn exclusives(conn: &Connection, game: &str, limit: u64, offset: u64, format: &OutputFormat) -> Result<()> {
+    validate_game_filter(conn, game, "pokedex game exclusives")?;
+    let limit = validate_limit(limit)?;
+
+    let (entries, total, paired) = queries::get_game_exclusives(conn, game, limit, offset)?;
+
+    if paired.is_none() {
+        ErrorResponse::not_found(
+            &format!("'{game}' has no paired version — it's a standalone game, so there are no version exclusives"),
+            vec![
+                Action::new("encounters", &format!("pokedex game encounters {game}")),
+                Action::new("game_list", "pokedex game list"),
+            ],
+        ).print()?;
+        return Ok(());
+    }
+
+    let paired_name = paired.unwrap();
+    let cmd = format!("pokedex game exclusives {game}");
+    let mut actions = vec![
+        Action::new("show", "pokedex pokemon show {name}"),
+        Action::new("encounters", &format!("pokedex pokemon encounters {{name}} --game={game}")),
+        Action::new("other_version", &format!("pokedex game exclusives {paired_name}")),
+        Action::new("all_encounters", &format!("pokedex game encounters {game}")),
+    ];
+    if offset + limit < total {
+        actions.push(Action::new("next_page", &format!("{cmd} --limit={limit} --offset={}", offset + limit)));
+    }
+    if offset > 0 {
+        let prev_offset = offset.saturating_sub(limit);
+        actions.push(Action::new("prev_page", &format!("{cmd} --limit={limit} --offset={prev_offset}")));
+    }
+
+    let response = Response::new(entries, actions, Meta::paginated(&cmd, total, limit, offset));
+    response.print(format)
 }

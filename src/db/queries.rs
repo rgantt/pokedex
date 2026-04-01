@@ -2005,3 +2005,37 @@ pub fn get_home_coverage(conn: &Connection) -> Result<DexProgress> {
         entries: Vec::new(),
     })
 }
+
+// ---- Dex lookup ----
+
+pub fn get_species_by_dex_number(conn: &Connection, pokedex_id: i64, number: u64) -> Result<Option<DexEntry>> {
+    let result = conn.query_row(
+        "SELECT pdn.pokedex_number, pdn.species_id, s.name, \
+         COALESCE(sn.name, s.name) \
+         FROM pokemon_dex_numbers pdn \
+         JOIN species s ON s.id = pdn.species_id \
+         LEFT JOIN species_names sn ON sn.species_id = s.id \
+         WHERE pdn.pokedex_id = ?1 AND pdn.pokedex_number = ?2",
+        params![pokedex_id, number],
+        |row| Ok(DexEntry {
+            pokedex_number: row.get(0)?,
+            species_id: row.get(1)?,
+            name: row.get(2)?,
+            display_name: row.get(3)?,
+        }),
+    );
+    match result {
+        Ok(entry) => Ok(Some(entry)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+pub fn get_dex_total(conn: &Connection, pokedex_id: i64) -> Result<u64> {
+    let total: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pokemon_dex_numbers WHERE pokedex_id = ?1",
+        params![pokedex_id],
+        |row| row.get(0),
+    )?;
+    Ok(total as u64)
+}

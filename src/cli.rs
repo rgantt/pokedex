@@ -181,6 +181,13 @@ pub enum DexCommands {
         #[arg(long, default_value = "0")]
         offset: u64,
     },
+    /// Look up a Pokémon by its regional dex number
+    Lookup {
+        /// Pokédex name (e.g. paldea, kanto, hoenn)
+        dex: String,
+        /// Regional dex number
+        number: u64,
+    },
     /// Show your completion progress for a Pokédex
     Progress {
         /// Pokédex name

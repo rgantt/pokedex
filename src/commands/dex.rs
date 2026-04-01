@@ -55,6 +55,62 @@ pub fn show(conn: &Connection, dex: &str, limit: u64, offset: u64, format: &Outp
     response.print(format)
 }
 
+pub fn lookup(conn: &Connection, dex: &str, number: u64, format: &OutputFormat) -> Result<()> {
+    if number == 0 {
+        ErrorResponse::invalid_parameter(
+            "Dex number must be at least 1",
+            vec![Action::new("list", "pokedex dex list")],
+        ).print()?;
+        return Ok(());
+    }
+
+    let resolved = queries::resolve_pokedex(conn, dex)?;
+    let (pokedex_id, dex_name) = match resolved {
+        Some(r) => r,
+        None => {
+            let err = ErrorResponse::not_found(
+                &format!("No pokédex named '{dex}'"),
+                vec![Action::new("list", "pokedex dex list")],
+            );
+            err.print()?;
+            return Ok(());
+        }
+    };
+
+    let entry = queries::get_species_by_dex_number(conn, pokedex_id, number)?;
+    match entry {
+        Some(entry) => {
+            let total = queries::get_dex_total(conn, pokedex_id)?;
+            let mut actions = vec![
+                Action::new("show", &format!("pokedex pokemon show {}", entry.name)),
+                Action::new("encounters", &format!("pokedex pokemon encounters {}", entry.name)),
+                Action::new("evolutions", &format!("pokedex pokemon evolutions {}", entry.name)),
+            ];
+            if number > 1 {
+                actions.push(Action::new("prev", &format!("pokedex dex lookup {dex_name} {}", number - 1)));
+            }
+            if number < total {
+                actions.push(Action::new("next", &format!("pokedex dex lookup {dex_name} {}", number + 1)));
+            }
+            actions.push(Action::new("full_dex", &format!("pokedex dex show {dex_name}")));
+
+            let response = Response::new(entry, actions, Meta::simple(&format!("pokedex dex lookup {dex} {number}")));
+            response.print(format)
+        }
+        None => {
+            let total = queries::get_dex_total(conn, pokedex_id)?;
+            ErrorResponse::not_found(
+                &format!("No entry #{number} in the {dex_name} pokédex (has {total} entries)"),
+                vec![
+                    Action::new("show_dex", &format!("pokedex dex show {dex_name}")),
+                    Action::new("last_entry", &format!("pokedex dex lookup {dex_name} {total}")),
+                ],
+            ).print()?;
+            Ok(())
+        }
+    }
+}
+
 pub fn progress(
     conn: &Connection,
     dex: &str,

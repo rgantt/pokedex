@@ -1,0 +1,45 @@
+name: Dex Lookup
+persona: DL
+description: Verify dex lookup command for regional dex number resolution
+needs_seed: true
+mutates_collection: false
+
+steps:
+  - name: Paldea #1 is Sprigatito
+    command: pokedex dex lookup paldea 1
+    assert:
+      exit_code: 0
+      equals: {data.display_name: Sprigatito, data.pokedex_number: 1}
+
+  - name: Kanto #25 is Pikachu
+    command: pokedex dex lookup kanto 25
+    assert:
+      exit_code: 0
+      has_fields: [actions]
+      equals: {data.display_name: Pikachu, data.pokedex_number: 25}
+
+  - name: Out of range returns error with total
+    command: pokedex dex lookup paldea 999
+    assert:
+      exit_code: 1
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: "400"}
+
+  - name: Invalid dex name returns error
+    command: pokedex dex lookup fakdex 1
+    assert:
+      exit_code: 1
+      equals: {error.code: NOT_FOUND}
+      contains: {error.message: fakdex}
+
+  - name: Has prev/next navigation
+    command: pokedex dex lookup paldea 50
+    assert:
+      exit_code: 0
+      contains: {actions: pokedex dex lookup paldea 51}
+
+  - name: First entry has no prev action
+    command: pokedex dex lookup paldea 1
+    assert:
+      exit_code: 0
+      contains: {actions: pokedex dex lookup paldea 2}

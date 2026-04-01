@@ -144,6 +144,12 @@ pub fn print_discovery() -> anyhow::Result<()> {
                         flags: vec![],
                     },
                     CommandInfo {
+                        name: "lookup".to_string(),
+                        usage: "pokedex dex lookup <dex-name> <number>".to_string(),
+                        description: "Look up a Pokémon by its regional dex number".to_string(),
+                        flags: vec![],
+                    },
+                    CommandInfo {
                         name: "progress".to_string(),
                         usage: "pokedex dex progress <dex-name> [--missing] [--caught] [--game=<game>] [--status=<status>] [--limit=N] [--offset=N]".to_string(),
                         description: "Show your completion progress for a Pokédex".to_string(),

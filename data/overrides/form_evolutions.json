@@ -1,0 +1,12 @@
+[
+  {"species": "perrserker", "form_requirement": "Galarian Meowth"},
+  {"species": "obstagoon", "form_requirement": "Galarian Linoone"},
+  {"species": "sirfetchd", "form_requirement": "Galarian Farfetch'd"},
+  {"species": "mr-rime", "form_requirement": "Galarian Mr. Mime"},
+  {"species": "cursola", "form_requirement": "Galarian Corsola"},
+  {"species": "runerigus", "form_requirement": "Galarian Yamask"},
+  {"species": "sneasler", "form_requirement": "Hisuian Sneasel"},
+  {"species": "overqwil", "form_requirement": "Hisuian Qwilfish"},
+  {"species": "basculegion", "form_requirement": "White-Striped Basculin"},
+  {"species": "clodsire", "form_requirement": "Paldean Wooper"}
+]

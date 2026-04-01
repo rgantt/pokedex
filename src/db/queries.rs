@@ -2207,3 +2207,122 @@ pub fn get_item(conn: &Connection, item_id: i64, game_filter: Option<&str>) -> R
         held_by,
     })
 }
+
+// ---- Game encounter queries ----
+
+pub fn get_game_encounters(conn: &Connection, game: &str, limit: u64, offset: u64) -> Result<(Vec<GameEncounterSummary>, u64)> {
+    let total: u64 = conn.query_row(
+        "SELECT COUNT(DISTINCT s.id) \
+         FROM encounters e \
+         JOIN versions v ON v.id = e.version_id \
+         JOIN pokemon p ON p.id = e.pokemon_id AND p.is_default = 1 \
+         JOIN species s ON s.id = p.species_id \
+         WHERE LOWER(v.name) = LOWER(?1)",
+        params![game],
+        |row| row.get::<_, i64>(0),
+    )? as u64;
+
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.name, COALESCE(sn.name, s.name), \
+         COUNT(DISTINCT e.location_area_id), \
+         GROUP_CONCAT(DISTINCT COALESCE(emn.name, em.name)) \
+         FROM encounters e \
+         JOIN versions v ON v.id = e.version_id \
+         JOIN pokemon p ON p.id = e.pokemon_id AND p.is_default = 1 \
+         JOIN species s ON s.id = p.species_id \
+         LEFT JOIN species_names sn ON sn.species_id = s.id \
+         JOIN encounter_slots es ON es.id = e.encounter_slot_id \
+         JOIN encounter_methods em ON em.id = es.encounter_method_id \
+         LEFT JOIN encounter_method_names emn ON emn.encounter_method_id = em.id \
+         WHERE LOWER(v.name) = LOWER(?1) \
+         GROUP BY s.id \
+         ORDER BY s.id \
+         LIMIT ?2 OFFSET ?3"
+    )?;
+
+    let rows: Vec<GameEncounterSummary> = stmt.query_map(params![game, limit, offset], |row| {
+        let methods_str: String = row.get::<_, String>(4).unwrap_or_default();
+        let methods: Vec<String> = methods_str.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        Ok(GameEncounterSummary {
+            species_id: row.get(0)?,
+            name: row.get(1)?,
+            display_name: row.get(2)?,
+            encounter_count: row.get(3)?,
+            methods,
+        })
+    })?.filter_map(|r| r.ok()).collect();
+
+    Ok((rows, total))
+}
+
+pub fn get_game_exclusives(conn: &Connection, game: &str, limit: u64, offset: u64) -> Result<(Vec<GameEncounterSummary>, u64, Option<String>)> {
+    // Find the paired version(s) via version_group_id
+    let paired: Vec<String> = conn.prepare(
+        "SELECT v2.name FROM versions v1 \
+         JOIN versions v2 ON v2.version_group_id = v1.version_group_id AND v2.name != v1.name \
+         WHERE LOWER(v1.name) = LOWER(?1)"
+    )?.query_map(params![game], |row| row.get(0))?.filter_map(|r| r.ok()).collect();
+
+    if paired.is_empty() {
+        return Ok((Vec::new(), 0, None));
+    }
+
+    let paired_name: String = paired[0].clone();
+
+    let total: u64 = conn.query_row(
+        "SELECT COUNT(DISTINCT s.id) \
+         FROM encounters e \
+         JOIN versions v ON v.id = e.version_id \
+         JOIN pokemon p ON p.id = e.pokemon_id AND p.is_default = 1 \
+         JOIN species s ON s.id = p.species_id \
+         WHERE LOWER(v.name) = LOWER(?1) \
+         AND s.id NOT IN ( \
+             SELECT DISTINCT s2.id FROM encounters e2 \
+             JOIN versions v2 ON v2.id = e2.version_id \
+             JOIN pokemon p2 ON p2.id = e2.pokemon_id AND p2.is_default = 1 \
+             JOIN species s2 ON s2.id = p2.species_id \
+             WHERE LOWER(v2.name) = LOWER(?2) \
+         )",
+        params![game, paired_name],
+        |row| row.get::<_, i64>(0),
+    )? as u64;
+
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.name, COALESCE(sn.name, s.name), \
+         COUNT(DISTINCT e.location_area_id), \
+         GROUP_CONCAT(DISTINCT COALESCE(emn.name, em.name)) \
+         FROM encounters e \
+         JOIN versions v ON v.id = e.version_id \
+         JOIN pokemon p ON p.id = e.pokemon_id AND p.is_default = 1 \
+         JOIN species s ON s.id = p.species_id \
+         LEFT JOIN species_names sn ON sn.species_id = s.id \
+         JOIN encounter_slots es ON es.id = e.encounter_slot_id \
+         JOIN encounter_methods em ON em.id = es.encounter_method_id \
+         LEFT JOIN encounter_method_names emn ON emn.encounter_method_id = em.id \
+         WHERE LOWER(v.name) = LOWER(?1) \
+         AND s.id NOT IN ( \
+             SELECT DISTINCT s2.id FROM encounters e2 \
+             JOIN versions v2 ON v2.id = e2.version_id \
+             JOIN pokemon p2 ON p2.id = e2.pokemon_id AND p2.is_default = 1 \
+             JOIN species s2 ON s2.id = p2.species_id \
+             WHERE LOWER(v2.name) = LOWER(?2) \
+         ) \
+         GROUP BY s.id \
+         ORDER BY s.id \
+         LIMIT ?3 OFFSET ?4"
+    )?;
+
+    let rows: Vec<GameEncounterSummary> = stmt.query_map(params![game, paired_name, limit, offset], |row| {
+        let methods_str: String = row.get::<_, String>(4).unwrap_or_default();
+        let methods: Vec<String> = methods_str.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+        Ok(GameEncounterSummary {
+            species_id: row.get(0)?,
+            name: row.get(1)?,
+            display_name: row.get(2)?,
+            encounter_count: row.get(3)?,
+            methods,
+        })
+    })?.filter_map(|r| r.ok()).collect();
+
+    Ok((rows, total, Some(paired_name)))
+}

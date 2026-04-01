@@ -450,3 +450,12 @@ pub struct ItemHolder {
     pub game: String,
     pub game_slug: String,
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GameEncounterSummary {
+    pub species_id: i64,
+    pub name: String,
+    pub display_name: String,
+    pub encounter_count: i64,
+    pub methods: Vec<String>,
+}

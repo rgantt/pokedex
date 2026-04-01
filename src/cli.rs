@@ -245,6 +245,24 @@ pub enum GameCommands {
         /// Game name (e.g. scarlet, sword, lets-go-pikachu)
         game: String,
     },
+    /// List all Pokémon encounterable in a game
+    Encounters {
+        /// Game name
+        game: String,
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        #[arg(long, default_value = "0")]
+        offset: u64,
+    },
+    /// Show version-exclusive Pokémon for a game
+    Exclusives {
+        /// Game name
+        game: String,
+        #[arg(long, default_value = "50")]
+        limit: u64,
+        #[arg(long, default_value = "0")]
+        offset: u64,
+    },
 }
 
 // -- Collection subcommands --

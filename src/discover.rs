@@ -178,6 +178,24 @@ pub fn print_discovery() -> anyhow::Result<()> {
                         description: "Show details for a game".to_string(),
                         flags: vec![],
                     },
+                    CommandInfo {
+                        name: "encounters".to_string(),
+                        usage: "pokedex game encounters <game> [--limit=N] [--offset=N]".to_string(),
+                        description: "List all Pokémon encounterable in a game".to_string(),
+                        flags: vec![
+                            FlagInfo { flag: "--limit".to_string(), description: "Results per page".to_string(), default: Some("50".to_string()) },
+                            FlagInfo { flag: "--offset".to_string(), description: "Skip N results".to_string(), default: Some("0".to_string()) },
+                        ],
+                    },
+                    CommandInfo {
+                        name: "exclusives".to_string(),
+                        usage: "pokedex game exclusives <game> [--limit=N] [--offset=N]".to_string(),
+                        description: "Show version-exclusive Pokémon for a game".to_string(),
+                        flags: vec![
+                            FlagInfo { flag: "--limit".to_string(), description: "Results per page".to_string(), default: Some("50".to_string()) },
+                            FlagInfo { flag: "--offset".to_string(), description: "Skip N results".to_string(), default: Some("0".to_string()) },
+                        ],
+                    },
                 ],
             },
             Resource {

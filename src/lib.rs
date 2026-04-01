@@ -44,6 +44,12 @@ pub fn dispatch(command: Option<cli::Commands>, format: &OutputFormat, conn: &mu
                 cli::GameCommands::Show { game } => {
                     commands::game::show(conn, &game, format)?;
                 }
+                cli::GameCommands::Encounters { game, limit, offset } => {
+                    commands::game::encounters(conn, &game, limit, offset, format)?;
+                }
+                cli::GameCommands::Exclusives { game, limit, offset } => {
+                    commands::game::exclusives(conn, &game, limit, offset, format)?;
+                }
             }
         }
         cli::Commands::Collection { command: col_cmd } => {
